@@ -15,6 +15,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Public routes — no auth required
 app.use('/api/auth', require('./routes/auth'));
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+const eventsRoute = require('./routes/events');
+app.get('/api/events/gcal/auth',     eventsRoute.gcalAuth);
+app.get('/api/events/gcal/callback', eventsRoute.gcalCallback);
 
 // All other /api routes require valid JWT
 app.use('/api', authMiddleware);

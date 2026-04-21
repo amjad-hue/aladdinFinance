@@ -1021,15 +1021,25 @@ async function saveBalanceSheet() {
 }
 
 // ── Calendar ──────────────────────────────────────────────────────────────────
-function renderCalendar(c) {
+async function renderCalendar(c) {
+  // Check GCal connection status
+  let gcalStatus = { configured: false, connected: false };
+  try { gcalStatus = await apiCall('/events/gcal/status'); } catch {}
+
+  const gcalBtn = gcalStatus.connected
+    ? `<span style="font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(34,197,94,.15);color:#22c55e;border:0.5px solid rgba(34,197,94,.3)">● Google Calendar connected</span>
+       <button class="btn btn-sm" onclick="syncGcal()">↻ Sync</button>`
+    : gcalStatus.configured
+      ? `<button class="btn btn-primary btn-sm" onclick="connectGcal()">Connect Google Calendar</button>`
+      : `<span style="font-size:10px;color:var(--text-3)">Add credentials to .env to connect</span>`;
+
   c.innerHTML=`
   <div style="display:flex;flex-direction:column;gap:14px">
     <div class="card">
       <div class="card-header">
         <div class="card-title">Calendar — ${MONTHS[state.calMonth]} ${state.calYear}</div>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-sm" onclick="toast('Connect Google Calendar: add GOOGLE_CALENDAR_ID to .env and restart server')">📅 Google Cal</button>
-          <button class="btn btn-sm" onclick="syncGcal()">↻ Sync</button>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${gcalBtn}
           <button class="btn btn-primary btn-sm" onclick="openAddEvent()">+ Event</button>
         </div>
       </div>
@@ -1045,6 +1055,11 @@ function renderCalendar(c) {
     </div>
   </div>`;
   renderCalDays(); renderEventsList();
+
+  // Listen for the OAuth popup completing
+  window.addEventListener('message', (e) => {
+    if (e.data === 'gcal_connected') { toast('Google Calendar connected!'); renderCalendar(c); }
+  }, { once: true });
 }
 
 function renderCalDays() {
@@ -1088,7 +1103,20 @@ async function saveEvent() {
   } catch(e){toast(e.message);}
 }
 async function deleteEvent(id) { await apiCall(`/events/${id}`,{method:'DELETE'}); state.events=state.events.filter(e=>e.id!==id); renderCalDays(); renderEventsList(); }
-async function syncGcal() { try { const r=await apiCall('/events/gcal/sync',{method:'POST'}); toast(r.message); } catch(e){toast(e.message);} }
+function connectGcal() {
+  const popup = window.open('/api/events/gcal/auth', 'gcal_auth', 'width=520,height=640,left=200,top=100');
+  if (!popup) toast('Allow popups for this site to connect Google Calendar');
+}
+
+async function syncGcal() {
+  try {
+    const r = await apiCall('/events/gcal/sync', { method: 'POST' });
+    if (r.needsAuth) { connectGcal(); return; }
+    await loadAll();
+    render();
+    toast(r.message || 'Sync complete');
+  } catch(e) { toast(e.message); }
+}
 
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 function renderTasks(c) {
