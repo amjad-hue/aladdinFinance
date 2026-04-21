@@ -1,6 +1,6 @@
 {
   "name": "aladdin-finance",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Aladdin Finance CFO Command Center — Node.js + Express",
   "main": "server.js",
   "scripts": {
@@ -9,10 +9,13 @@
   },
   "dependencies": {
     "axios": "^1.7.2",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "multer": "^2.1.1"
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.1.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

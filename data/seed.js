@@ -1,64 +1,144 @@
-module.exports = {
-  banks: [
-    { name: 'ENBD', total: 285000 },
-    { name: 'Mashreq', total: 172000 },
-    { name: 'Wio', total: 98000 },
-    { name: 'Stripe', total: 64000 }
-  ],
-  reserves: [
-    { id: 1, bank: 'ENBD', name: 'VAT provision', amount: 42000 },
-    { id: 2, bank: 'ENBD', name: 'Payroll reserve', amount: 20000 },
-    { id: 3, bank: 'Mashreq', name: 'Operating buffer', amount: 13000 }
-  ],
-  cashflow: [
-    { month: 'Jul 2026', opening: 619000, inflow: 182000, outflow: 126000 },
-    { month: 'Aug 2026', opening: 0, inflow: 196000, outflow: 138000 },
-    { month: 'Sep 2026', opening: 0, inflow: 188000, outflow: 142000 },
-    { month: 'Oct 2026', opening: 0, inflow: 204000, outflow: 151000 },
-    { month: 'Nov 2026', opening: 0, inflow: 211000, outflow: 158000 },
-    { month: 'Dec 2026', opening: 0, inflow: 225000, outflow: 166000 }
-  ],
-  budget: [
-    { cat: 'Payroll', annual: 696000, actualMo: 54000, actualYTD: 318000, note: '' },
-    { cat: 'Contractors', annual: 240000, actualMo: 18000, actualYTD: 112000, note: '' },
-    { cat: 'Software', annual: 120000, actualMo: 9600, actualYTD: 56200, note: '' },
-    { cat: 'Cloud', annual: 144000, actualMo: 13200, actualYTD: 79200, note: 'Over budget — review AWS' },
-    { cat: 'Marketing', annual: 300000, actualMo: 21500, actualYTD: 119000, note: '' },
-    { cat: 'Legal & admin', annual: 108000, actualMo: 7400, actualYTD: 48800, note: '' }
-  ],
-  revenue: [
-    { month: 'Jan', revenue: 108000, target: 120000, expenses: 76000 },
-    { month: 'Feb', revenue: 126000, target: 120000, expenses: 81000 },
-    { month: 'Mar', revenue: 142000, target: 130000, expenses: 86000 },
-    { month: 'Apr', revenue: 151000, target: 140000, expenses: 92000 },
-    { month: 'May', revenue: 168000, target: 145000, expenses: 97000 },
-    { month: 'Jun', revenue: 174000, target: 150000, expenses: 101000 }
-  ],
-  clients: [
-    { id: 1, qbId: 'QBO-001', name: 'Informa Markets', type: 'Enterprise', country: 'UAE', revenue: 196000, saas: 74000, services: 122000, renewal: '2026-12-31', notes: 'Key anchor client. Renewal discussion Q3.', trend: [28000,30000,33000,35000,34000,36000], fromQBO: true },
-    { id: 2, qbId: 'QBO-002', name: 'UK Government', type: 'Government', country: 'UK', revenue: 144000, saas: 96000, services: 48000, renewal: '2027-03-31', notes: 'Framework contract. SaaS heavy.', trend: [22000,24000,24000,25000,25000,24000], fromQBO: true },
-    { id: 3, qbId: 'QBO-003', name: 'KOTRA', type: 'Enterprise', country: 'South Korea', revenue: 98000, saas: 28000, services: 70000, renewal: '2026-09-30', notes: 'Services-heavy. Explore upsell.', trend: [14000,16000,17000,17000,17000,17000], fromQBO: true },
-    { id: 4, qbId: 'QBO-004', name: 'TechVision Corp', type: 'SMB', country: 'UAE', revenue: 52000, saas: 42000, services: 10000, renewal: '2026-11-30', notes: 'Fast growing — potential upgrade.', trend: [7000,8000,8000,9000,10000,10000], fromQBO: true },
-    { id: 5, qbId: 'QBO-005', name: 'Global Expo Group', type: 'Enterprise', country: 'UAE', revenue: 88000, saas: 22000, services: 66000, renewal: '2026-08-31', notes: 'Contract renewal soon.', trend: [13000,14000,15000,15000,16000,15000], fromQBO: true }
-  ],
-  events: [
-    { id: 1, type: 'tax', title: 'VAT Q1 2026 filing', date: '2026-04-28', note: '$42,000 due', amount: 42000, recur: 'quarterly' },
-    { id: 2, type: 'deadline', title: 'Q1 book close', date: '2026-04-30', note: 'QuickBooks reconciliation', recur: 'quarterly' },
-    { id: 3, type: 'meeting', title: 'Q1 audit review', date: '2026-05-06', note: 'Auditor office 10am', recur: 'none' },
-    { id: 4, type: 'tax', title: 'Corporate tax advance', date: '2026-05-15', note: '$28,000', amount: 28000, recur: 'quarterly' },
-    { id: 5, type: 'planning', title: 'H2 planning session', date: '2026-05-20', note: 'Budget review', recur: 'annual' }
-  ],
-  tasks: [
-    { id: 1, title: 'Weekly bank balance check', due: 'Every Sunday', done: false },
-    { id: 2, title: 'Confirm payroll — end of month', due: 'Apr 30', done: false },
-    { id: 3, title: 'Follow up overdue invoices', due: 'Apr 22', done: false },
-    { id: 4, title: 'Review cash flow report', due: 'Apr 24', done: true }
-  ],
-  files: [
-    { id: 1, name: 'Trade License 2026.pdf', type: 'license', cat: 'p', size: '1.2 MB', date: 'Jan 15, 2026', drive: true },
-    { id: 2, name: 'Informa Markets Contract.pdf', type: 'contract', cat: 'p', size: '3.4 MB', date: 'Feb 3, 2026', drive: true },
-    { id: 3, name: 'VAT Return Q4 2025.xlsx', type: 'tax', cat: 'x', size: '0.8 MB', date: 'Jan 28, 2026', drive: true },
-    { id: 4, name: 'Audit Report FY2025.pdf', type: 'report', cat: 'p', size: '2.1 MB', date: 'Mar 12, 2026', drive: true },
-    { id: 5, name: 'UK Government SLA.pdf', type: 'contract', cat: 'p', size: '1.8 MB', date: 'Mar 1, 2026', drive: true }
-  ]
-};
+const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function buildMonths(annual, actuals) {
+  const tgt = Math.round(annual / 12);
+  const obj = {};
+  MO.forEach((m, i) => { obj[m] = { target: tgt, actual: actuals[i] || 0, details: [] }; });
+  return obj;
+}
+
+function seed() {
+  return {
+    banks: [
+      { id: 1, name: 'ENBD',          total: 285000, account: '****4821', currency: 'AED', type: 'Current'  },
+      { id: 2, name: 'Mashreq',        total: 172000, account: '****3302', currency: 'AED', type: 'Current'  },
+      { id: 3, name: 'Wio',            total: 98000,  account: '****7741', currency: 'USD', type: 'Business' },
+      { id: 4, name: 'Stripe Balance', total: 64000,  account: 'Stripe',   currency: 'USD', type: 'Payment'  }
+    ],
+
+    reserves: [
+      { id: 1, bank: 'ENBD',    name: 'VAT provision Q2', amount: 42000 },
+      { id: 2, bank: 'ENBD',    name: 'Payroll buffer',    amount: 58000 },
+      { id: 3, bank: 'Mashreq', name: 'Operating buffer',  amount: 30000 }
+    ],
+
+    cashflow: [
+      { id: 1,  month: 'Jan 2026', opening: 300000, inflow: 155000, outflow: 99000  },
+      { id: 2,  month: 'Feb 2026', opening: 356000, inflow: 170000, outflow: 112000 },
+      { id: 3,  month: 'Mar 2026', opening: 414000, inflow: 165000, outflow: 119000 },
+      { id: 4,  month: 'Apr 2026', opening: 460000, inflow: 178000, outflow: 125000 },
+      { id: 5,  month: 'May 2026', opening: 513000, inflow: 183000, outflow: 130000 },
+      { id: 6,  month: 'Jun 2026', opening: 566000, inflow: 175000, outflow: 122000 },
+      { id: 7,  month: 'Jul 2026', opening: 619000, inflow: 182000, outflow: 126000 },
+      { id: 8,  month: 'Aug 2026', opening: 675000, inflow: 196000, outflow: 138000 },
+      { id: 9,  month: 'Sep 2026', opening: 733000, inflow: 188000, outflow: 142000 },
+      { id: 10, month: 'Oct 2026', opening: 779000, inflow: 204000, outflow: 151000 },
+      { id: 11, month: 'Nov 2026', opening: 832000, inflow: 211000, outflow: 158000 },
+      { id: 12, month: 'Dec 2026', opening: 885000, inflow: 198000, outflow: 139000 }
+    ],
+
+    budget: [
+      { id: 1, cat: 'Payroll',       annual: 696000, note: '', months: buildMonths(696000, [54000,55000,56000,54000,57000,56000,0,0,0,0,0,0]) },
+      { id: 2, cat: 'Contractors',   annual: 240000, note: '', months: buildMonths(240000, [18000,20000,19000,22000,18000,19000,0,0,0,0,0,0]) },
+      { id: 3, cat: 'Software',      annual: 120000, note: '', months: buildMonths(120000, [9600,9800,10200,9500,10400,9700,0,0,0,0,0,0])   },
+      { id: 4, cat: 'Cloud',         annual: 144000, note: 'Review AWS costs', months: buildMonths(144000, [13200,12800,12400,13600,12200,13800,0,0,0,0,0,0]) },
+      { id: 5, cat: 'Marketing',     annual: 96000,  note: '', months: buildMonths(96000,  [7200,8400,9200,7800,8600,8200,0,0,0,0,0,0])    },
+      { id: 6, cat: 'Legal & Admin', annual: 72000,  note: '', months: buildMonths(72000,  [5400,6200,5800,6400,5600,7200,0,0,0,0,0,0])    }
+    ],
+
+    revenue: [
+      { month: 'Jan', revenue: 108000, target: 120000, expenses: 76000 },
+      { month: 'Feb', revenue: 126000, target: 120000, expenses: 81000 },
+      { month: 'Mar', revenue: 142000, target: 130000, expenses: 86000 },
+      { month: 'Apr', revenue: 158000, target: 140000, expenses: 89000 },
+      { month: 'May', revenue: 169000, target: 150000, expenses: 93000 },
+      { month: 'Jun', revenue: 166000, target: 160000, expenses: 95000 },
+      { month: 'Jul', revenue: 0,      target: 170000, expenses: 0     },
+      { month: 'Aug', revenue: 0,      target: 175000, expenses: 0     },
+      { month: 'Sep', revenue: 0,      target: 180000, expenses: 0     },
+      { month: 'Oct', revenue: 0,      target: 185000, expenses: 0     },
+      { month: 'Nov', revenue: 0,      target: 190000, expenses: 0     },
+      { month: 'Dec', revenue: 0,      target: 200000, expenses: 0     }
+    ],
+
+    clients: [
+      { id: 1, name: 'Informa Markets',   type: 'Enterprise', country: 'UAE',         revenue: 196000, saas: 74000,  services: 122000, renewal: '2026-11-01', notes: 'Key account. Renewal negotiation due Q4.',    fromQBO: true, qbId: 'QBO-1001', trend: [155000,162000,168000,180000,188000,196000] },
+      { id: 2, name: 'Al Futtaim Group',  type: 'Enterprise', country: 'UAE',         revenue: 284000, saas: 142000, services: 142000, renewal: '2027-01-15', notes: 'Expanding SaaS usage. Upsell opportunity.',   fromQBO: true, qbId: 'QBO-1002', trend: [240000,250000,260000,268000,276000,284000] },
+      { id: 3, name: 'DEWA',              type: 'Government', country: 'UAE',         revenue: 168000, saas: 0,      services: 168000, renewal: '2026-08-30', notes: 'Government contract. Strict compliance.',      fromQBO: true, qbId: 'QBO-1003', trend: [140000,148000,152000,158000,162000,168000] },
+      { id: 4, name: 'Majid Al Futtaim', type: 'Enterprise', country: 'KSA',         revenue: 142000, saas: 98000,  services: 44000,  renewal: '2026-12-01', notes: 'KSA expansion project underway.',             fromQBO: true, qbId: 'QBO-1004', trend: [110000,118000,124000,130000,136000,142000] },
+      { id: 5, name: 'RTA Dubai',         type: 'Government', country: 'UAE',         revenue: 98000,  saas: 0,      services: 98000,  renewal: '2026-09-15', notes: 'Public transport authority. Annual contract.', fromQBO: true, qbId: 'QBO-1005', trend: [80000,84000,88000,90000,94000,98000]       }
+    ],
+
+    events: [
+      { id: 1, type: 'tax',      title: 'VAT Q1 filing deadline',          date: '2026-04-28', note: 'Federal Tax Authority', amount: 42000,  recur: 'quarterly', gcalId: null },
+      { id: 2, type: 'meeting',  title: 'Board financial review',           date: '2026-05-05', note: 'Quarterly board meeting', amount: null, recur: 'quarterly', gcalId: null },
+      { id: 3, type: 'deadline', title: 'Al Futtaim contract renewal',      date: '2026-05-20', note: 'Send renewal package',  amount: null, recur: 'none',      gcalId: null },
+      { id: 4, type: 'tax',      title: 'Corporate tax provisional payment', date: '2026-06-30', note: 'Ministry of Finance', amount: 85000, recur: 'annual',    gcalId: null },
+      { id: 5, type: 'planning', title: 'H2 2026 budget planning session',  date: '2026-06-15', note: 'Finance + leadership', amount: null, recur: 'none',      gcalId: null }
+    ],
+
+    tasks: [
+      { id: 1, title: 'Review Q2 cash position and runway', due: '30 Apr 2026', deadline: '2026-04-30', priority: 'high',   done: false },
+      { id: 2, title: 'Send Al Futtaim renewal proposal',   due: '15 May 2026', deadline: '2026-05-15', priority: 'high',   done: false },
+      { id: 3, title: 'Reconcile April bank statements',    due: '5 May 2026',  deadline: '2026-05-05', priority: 'medium', done: false },
+      { id: 4, title: 'Update HubSpot pipeline deals',      due: '22 Apr 2026', deadline: '2026-04-22', priority: 'low',    done: true  }
+    ],
+
+    files: [
+      { id: 1, name: 'Trade License 2026.pdf',            size: '1.2 MB', date: 'Jan 15, 2026', cat: 'p', type: 'license',  drive: true, storedAs: null },
+      { id: 2, name: 'Al Futtaim MSA v3.pdf',             size: '890 KB', date: 'Mar 1, 2026',  cat: 'p', type: 'contract', drive: true, storedAs: null },
+      { id: 3, name: 'Q1 2026 Financial Report.xlsx',     size: '340 KB', date: 'Apr 2, 2026',  cat: 'x', type: 'report',  drive: true, storedAs: null },
+      { id: 4, name: 'VAT Return Q4 2025.pdf',            size: '560 KB', date: 'Jan 28, 2026', cat: 'p', type: 'tax',     drive: true, storedAs: null },
+      { id: 5, name: 'Audit Engagement Letter 2026.docx', size: '210 KB', date: 'Feb 10, 2026', cat: 'd', type: 'contract', drive: true, storedAs: null }
+    ],
+
+    pipeline: [
+      { id: 1, name: 'TechCorp Enterprise License',        client: 'TechCorp MENA',     type: 'Enterprise', value: 250000, probability: 75, stage: 'Proposal',     closeDate: '2026-07-30', owner: 'Sarah Al-Hassan',  notes: '', hubspotId: null },
+      { id: 2, name: 'Ministry of Finance Digital Portal', client: 'UAE Government',     type: 'Government', value: 500000, probability: 60, stage: 'Negotiation',  closeDate: '2026-09-15', owner: 'Ahmed Al-Rashidi', notes: '', hubspotId: null },
+      { id: 3, name: 'Gulf Tech Expo 2026 Showcase',       client: 'Various',            type: 'Tradeshow',  value: 80000,  probability: 40, stage: 'Qualification', closeDate: '2026-06-30', owner: 'Maya Khalil',      notes: '', hubspotId: null },
+      { id: 4, name: 'AlShifa Healthcare SaaS',            client: 'AlShifa Group',      type: 'Enterprise', value: 180000, probability: 90, stage: 'Closed Won',   closeDate: '2026-04-01', owner: 'Sarah Al-Hassan',  notes: '', hubspotId: null },
+      { id: 5, name: 'Dubai Municipality CRM Platform',    client: 'Dubai Municipality', type: 'Government', value: 320000, probability: 55, stage: 'Proposal',     closeDate: '2026-08-20', owner: 'Ahmed Al-Rashidi', notes: '', hubspotId: null },
+      { id: 6, name: 'ADIPEC Conference Lead Generation',  client: 'Various',            type: 'Tradeshow',  value: 120000, probability: 35, stage: 'Prospecting',  closeDate: '2026-11-05', owner: 'Maya Khalil',      notes: '', hubspotId: null }
+    ],
+
+    statements: {
+      pnl: {
+        year: 2026,
+        rows: [
+          { id: 'revenue',  cat: 'Revenue',                  type: 'income',   months: { Jan:108000,Feb:126000,Mar:142000,Apr:158000,May:169000,Jun:166000,Jul:0,Aug:0,Sep:0,Oct:0,Nov:0,Dec:0 }, computed: false },
+          { id: 'cogs',     cat: 'Cost of Sales',            type: 'cogs',     months: { Jan:43200, Feb:50400, Mar:56800, Apr:63200, May:67600, Jun:66400, Jul:0,Aug:0,Sep:0,Oct:0,Nov:0,Dec:0 }, computed: false },
+          { id: 'gross',    cat: 'Gross Profit',             type: 'subtotal', months: {}, computed: true, formula: 'revenue-cogs' },
+          { id: 'payroll',  cat: 'Payroll',                  type: 'opex',     months: { Jan:54000, Feb:55000, Mar:56000, Apr:54000, May:57000, Jun:56000, Jul:0,Aug:0,Sep:0,Oct:0,Nov:0,Dec:0 }, computed: false },
+          { id: 'contract', cat: 'Contractors',              type: 'opex',     months: { Jan:18000, Feb:20000, Mar:19000, Apr:22000, May:18000, Jun:19000, Jul:0,Aug:0,Sep:0,Oct:0,Nov:0,Dec:0 }, computed: false },
+          { id: 'software', cat: 'Software & Tools',         type: 'opex',     months: { Jan:9600,  Feb:9800,  Mar:10200, Apr:9500,  May:10400, Jun:9700,  Jul:0,Aug:0,Sep:0,Oct:0,Nov:0,Dec:0 }, computed: false },
+          { id: 'cloud',    cat: 'Cloud Infrastructure',     type: 'opex',     months: { Jan:13200, Feb:12800, Mar:12400, Apr:13600, May:12200, Jun:13800, Jul:0,Aug:0,Sep:0,Oct:0,Nov:0,Dec:0 }, computed: false },
+          { id: 'mktg',     cat: 'Marketing',                type: 'opex',     months: { Jan:7200,  Feb:8400,  Mar:9200,  Apr:7800,  May:8600,  Jun:8200,  Jul:0,Aug:0,Sep:0,Oct:0,Nov:0,Dec:0 }, computed: false },
+          { id: 'legal',    cat: 'Legal & Admin',            type: 'opex',     months: { Jan:5400,  Feb:6200,  Mar:5800,  Apr:6400,  May:5600,  Jun:7200,  Jul:0,Aug:0,Sep:0,Oct:0,Nov:0,Dec:0 }, computed: false },
+          { id: 'totopex',  cat: 'Total Operating Expenses', type: 'subtotal', months: {}, computed: true, formula: 'sum-opex' },
+          { id: 'ebitda',   cat: 'EBITDA',                   type: 'total',    months: {}, computed: true, formula: 'gross-totopex' }
+        ]
+      },
+      balanceSheet: {
+        asOf: '2026-04-30',
+        assets: [
+          { label: 'Cash & Bank Balances', value: 619000 },
+          { label: 'Accounts Receivable',  value: 287000 },
+          { label: 'Prepaid Expenses',     value: 42000  },
+          { label: 'Property & Equipment', value: 185000 },
+          { label: 'Intangible Assets',    value: 95000  }
+        ],
+        liabilities: [
+          { label: 'Accounts Payable', value: 78000  },
+          { label: 'Accrued Expenses', value: 125000 },
+          { label: 'Deferred Revenue', value: 97000  }
+        ],
+        equity: [
+          { label: 'Paid-in Capital',   value: 500000 },
+          { label: 'Retained Earnings', value: 428000 }
+        ]
+      }
+    }
+  };
+}
+
+module.exports = { seed };

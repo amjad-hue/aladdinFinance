@@ -4,7 +4,7 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const { load, save } = require('../data/store');
-const seed = require('../data/seed');
+const { seed } = require('../data/seed');
 
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -16,12 +16,12 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
 
 router.get('/', (req, res) => {
-  res.json(load('files.json', seed.files));
+  res.json(load('files.json', seed().files));
 });
 
 router.post('/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  const files = load('files.json', seed.files);
+  const files = load('files.json', seed().files);
   const ext = req.file.originalname.split('.').pop().toLowerCase();
   const cat = ext === 'pdf' ? 'p' : ['xlsx', 'xls'].includes(ext) ? 'x' : 'd';
   const file = {
@@ -41,7 +41,7 @@ router.post('/upload', upload.single('file'), (req, res) => {
 
 router.get('/:id/download', (req, res) => {
   const id = Number(req.params.id);
-  const files = load('files.json', seed.files);
+  const files = load('files.json', seed().files);
   const file = files.find(f => f.id === id);
   if (!file || !file.storedAs) return res.status(404).json({ error: 'File not found' });
   res.download(path.join(UPLOAD_DIR, file.storedAs), file.name);
@@ -49,7 +49,7 @@ router.get('/:id/download', (req, res) => {
 
 router.delete('/:id', (req, res) => {
   const id = Number(req.params.id);
-  let files = load('files.json', seed.files);
+  let files = load('files.json', seed().files);
   const file = files.find(f => f.id === id);
   if (file && file.storedAs) {
     const fpath = path.join(UPLOAD_DIR, file.storedAs);
