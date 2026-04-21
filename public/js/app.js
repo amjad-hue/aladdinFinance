@@ -876,7 +876,7 @@ function showClient(id) {
         <div><div class="card-title" style="margin-bottom:8px">SaaS vs Services</div><div style="height:140px;position:relative"><canvas id="chart-client-split"></canvas></div></div>
         <div>
           <div class="card-title" style="margin-bottom:8px">Contract Details</div>
-          <div class="detail-row"><span class="detail-label">Renewal</span><span class="detail-value ${renewDays<90?'':'''}" style="color:${renewDays<90?'var(--danger-text)':'var(--text)'}">${fmtDate(c.renewal)} <span class="tag ${renewDays<60?'tag-danger':renewDays<90?'tag-warning':'tag-neutral'}" style="font-size:9px">${renewDays}d</span></span></div>
+          <div class="detail-row"><span class="detail-label">Renewal</span><span class="detail-value" style="color:${renewDays<90?'var(--danger-text)':'var(--text)'}">${fmtDate(c.renewal)} <span class="tag ${renewDays<60?'tag-danger':renewDays<90?'tag-warning':'tag-neutral'}" style="font-size:9px">${renewDays}d</span></span></div>
           <div class="detail-row"><span class="detail-label">Annual Value</span><span class="detail-value">${fmt(c.revenue)}</span></div>
           <div class="detail-row"><span class="detail-label">Country</span><span class="detail-value">${c.country}</span></div>
           <div class="detail-row"><span class="detail-label">Segment</span><span class="detail-value">${c.type}</span></div>
@@ -1323,5 +1323,7 @@ async function init() {
     logout();
   }
 }
+
+init();
 
 init();
