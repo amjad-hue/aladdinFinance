@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Submit Expense</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#FF681A;--bg:#0F1B2D;--surface:#1A2740;--surface-2:#223050;
+  --border:rgba(255,255,255,.1);--text:#F1F5F9;--text-2:#94A3B8;
+  --success:#16A34A;--danger:#DC2626;
+}
+body{font-family:'Barlow',sans-serif;background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:var(--surface);border-radius:20px;width:100%;max-width:500px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.card-head{background:linear-gradient(135deg,#FF681A 0%,#FF8C4A 60%,#FFB347 100%);padding:32px 36px 28px}
+.brand{font-size:10px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.15em;margin-bottom:12px;font-weight:600}
+.logo-row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.logo-icon{width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;color:#fff;font-size:17px}
+.logo-name{font-family:'Montserrat',sans-serif;font-size:17px;font-weight:800;color:#fff}
+h1{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;color:#fff;margin-bottom:4px}
+.head-desc{font-size:12px;color:rgba(255,255,255,.8);line-height:1.55}
+.card-body{padding:28px 36px 32px}
+.form-row{margin-bottom:16px}
+label{display:block;font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+input,textarea,select{width:100%;background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;padding:10px 13px;font-size:13px;color:var(--text);font-family:'Barlow',sans-serif;outline:none;transition:border .15s;-webkit-appearance:none}
+input::placeholder,textarea::placeholder{color:var(--text-2);opacity:.6}
+input:focus,textarea:focus,select:focus{border-color:var(--primary)}
+select option{background:var(--surface-2);color:var(--text)}
+.amount-wrap{position:relative}
+.amount-wrap span{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-2);font-size:13px;pointer-events:none}
+.amount-wrap input{padding-left:28px}
+
+/* ── Attachment area ── */
+.attach-area{border:1.5px dashed var(--border);border-radius:10px;padding:18px;text-align:center;cursor:pointer;transition:all .2s;background:var(--surface-2)}
+.attach-area:hover{border-color:var(--primary);background:rgba(255,104,26,.05)}
+.attach-area input[type=file]{display:none}
+.attach-icon{font-size:26px;margin-bottom:8px}
+.attach-label{font-size:12px;color:var(--text-2);line-height:1.6}
+.attach-label strong{color:var(--primary)}
+
+/* ── Upload status bar ── */
+.upload-status{margin-top:10px;border-radius:9px;padding:10px 14px;font-size:12px;font-weight:600;display:none;align-items:center;gap:10px}
+.upload-status.uploading{display:flex;background:rgba(255,104,26,.12);color:#FFB347;border:1px solid rgba(255,104,26,.25)}
+.upload-status.drive-ok  {display:flex;background:rgba(22,163,74,.12); color:#4ade80;border:1px solid rgba(22,163,74,.3)}
+.upload-status.local-ok  {display:flex;background:rgba(148,163,184,.1);color:var(--text-2);border:1px solid var(--border)}
+.upload-status.upload-err{display:flex;background:rgba(220,38,38,.12); color:#f87171;border:1px solid rgba(220,38,38,.3)}
+.upload-progress{flex:1;height:4px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden}
+.upload-progress-bar{height:100%;background:var(--primary);border-radius:99px;width:0%;transition:width .4s ease}
+.attach-done{margin-top:10px;display:none;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 14px}
+.attach-done-name{flex:1;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.attach-done-link{font-size:11px;font-weight:600;color:#4ade80;text-decoration:none;white-space:nowrap}
+.attach-done-link:hover{text-decoration:underline}
+.attach-remove{background:none;border:none;color:var(--text-2);cursor:pointer;font-size:16px;padding:0;line-height:1;flex-shrink:0}
+.attach-remove:hover{color:#f87171}
+
+/* ── Submit ── */
+.submit-btn{width:100%;padding:13px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;letter-spacing:.02em;transition:opacity .15s;box-shadow:0 4px 14px rgba(255,104,26,.35);margin-top:6px}
+.submit-btn:hover{opacity:.9}
+.submit-btn:disabled{opacity:.55;cursor:not-allowed}
+.form-error{font-size:12px;color:#f87171;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:none}
+.form-error.show{display:block}
+.success-state{text-align:center;padding:40px 20px;display:none}
+.success-icon{font-size:52px;margin-bottom:14px}
+.success-title{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;color:var(--text);margin-bottom:8px}
+.success-sub{font-size:12px;color:var(--text-2);line-height:1.6}
+.another-btn{margin-top:18px;padding:10px 22px;background:transparent;color:var(--primary);border:1.5px solid rgba(255,104,26,.4);border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Barlow',sans-serif;transition:background .15s}
+.another-btn:hover{background:rgba(255,104,26,.08)}
+#loading{text-align:center;padding:48px 20px;color:var(--text-2);font-size:13px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,179,71,.4);border-top-color:#FFB347;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="card-head" id="card-head">
+    <div class="brand">Aladdin Finance · Expense Submission</div>
+    <div class="logo-row">
+      <div class="logo-icon">A</div>
+      <div class="logo-name">Aladdin Finance</div>
+    </div>
+    <h1 id="proj-title">Loading…</h1>
+    <div class="head-desc" id="proj-desc"></div>
+  </div>
+  <div class="card-body">
+    <div id="loading">Loading project…</div>
+
+    <form id="form" style="display:none" onsubmit="submitForm(event)">
+      <div class="form-error" id="form-error"></div>
+
+      <div class="form-row">
+        <label>Description <span style="color:var(--primary)">*</span></label>
+        <input type="text" id="f-desc" placeholder="e.g. Office supplies, Taxi to client site" required>
+      </div>
+      <div class="form-row">
+        <label>Amount <span style="color:var(--primary)">*</span></label>
+        <div class="amount-wrap"><span>$</span><input type="number" id="f-amount" placeholder="0.00" min="0.01" step="0.01" required></div>
+      </div>
+      <div class="form-row">
+        <label>Payment Method</label>
+        <select id="f-method">
+          <option value="petty_cash">Petty Cash</option>
+          <option value="credit_card">Credit Card</option>
+          <option value="personal_funds">Personal Funds</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Submitted By</label>
+        <input type="text" id="f-who" placeholder="Your name">
+      </div>
+      <div class="form-row">
+        <label>Note <span style="font-weight:400;text-transform:none;font-size:10px;color:var(--text-2)">(optional)</span></label>
+        <textarea id="f-note" rows="2" placeholder="Receipt reference, vendor, reason…"></textarea>
+      </div>
+
+      <!-- ── Attachment ── -->
+      <div class="form-row">
+        <label>Receipt / Photo <span style="font-weight:400;text-transform:none;font-size:10px;color:var(--text-2)">(optional)</span></label>
+
+        <!-- Drop zone (hidden once file chosen) -->
+        <div class="attach-area" id="attach-area" onclick="document.getElementById('f-attach').click()">
+          <input type="file" id="f-attach" accept="image/*,application/pdf" capture="environment" onchange="onFileChosen(this)">
+          <div class="attach-icon">📎</div>
+          <div class="attach-label">Tap to <strong>upload</strong> or take a photo<br><span style="font-size:10px">JPG, PNG or PDF · max 20 MB</span></div>
+        </div>
+
+        <!-- Upload progress -->
+        <div class="upload-status" id="upload-status">
+          <div class="spinner" id="upload-spinner"></div>
+          <span id="upload-status-text">Uploading…</span>
+          <div class="upload-progress" id="upload-progress-wrap">
+            <div class="upload-progress-bar" id="upload-progress-bar"></div>
+          </div>
+        </div>
+
+        <!-- Attached file summary -->
+        <div class="attach-done" id="attach-done">
+          <span style="font-size:18px" id="attach-done-icon">📄</span>
+          <span class="attach-done-name" id="attach-done-name"></span>
+          <a id="attach-done-link" href="#" target="_blank" class="attach-done-link" style="display:none">Open ↗</a>
+          <button type="button" class="attach-remove" onclick="removeAttach()" title="Remove">×</button>
+        </div>
+      </div>
+
+      <button type="submit" class="submit-btn" id="submit-btn">Submit Expense</button>
+    </form>
+
+    <div class="success-state" id="success-state">
+      <div class="success-icon">✅</div>
+      <div class="success-title">Expense Submitted!</div>
+      <div class="success-sub" id="success-sub">Your expense has been received and is pending approval by the project manager.</div>
+      <button class="another-btn" onclick="resetForm()">Submit Another</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const token = location.pathname.split('/').pop();
+let _driveId     = null;
+let _webViewLink = null;
+let _localFile   = null;
+let _attachName  = null;
+let _attachMime  = null;
+let _uploading   = false;
+
+// ── Load project info ──────────────────────────────────────────────────────────
+(async () => {
+  try {
+    const res = await fetch(`/api/projects/petty/${token}`);
+    if (!res.ok) { document.getElementById('loading').textContent = 'Invalid or expired link.'; return; }
+    const data = await res.json();
+    document.getElementById('proj-title').textContent = data.projectName;
+    document.getElementById('proj-desc').textContent  = data.projectClient ? `Client: ${data.projectClient}` : 'Submit your expense for review';
+    document.title = `Expense — ${data.projectName}`;
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('form').style.display    = 'block';
+  } catch(e) {
+    document.getElementById('loading').textContent = 'Could not load project. Please try again.';
+  }
+})();
+
+// ── File chosen → upload immediately ──────────────────────────────────────────
+async function onFileChosen(inp) {
+  const file = inp.files[0];
+  if (!file) return;
+
+  _attachName = file.name;
+  _attachMime = file.type;
+
+  // Hide drop zone, show progress
+  document.getElementById('attach-area').style.display = 'none';
+  setStatus('uploading', 'Uploading to Drive…');
+  animateProgress(0, 60, 800);
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const res  = await fetch(`/api/projects/petty/${token}/upload`, { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+    animateProgress(60, 100, 300);
+    await new Promise(r => setTimeout(r, 350));
+
+    if (data.via === 'drive') {
+      _driveId     = data.driveId;
+      _webViewLink = data.webViewLink;
+      _localFile   = null;
+      setStatus('drive-ok', '✓ Uploaded to Google Drive');
+    } else {
+      _localFile   = data.localFile;
+      _driveId     = null;
+      _webViewLink = null;
+      setStatus('local-ok', '✓ Attachment saved locally');
+    }
+
+    setTimeout(() => {
+      hideStatus();
+      showAttachDone(file.name, _webViewLink);
+    }, 1200);
+
+  } catch(err) {
+    setStatus('upload-err', '✗ Upload failed — ' + err.message);
+    document.getElementById('upload-spinner').style.display = 'none';
+    setTimeout(() => {
+      hideStatus();
+      document.getElementById('attach-area').style.display = 'block';
+    }, 2500);
+    resetAttachVars();
+  }
+}
+
+function animateProgress(from, to, ms) {
+  const bar = document.getElementById('upload-progress-bar');
+  bar.style.transition = `width ${ms}ms ease`;
+  bar.style.width = to + '%';
+}
+
+function setStatus(cls, text) {
+  const el = document.getElementById('upload-status');
+  el.className = 'upload-status ' + cls;
+  document.getElementById('upload-status-text').textContent = text;
+  const spinner = document.getElementById('upload-spinner');
+  spinner.style.display = cls === 'uploading' ? 'inline-block' : 'none';
+}
+
+function hideStatus() {
+  document.getElementById('upload-status').className = 'upload-status';
+  document.getElementById('upload-progress-bar').style.width = '0%';
+}
+
+function showAttachDone(name, link) {
+  const done = document.getElementById('attach-done');
+  done.style.display = 'flex';
+  document.getElementById('attach-done-icon').textContent = _attachMime?.startsWith('image/') ? '🖼️' : '📄';
+  document.getElementById('attach-done-name').textContent = name;
+  const linkEl = document.getElementById('attach-done-link');
+  if (link) { linkEl.href = link; linkEl.style.display = ''; }
+  else { linkEl.style.display = 'none'; }
+}
+
+function removeAttach() {
+  resetAttachVars();
+  document.getElementById('f-attach').value = '';
+  document.getElementById('attach-done').style.display = 'none';
+  document.getElementById('attach-area').style.display = 'block';
+  hideStatus();
+}
+
+function resetAttachVars() {
+  _driveId = null; _webViewLink = null; _localFile = null;
+  _attachName = null; _attachMime = null;
+}
+
+// ── Submit form ────────────────────────────────────────────────────────────────
+async function submitForm(e) {
+  e.preventDefault();
+  const errEl = document.getElementById('form-error');
+  errEl.classList.remove('show');
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+
+  try {
+    const res = await fetch(`/api/projects/petty/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        description:    document.getElementById('f-desc').value.trim(),
+        amount:         document.getElementById('f-amount').value,
+        paymentMethod:  document.getElementById('f-method').value,
+        who:            document.getElementById('f-who').value.trim(),
+        note:           document.getElementById('f-note').value.trim(),
+        driveId:        _driveId,
+        webViewLink:    _webViewLink,
+        localFile:      _localFile,
+        attachmentName: _attachName,
+        attachmentMime: _attachMime
+      })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Submission failed');
+
+    document.getElementById('form').style.display         = 'none';
+    document.getElementById('success-state').style.display = 'block';
+    if (_webViewLink) {
+      document.getElementById('success-sub').innerHTML =
+        `Your expense has been received and is pending approval.<br><a href="${_webViewLink}" target="_blank" style="color:#4ade80;font-weight:600">View receipt in Google Drive ↗</a>`;
+    }
+  } catch(err) {
+    errEl.textContent = err.message;
+    errEl.classList.add('show');
+    btn.disabled = false;
+    btn.textContent = 'Submit Expense';
+  }
+}
+
+function resetForm() {
+  document.getElementById('form').reset();
+  removeAttach();
+  document.getElementById('success-state').style.display = 'none';
+  document.getElementById('form').style.display          = 'block';
+  document.getElementById('form-error').classList.remove('show');
+  document.getElementById('submit-btn').disabled   = false;
+  document.getElementById('submit-btn').textContent = 'Submit Expense';
+}
+</script>
+</body>
+</html>

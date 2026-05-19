@@ -1,4 +1,4 @@
-const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const { MONTHS: MO } = require('../lib/constants');
 
 function buildMonths(annual, actuals) {
   const tgt = Math.round(annual / 12);
@@ -44,6 +44,13 @@ function seed() {
       { id: 4, cat: 'Cloud',         annual: 144000, note: 'Review AWS costs', months: buildMonths(144000, [13200,12800,12400,13600,12200,13800,0,0,0,0,0,0]) },
       { id: 5, cat: 'Marketing',     annual: 96000,  note: '', months: buildMonths(96000,  [7200,8400,9200,7800,8600,8200,0,0,0,0,0,0])    },
       { id: 6, cat: 'Legal & Admin', annual: 72000,  note: '', months: buildMonths(72000,  [5400,6200,5800,6400,5600,7200,0,0,0,0,0,0])    }
+    ],
+
+    revenueByType: [
+      { type: 'Enterprise Accounts', color: '#FF681A', monthly: [72000,84000,94000,104000,112000,110000,0,0,0,0,0,0] },
+      { type: 'Government / Public Sector', color: '#2563EB', monthly: [22000,26000,30000,34000,35000,34000,0,0,0,0,0,0] },
+      { type: 'Events & Tradeshows', color: '#16A34A', monthly: [8000,9000,11000,13000,14000,14000,0,0,0,0,0,0] },
+      { type: 'SMB & Direct', color: '#D97706', monthly: [6000,7000,7000,7000,8000,8000,0,0,0,0,0,0] }
     ],
 
     revenue: [
@@ -100,6 +107,84 @@ function seed() {
       { id: 5, name: 'Dubai Municipality CRM Platform',    client: 'Dubai Municipality', type: 'Government', value: 320000, probability: 55, stage: 'Proposal',     closeDate: '2026-08-20', owner: 'Ahmed Al-Rashidi', notes: '', hubspotId: null },
       { id: 6, name: 'ADIPEC Conference Lead Generation',  client: 'Various',            type: 'Tradeshow',  value: 120000, probability: 35, stage: 'Prospecting',  closeDate: '2026-11-05', owner: 'Maya Khalil',      notes: '', hubspotId: null }
     ],
+
+    liabilities: [
+      { id: 1, name: 'Accounts Payable', breakdown: [
+        { id: 101, name: 'AWS Cloud Services', dueDate: '2026-04-30', amount: 13200 },
+        { id: 102, name: 'Salesforce License', dueDate: '2026-05-05', amount: 9800 },
+        { id: 103, name: 'Office Lease — DIFC', dueDate: '2026-05-01', amount: 24000 }
+      ]},
+      { id: 2, name: 'Accrued Expenses', breakdown: [
+        { id: 201, name: 'April Payroll accrual', dueDate: '2026-04-30', amount: 58000 },
+        { id: 202, name: 'Contractor invoices pending', dueDate: '2026-05-15', amount: 19000 },
+        { id: 203, name: 'Marketing agency retainer', dueDate: '2026-05-10', amount: 8200 }
+      ]},
+      { id: 3, name: 'Deferred Revenue', breakdown: [
+        { id: 301, name: 'Al Futtaim — prepaid SaaS Q3', dueDate: '2026-06-30', amount: 48000 },
+        { id: 302, name: 'DEWA services advance', dueDate: '2026-07-31', amount: 31000 },
+        { id: 303, name: 'Informa prepaid support', dueDate: '2026-08-31', amount: 18000 }
+      ]},
+      { id: 4, name: 'VAT Payable', breakdown: [
+        { id: 401, name: 'VAT Q1 2026 payable', dueDate: '2026-04-28', amount: 42000 }
+      ]}
+    ],
+
+    accountReceivables: [
+      { id: 1, client: 'Informa Markets',   invoice: 'INV-2026-041', dueDate: '2026-05-05', amount: 85000, status: 'pending' },
+      { id: 2, client: 'Al Futtaim Group',  invoice: 'INV-2026-038', dueDate: '2026-04-25', amount: 72000, status: 'overdue' },
+      { id: 3, client: 'DEWA',              invoice: 'INV-2026-039', dueDate: '2026-05-15', amount: 54000, status: 'pending' },
+      { id: 4, client: 'Majid Al Futtaim',  invoice: 'INV-2026-040', dueDate: '2026-04-30', amount: 38000, status: 'pending' },
+      { id: 5, client: 'RTA Dubai',         invoice: 'INV-2026-035', dueDate: '2026-04-20', amount: 28000, status: 'overdue' }
+    ],
+
+    commissions: [
+      { id: 1, dealName: 'AlShifa Healthcare SaaS',            repName: 'Sarah Al-Hassan',  client: 'AlShifa Group',      dealValue: 180000, rate: 5, amount: 9000,  status: 'approved', date: '2026-04-01', notes: '' },
+      { id: 2, dealName: 'TechCorp Enterprise License',         repName: 'Sarah Al-Hassan',  client: 'TechCorp MENA',      dealValue: 250000, rate: 5, amount: 12500, status: 'pending',  date: '2026-07-30', notes: 'Pending deal close' },
+      { id: 3, dealName: 'Ministry of Finance Digital Portal',  repName: 'Ahmed Al-Rashidi', client: 'UAE Government',     dealValue: 500000, rate: 4, amount: 20000, status: 'pending',  date: '2026-09-15', notes: '' },
+      { id: 4, dealName: 'Gulf Tech Expo 2026',                 repName: 'Maya Khalil',      client: 'Various',            dealValue: 80000,  rate: 3, amount: 2400,  status: 'pending',  date: '2026-06-30', notes: '' },
+      { id: 5, dealName: 'Dubai Municipality CRM Platform',     repName: 'Ahmed Al-Rashidi', client: 'Dubai Municipality', dealValue: 320000, rate: 4, amount: 12800, status: 'pending',  date: '2026-08-20', notes: '' }
+    ],
+
+    projects: [
+      { id: 1, name: 'Al Futtaim SaaS Implementation',  client: 'Al Futtaim Group',  status: 'active',    type: 'implementation', startDate: '2026-01-15', endDate: '2026-07-31', budget: 85000,  actualSpend: 42000, linkedRevenue: 142000, linkedBudgetCats: ['Contractors', 'Software'], manager: 'Sarah Al-Hassan',  description: 'Full SaaS platform rollout', milestones: [{id:101,title:'Requirements sign-off',dueDate:'2026-02-01',done:true},{id:102,title:'UAT complete',dueDate:'2026-05-15',done:false},{id:103,title:'Go-live',dueDate:'2026-07-01',done:false}], notes: '' },
+      { id: 2, name: 'DEWA Services Integration',       client: 'DEWA',              status: 'active',    type: 'integration',    startDate: '2026-02-01', endDate: '2026-08-30', budget: 55000,  actualSpend: 28000, linkedRevenue: 168000, linkedBudgetCats: ['Contractors'], manager: 'Ahmed Al-Rashidi', description: 'API integration for government portal', milestones: [{id:201,title:'API design',dueDate:'2026-03-01',done:true},{id:202,title:'Testing',dueDate:'2026-06-01',done:false}], notes: '' },
+      { id: 3, name: 'Ministry Finance Portal Phase 2', client: 'UAE Government',    status: 'proposal',  type: 'development',    startDate: '2026-06-01', endDate: '2026-12-31', budget: 200000, actualSpend: 0,     linkedRevenue: 0,      linkedBudgetCats: [], manager: 'Ahmed Al-Rashidi', description: 'Phase 2 of digital transformation', milestones: [], notes: 'Pending contract signature' },
+      { id: 4, name: 'Q1 Gulf Tech Expo Activation',   client: 'Various',           status: 'completed', type: 'marketing',      startDate: '2026-01-01', endDate: '2026-03-31', budget: 35000,  actualSpend: 32400, linkedRevenue: 28000,  linkedBudgetCats: ['Marketing'], manager: 'Maya Khalil', description: 'Tradeshow activation and lead generation', milestones: [{id:401,title:'Booth setup',dueDate:'2026-03-15',done:true},{id:402,title:'Lead follow-up campaign',dueDate:'2026-04-15',done:true}], notes: '' }
+    ],
+
+    hrEmployees: [
+      { id:1, firstName:'Sarah',  lastName:'Al-Hassan',  email:'sarah@aladdinb2b.com',   phone:'+971 50 111 2233', nationality:'UAE',     dob:'1990-03-15', gender:'Female', employeeId:'EMP-001', department:'Sales',       position:'Sales Manager',        type:'full-time',   status:'active',     startDate:'2022-01-10', managerId:null, salary:28000, currency:'AED', salaryFrequency:'monthly', leaveBalances:{annual:22,sick:15,emergency:3,unpaid:0}, onboarding:null, notes:'Key account manager.',    createdAt:'2022-01-10T00:00:00.000Z' },
+      { id:2, firstName:'Ahmed',  lastName:'Al-Rashidi', email:'ahmed@aladdinb2b.com',   phone:'+971 55 222 3344', nationality:'UAE',     dob:'1988-07-22', gender:'Male',   employeeId:'EMP-002', department:'Sales',       position:'Sales Manager',        type:'full-time',   status:'active',     startDate:'2021-06-01', managerId:null, salary:30000, currency:'AED', salaryFrequency:'monthly', leaveBalances:{annual:18,sick:15,emergency:3,unpaid:0}, onboarding:null, notes:'Government accounts lead.', createdAt:'2021-06-01T00:00:00.000Z' },
+      { id:3, firstName:'Maya',   lastName:'Khalil',     email:'maya@aladdinb2b.com',    phone:'+971 52 333 4455', nationality:'Lebanon', dob:'1993-11-08', gender:'Female', employeeId:'EMP-003', department:'Marketing',   position:'Marketing Specialist', type:'full-time',   status:'active',     startDate:'2023-03-15', managerId:null, salary:18000, currency:'AED', salaryFrequency:'monthly', leaveBalances:{annual:28,sick:15,emergency:3,unpaid:0}, onboarding:null, notes:'Tradeshow lead.',          createdAt:'2023-03-15T00:00:00.000Z' },
+      { id:4, firstName:'Amjad',  lastName:'Al-Hue',     email:'amjad@aladdinb2b.com',   phone:'+971 50 444 5566', nationality:'UAE',     dob:'1985-01-30', gender:'Male',   employeeId:'EMP-004', department:'Finance',     position:'CFO',                  type:'full-time',   status:'active',     startDate:'2020-01-01', managerId:null, salary:55000, currency:'AED', salaryFrequency:'monthly', leaveBalances:{annual:30,sick:15,emergency:3,unpaid:0}, onboarding:null, notes:'',                         createdAt:'2020-01-01T00:00:00.000Z' },
+      { id:5, firstName:'Layla',  lastName:'Mansour',    email:'layla@aladdinb2b.com',   phone:'+971 54 555 6677', nationality:'Egypt',   dob:'1995-05-20', gender:'Female', employeeId:'EMP-005', department:'Engineering', position:'Software Engineer',    type:'full-time',   status:'active',     startDate:'2023-09-01', managerId:null, salary:22000, currency:'AED', salaryFrequency:'monthly', leaveBalances:{annual:27,sick:15,emergency:3,unpaid:0}, onboarding:{startedAt:'2023-09-01T00:00:00.000Z',completedAt:null,tasks:[{id:1,title:'Send offer letter & welcome email',owner:'HR',category:'Pre-Hire',done:true,doneAt:'2023-08-29T00:00:00.000Z'},{id:2,title:'Setup laptop, email & system access',owner:'IT',category:'Day 1',done:true,doneAt:'2023-09-01T00:00:00.000Z'},{id:3,title:'Office tour & team introductions',owner:'Manager',category:'Day 1',done:true,doneAt:'2023-09-01T00:00:00.000Z'},{id:4,title:'Complete employment contract & visa docs',owner:'HR',category:'Day 1',done:true,doneAt:'2023-09-02T00:00:00.000Z'},{id:5,title:'Enroll in payroll & benefits',owner:'Finance',category:'Week 1',done:true,doneAt:'2023-09-05T00:00:00.000Z'},{id:6,title:'Assign buddy / mentor',owner:'Manager',category:'Week 1',done:false,doneAt:null},{id:7,title:'30-day check-in with manager',owner:'Manager',category:'Month 1',done:false,doneAt:null},{id:8,title:'Complete compliance & safety training',owner:'HR',category:'Month 1',done:false,doneAt:null},{id:9,title:'90-day probation review',owner:'HR',category:'Month 3',done:false,doneAt:null}]}, notes:'New hire — onboarding in progress.', createdAt:'2023-09-01T00:00:00.000Z' }
+    ],
+
+    hrSettings: {
+      departments: ['Engineering','Sales','Finance','Operations','Marketing','Legal','HR'],
+      positions:   ['CEO','CFO','CPO','HR Manager','Sales Manager','Software Engineer','Operations Manager','Marketing Specialist','Legal Counsel','Finance Analyst'],
+      leaveTypes: [
+        { id:'annual',    name:'Annual Leave',    defaultDays:30, color:'#2563EB' },
+        { id:'sick',      name:'Sick Leave',      defaultDays:15, color:'#DC2626' },
+        { id:'emergency', name:'Emergency Leave', defaultDays:3,  color:'#D97706' },
+        { id:'unpaid',    name:'Unpaid Leave',    defaultDays:0,  color:'#6B7280' }
+      ],
+      portalEnabled: true,
+      hrEmail: '',
+      financeEmail: '',
+      defaultOnboardingTasks: [
+        { title:'Send offer letter & welcome email',        owner:'HR',      category:'Pre-Hire' },
+        { title:'Setup laptop, email & system access',      owner:'IT',      category:'Day 1'   },
+        { title:'Office tour & team introductions',         owner:'Manager', category:'Day 1'   },
+        { title:'Complete employment contract & visa docs', owner:'HR',      category:'Day 1'   },
+        { title:'Enroll in payroll & benefits',             owner:'Finance', category:'Week 1'  },
+        { title:'Assign buddy / mentor',                    owner:'Manager', category:'Week 1'  },
+        { title:'30-day check-in with manager',             owner:'Manager', category:'Month 1' },
+        { title:'Complete compliance & safety training',    owner:'HR',      category:'Month 1' },
+        { title:'90-day probation review',                  owner:'HR',      category:'Month 3' }
+      ],
+      companyPolicy: `Welcome to Aladdin Finance. These are the key policies for all team members:\n\n1. WORKING HOURS\nStandard hours are Sunday–Thursday, 9:00 AM–6:00 PM (UAE time). Fridays and Saturdays are weekends.\n\n2. LEAVE POLICY\nAnnual leave must be requested at least 5 working days in advance. Sick leave requires a medical certificate for absences of 3 or more consecutive days. Emergency leave of up to 3 days may be taken without prior approval.\n\n3. REMOTE WORK\nRemote work requests must be approved by your direct manager. Up to 2 days per week may be permitted depending on role requirements.\n\n4. CODE OF CONDUCT\nAll employees are expected to maintain professional standards, respect colleagues, and protect confidential company and client information at all times.\n\n5. REQUESTS & EXPENSES\nAll purchase requests and expense reimbursements must be submitted through the official portal and approved before commitment.`
+    },
 
     statements: {
       pnl: {

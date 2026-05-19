@@ -45,6 +45,47 @@ function getCalendar() {
 
 const GCAL_ID = () => process.env.GOOGLE_CALENDAR_ID || 'primary';
 
+// ── Zoom Server-to-Server OAuth ───────────────────────────────────────────────
+async function getZoomToken() {
+  const axios = require('axios');
+  const { ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET } = process.env;
+  if (!ZOOM_ACCOUNT_ID || !ZOOM_CLIENT_ID || !ZOOM_CLIENT_SECRET) {
+    throw new Error('ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET not set in .env');
+  }
+  const creds = Buffer.from(`${ZOOM_CLIENT_ID}:${ZOOM_CLIENT_SECRET}`).toString('base64');
+  const r = await axios.post(
+    `https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${encodeURIComponent(ZOOM_ACCOUNT_ID)}`,
+    null,
+    { headers: { Authorization: `Basic ${creds}` } }
+  );
+  return r.data.access_token;
+}
+
+router.post('/zoom/create', async (req, res) => {
+  const { title, date, time, duration } = req.body;
+  if (!title || !date) return res.status(400).json({ error: 'title and date required' });
+  try {
+    const token = await getZoomToken();
+    const axios = require('axios');
+    const startTime = `${date}T${time || '09:00'}:00`;
+    const r = await axios.post(
+      'https://api.zoom.us/v2/users/me/meetings',
+      {
+        topic: title,
+        type: 2,
+        start_time: startTime,
+        duration: Number(duration) || 60,
+        settings: { join_before_host: true, waiting_room: false }
+      },
+      { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+    );
+    res.json({ joinUrl: r.data.join_url, meetingId: r.data.id });
+  } catch (e) {
+    const msg = e.response?.data?.message || e.message;
+    res.status(500).json({ error: msg });
+  }
+});
+
 function toGCalEvent(ev) {
   return {
     summary: ev.title,
@@ -76,10 +117,21 @@ function gcalAuth(req, res) {
   }
   const url = getOAuth2Client().generateAuthUrl({
     access_type: 'offline',
-    scope: ['https://www.googleapis.com/auth/calendar'],
-    prompt: 'consent'
+    scope: [
+      'https://www.googleapis.com/auth/calendar',
+      'https://www.googleapis.com/auth/drive',
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/userinfo.email'
+    ],
+    prompt: req.query.switch === '1' ? 'select_account consent' : 'consent'
   });
   res.redirect(url);
+}
+
+function gcalDisconnect(req, res) {
+  save('gcal_tokens.json', null);
+  res.json({ ok: true });
 }
 
 // ── Public: OAuth callback (no JWT needed) ────────────────────────────────────
@@ -91,7 +143,16 @@ async function gcalCallback(req, res) {
   try {
     const client = getOAuth2Client();
     const { tokens } = await client.getToken(code);
-    saveTokens(tokens);
+    // Store connected email alongside tokens
+    let email = null;
+    try {
+      client.setCredentials(tokens);
+      const { google } = require('googleapis');
+      const oauth2 = google.oauth2({ version: 'v2', auth: client });
+      const info = await oauth2.userinfo.get();
+      email = info.data.email || null;
+    } catch (_) {}
+    saveTokens({ ...tokens, _email: email });
     res.send(`<!DOCTYPE html><html><head><title>Connected</title></head>
     <body style="font-family:sans-serif;background:#080c17;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;flex-direction:column">
       <div style="font-size:56px;margin-bottom:16px">✓</div>
@@ -107,20 +168,33 @@ async function gcalCallback(req, res) {
 
 // ── Status ────────────────────────────────────────────────────────────────────
 router.get('/gcal/status', (req, res) => {
-  res.json({ configured: isConfigured(), connected: isConnected() });
+  const tokens = loadTokens();
+  res.json({
+    configured: isConfigured(),
+    connected:  isConnected(),
+    email:      tokens?._email || null,
+    hasDrive:   !!(tokens?.scope || '').includes('drive')
+  });
+});
+
+// ── Disconnect ────────────────────────────────────────────────────────────────
+router.delete('/gcal/disconnect', (req, res) => {
+  const { save } = require('../data/store');
+  save('gcal_tokens.json', null);
+  res.json({ ok: true });
 });
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 router.get('/', (req, res) => res.json(get()));
 
 router.post('/', async (req, res) => {
-  const { type, title, date, note, amount, recur } = req.body;
+  const { type, title, date, time, note, amount, recur, zoomLink } = req.body;
   if (!title || !date) return res.status(400).json({ error: 'title and date required' });
   const events = get();
   const event = {
     id: Date.now(), type: type || 'task', title, date,
-    note: note || '', amount: amount ? Number(amount) : null,
-    recur: recur || 'none', gcalId: null, createdAt: new Date().toISOString()
+    time: time || '', note: note || '', amount: amount ? Number(amount) : null,
+    recur: recur || 'none', zoomLink: zoomLink || null, gcalId: null, createdAt: new Date().toISOString()
   };
 
   const gcal = getCalendar();
@@ -225,5 +299,6 @@ router.post('/gcal/sync', async (req, res) => {
 });
 
 module.exports = router;
-module.exports.gcalAuth = gcalAuth;
-module.exports.gcalCallback = gcalCallback;
+module.exports.gcalAuth      = gcalAuth;
+module.exports.gcalCallback  = gcalCallback;
+module.exports.gcalDisconnect = gcalDisconnect;

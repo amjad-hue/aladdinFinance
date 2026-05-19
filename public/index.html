@@ -3,41 +3,214 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aladdin Finance — CFO Command Center</title>
+<title>CFO Genie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/js/lottie.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#080c17;--surface:#0f1520;--surface-2:#151c2a;--surface-3:#1a2235;
-  --text:#f1f5f9;--text-2:#8898aa;--text-3:#475569;
-  --border:rgba(255,255,255,0.07);--border-2:rgba(255,255,255,0.13);
-  --primary:#f97316;--primary-bg:rgba(249,115,22,0.12);--primary-text:#fed7aa;
-  --success:#22c55e;--success-bg:rgba(34,197,94,0.12);--success-text:#86efac;
-  --danger:#ef4444;--danger-bg:rgba(239,68,68,0.12);--danger-text:#fca5a5;
-  --warning:#f59e0b;--warning-bg:rgba(245,158,11,0.12);--warning-text:#fde68a;
-  --info:#3b82f6;--info-bg:rgba(59,130,246,0.12);--info-text:#93c5fd;
-  --purple:#a855f7;--purple-bg:rgba(168,85,247,0.12);
+  --bg:#EDF0F5;--surface:#FFFFFF;--surface-2:#F4F6FA;--surface-3:#EDF0F5;
+  --text:#24292E;--text-2:#5E6C84;--text-3:#97A0AF;
+  --border:#DDE1E9;--border-2:#C7CFDB;
+  --primary:#FF6600;--primary-bg:rgba(255,102,0,0.09);--primary-text:#B84A0E;
+  --success:#16A34A;--success-bg:rgba(22,163,74,0.09);--success-text:#14532D;
+  --danger:#DC2626;--danger-bg:rgba(220,38,38,0.09);--danger-text:#991B1B;
+  --warning:#D97706;--warning-bg:rgba(217,119,6,0.09);--warning-text:#78350F;
+  --info:#2563EB;--info-bg:rgba(37,99,235,0.09);--info-text:#1E3A8A;
+  --purple:#7C3AED;--purple-bg:rgba(124,58,237,0.09);
+  --shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 12px rgba(0,0,0,0.05);
+  --shadow-lg:0 4px 16px rgba(0,0,0,0.1),0 12px 40px rgba(0,0,0,0.08);
 }
 html,body{height:100%}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;color:var(--text);background:var(--bg);min-height:100vh}
+body{font-family:'Barlow',sans-serif;font-size:13px;color:var(--text);background:var(--bg);min-height:100vh}
 
-/* ── Login ── */
-#login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column;gap:0}
+/* ── Login (Cinematic Split-Screen) ── */
+#login-screen{position:fixed;inset:0;display:flex;z-index:1000}
 #login-screen.hidden{display:none}
-.login-box{background:var(--surface);border:0.5px solid var(--border-2);border-radius:14px;padding:36px 40px;width:100%;max-width:380px;box-shadow:0 24px 80px rgba(0,0,0,.6)}
-.login-logo{width:46px;height:46px;border-radius:12px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:18px;margin:0 auto 18px;flex-shrink:0}
-.login-title{font-size:20px;font-weight:700;text-align:center;margin-bottom:4px}
-.login-sub{font-size:12px;color:var(--text-2);text-align:center;margin-bottom:28px}
-.login-form .form-row{margin-bottom:14px}
-.login-form label{font-size:11px;color:var(--text-2);display:block;margin-bottom:5px;font-weight:500;letter-spacing:.03em;text-transform:uppercase}
-.login-form input{width:100%;background:var(--surface-2);border:0.5px solid var(--border-2);border-radius:7px;padding:10px 12px;font-size:13px;color:var(--text);font-family:inherit;outline:none;transition:border .15s}
-.login-form input:focus{border-color:var(--primary);background:var(--surface-3)}
-.login-btn{width:100%;padding:11px;background:var(--primary);color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px;font-family:inherit;transition:opacity .15s}
-.login-btn:hover{opacity:.9}
-.login-error{font-size:11px;color:var(--danger-text);background:var(--danger-bg);border:0.5px solid rgba(239,68,68,.3);border-radius:6px;padding:8px 11px;margin-top:10px;display:none}
+
+/* ── Finance brand panel (RIGHT) ── */
+.login-brand{
+  flex:1;
+  background:linear-gradient(155deg,#FFFAF7 0%,#FFF5EE 40%,#FFFBF8 70%,#F8F4FF 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:40px 48px;position:relative;overflow:hidden;gap:14px;
+}
+/* soft light blobs */
+.login-brand::before{
+  content:'';position:absolute;top:-120px;left:-80px;
+  width:440px;height:440px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,102,0,0.10) 0%,rgba(255,150,60,0.05) 45%,transparent 70%);
+  animation:nebula1 8s ease-in-out infinite alternate;pointer-events:none;
+}
+.login-brand::after{
+  content:'';position:absolute;bottom:-100px;right:-60px;
+  width:360px;height:360px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,120,40,0.08) 0%,rgba(255,200,100,0.04) 50%,transparent 70%);
+  animation:nebula2 10s ease-in-out infinite alternate;pointer-events:none;
+}
+@keyframes nebula1{0%{transform:translate(0,0) scale(1)}100%{transform:translate(30px,20px) scale(1.12)}}
+@keyframes nebula2{0%{transform:translate(0,0) scale(1)}100%{transform:translate(-20px,-30px) scale(1.1)}}
+
+/* canvas particle layer */
+#lb-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+/* lamp container — cinematic entrance */
+.lb-lamp-wrap{
+  position:relative;z-index:2;margin-bottom:28px;
+  animation:lampEntrance 1.4s cubic-bezier(0.16,1,0.3,1) both;
+  transform-origin:50% 80%;
+}
+@keyframes lampEntrance{
+  0%{opacity:0;transform:translateY(60px) scale(0.55) rotate(-12deg)}
+  60%{opacity:1;transform:translateY(-8px) scale(1.04) rotate(2deg)}
+  80%{transform:translateY(4px) scale(0.98) rotate(-1deg)}
+  100%{transform:translateY(0) scale(1) rotate(0deg)}
+}
+/* glow ring behind lamp */
+.lb-lamp-wrap::before{
+  content:'';position:absolute;top:50%;left:50%;
+  width:180px;height:180px;border-radius:50%;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle,rgba(255,102,0,0.18) 0%,rgba(255,160,60,0.08) 45%,transparent 70%);
+  animation:glowPulse 3s ease-in-out infinite;
+}
+@keyframes glowPulse{
+  0%,100%{transform:translate(-50%,-50%) scale(1);opacity:0.7}
+  50%{transform:translate(-50%,-50%) scale(1.25);opacity:1}
+}
+/* smoke trail rising from spout */
+.lb-smoke{
+  position:absolute;bottom:calc(100% + 8px);left:41%;
+  display:flex;flex-direction:column;align-items:center;gap:0;
+  pointer-events:none;
+}
+.lb-smoke span{
+  display:block;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,120,0,0.55),transparent 70%);
+  animation:smokeRise 2.4s ease-out infinite;
+}
+.lb-smoke span:nth-child(1){width:14px;height:14px;animation-delay:0s}
+.lb-smoke span:nth-child(2){width:11px;height:11px;animation-delay:.35s;margin-top:-6px}
+.lb-smoke span:nth-child(3){width:8px;height:8px;animation-delay:.7s;margin-top:-4px}
+.lb-smoke span:nth-child(4){width:5px;height:5px;animation-delay:1.05s;margin-top:-3px}
+@keyframes smokeRise{
+  0%{opacity:0;transform:translateY(0) scale(0.6)}
+  20%{opacity:0.9}
+  100%{opacity:0;transform:translateY(-42px) translateX(8px) scale(1.8)}
+}
+
+/* brand text — typewriter fade-in */
+.lb-logo-text{
+  font-family:'Montserrat',sans-serif;font-size:28px;font-weight:800;
+  color:#111;text-align:center;margin-bottom:5px;letter-spacing:-.02em;
+  position:relative;z-index:2;
+  animation:textFadeUp 0.8s ease 0.9s both;
+}
+.lb-logo-text span{color:var(--primary)}
+.lb-tagline{
+  font-size:10.5px;color:#AAA;text-align:center;
+  margin-bottom:36px;letter-spacing:.12em;text-transform:uppercase;
+  position:relative;z-index:2;
+  animation:textFadeUp 0.8s ease 1.1s both;
+}
+@keyframes textFadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* KPI tiles */
+.lb-kpi-row{display:flex;gap:8px;width:100%;max-width:480px;position:relative;z-index:2;animation:textFadeUp 0.6s ease 1.2s both}
+.lb-kpi{flex:1;background:#fff;border:1px solid #F0E4DC;border-radius:12px;padding:12px 10px;text-align:center;box-shadow:0 1px 6px rgba(0,0,0,0.05)}
+.lb-kpi-label{font-size:9px;color:#AAA;text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
+.lb-kpi-val{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:800;color:#111;line-height:1.1}
+.lb-kpi-chg{font-size:10px;font-weight:600;margin-top:4px}
+.lb-up{color:#16a34a}.lb-down{color:#dc2626}
+/* Sparkline chart */
+.lb-chart-card{width:100%;max-width:480px;background:#fff;border:1px solid #F0E4DC;border-radius:14px;padding:14px 16px 10px;position:relative;z-index:2;animation:textFadeUp 0.6s ease 1.4s both;box-shadow:0 1px 6px rgba(0,0,0,0.05)}
+.lb-chart-title{font-size:10px;color:#999;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+.lb-chart-title span{color:#BBB;font-weight:400;text-transform:none;letter-spacing:0;font-size:9px}
+.lb-sparkline{width:100%;height:80px;display:block}
+.lb-spark-path{stroke:#FF6600;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:440;stroke-dashoffset:440;animation:sparkDraw 1.8s ease 1.5s forwards}
+.lb-spark-area{opacity:0;animation:sparkFade 0.8s ease 3s forwards}
+@keyframes sparkDraw{to{stroke-dashoffset:0}}
+@keyframes sparkFade{to{opacity:1}}
+.lb-spark-dots circle{fill:#FF8800;opacity:0;animation:dotPop .3s ease forwards}
+.lb-spark-dots circle:nth-child(1){animation-delay:1.65s}
+.lb-spark-dots circle:nth-child(2){animation-delay:1.9s}
+.lb-spark-dots circle:nth-child(3){animation-delay:2.15s}
+.lb-spark-dots circle:nth-child(4){animation-delay:2.4s}
+.lb-spark-dots circle:nth-child(5){animation-delay:2.65s}
+.lb-spark-dots circle:nth-child(6){animation-delay:2.9s}
+@keyframes dotPop{0%{opacity:0}100%{opacity:0.85}}
+.lb-chart-footer{display:flex;justify-content:space-between;margin-top:8px;font-size:9px;color:#CCC}
+.lb-chart-total{color:#FF8800;font-weight:700}
+/* Stat row */
+.lb-stat-row{display:flex;gap:8px;width:100%;max-width:480px;position:relative;z-index:2;animation:textFadeUp 0.6s ease 1.6s both}
+.lb-stat{flex:1;background:#fff;border:1px solid #F0E4DC;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:8px;box-shadow:0 1px 4px rgba(0,0,0,0.04)}
+.lb-stat-icon{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,rgba(255,102,0,0.15),rgba(255,140,60,0.10));display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lb-stat-val{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:800;color:#FF8800;line-height:1.1}
+.lb-stat-label{font-size:8.5px;color:#AAA;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.lb-dots{display:flex;gap:7px;position:relative;z-index:2;animation:textFadeUp 0.6s ease 1.8s both}
+.lb-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,102,0,0.2);cursor:pointer;transition:all 0.3s ease;flex-shrink:0}
+.lb-dot.active{width:24px;border-radius:4px;background:var(--primary)}
+/* Slide carousel */
+.lb-slides{width:100%;max-width:480px;position:relative;z-index:2}
+.lb-slide{display:none;flex-direction:column;gap:14px;width:100%;animation:slideIn 0.45s ease}
+.lb-slide.active{display:flex}
+@keyframes slideIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+/* Funnel bars */
+.lb-funnel-card{width:100%;background:#fff;border:1px solid #F0E4DC;border-radius:14px;padding:14px 16px 12px;box-shadow:0 1px 6px rgba(0,0,0,0.05)}
+.lb-funnel{display:flex;flex-direction:column;gap:9px}
+.lb-funnel-row{display:flex;align-items:center;gap:8px}
+.lb-funnel-label{font-size:9.5px;color:#999;width:72px;flex-shrink:0;text-align:right}
+.lb-funnel-bar-wrap{flex:1;height:7px;background:rgba(0,0,0,0.06);border-radius:4px;overflow:hidden}
+.lb-funnel-bar{height:100%;border-radius:4px;width:0;transition:width 1s cubic-bezier(0.4,0,0.2,1)}
+.lb-slide.active .lb-funnel-bar{width:var(--pct)}
+.lb-funnel-val{font-size:9px;color:#BBB;width:24px;text-align:right;flex-shrink:0}
+/* Circular rings */
+.lb-rings-row{display:flex;gap:10px;width:100%;justify-content:center}
+.lb-ring{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1}
+.lb-ring svg{display:block}
+.lb-ring-arc{stroke-dasharray:150.8;stroke-dashoffset:150.8;stroke-linecap:round;transform:rotate(-90deg);transform-origin:30px 30px;transition:stroke-dashoffset 1.3s cubic-bezier(0.4,0,0.2,1) 0.3s}
+.lb-slide.active .lb-ring-arc{stroke-dashoffset:var(--offset)}
+.lb-ring-val{font-family:'Montserrat',sans-serif;font-size:15px;font-weight:800;color:#111;line-height:1}
+.lb-ring-label{font-size:8px;color:#AAA;text-transform:uppercase;letter-spacing:.07em;text-align:center}
+/* Ratio bars */
+.lb-ratio-list{display:flex;flex-direction:column;gap:10px}
+.lb-ratio-row{display:flex;align-items:center;gap:8px}
+.lb-ratio-name{font-size:9.5px;color:#999;width:96px;flex-shrink:0}
+.lb-ratio-bar-wrap{flex:1;height:5px;background:rgba(0,0,0,0.07);border-radius:3px;overflow:hidden}
+.lb-ratio-bar{height:100%;border-radius:3px;width:0;transition:width 1.1s ease 0.4s}
+.lb-slide.active .lb-ratio-bar{width:var(--w)}
+.lb-ratio-val{font-size:10px;font-weight:700;color:#FF8800;width:32px;text-align:right;flex-shrink:0}
+
+/* ── Left form panel ── */
+.login-panel{flex:0 0 420px;background:#fff;display:flex;align-items:center;justify-content:center;padding:40px 32px;overflow-y:auto}
+.login-box{width:100%;max-width:370px}
+.login-logo{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#FF6600,#FF8800);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 22px rgba(255,102,0,0.38);margin-bottom:20px}
+.login-vid-wrap{width:100%;display:flex;justify-content:flex-start;margin-bottom:24px}
+.login-vid{width:180px;height:auto;display:block;border-radius:12px;object-fit:contain}
+.login-title{font-family:'Montserrat',sans-serif;font-size:22px;font-weight:700;color:#111;margin-bottom:4px}
+.login-sub{font-size:12px;color:#888;margin-bottom:24px}
+#login-form .form-row,#register-form .form-row,#forgot-form .form-row,#reset-form .form-row{margin-bottom:14px}
+#login-form label,#register-form label,#forgot-form label,#reset-form label{font-size:10.5px;color:#666;display:block;margin-bottom:5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.pw-wrap{position:relative}.pw-wrap input{padding-right:42px!important}
+.pw-toggle{position:absolute;right:11px;top:50%;transform:translateY(-50%);cursor:pointer;color:#bbb;background:none;border:none;padding:2px;display:flex;align-items:center;transition:color .15s}.pw-toggle:hover{color:#555}
+.pw-strength{margin-top:7px}.pw-strength-bar{height:3px;border-radius:2px;background:#eee;overflow:hidden;margin-bottom:5px}.pw-strength-fill{height:100%;border-radius:2px;transition:width .3s,background .3s}.pw-strength-label{font-size:10px;font-weight:700;letter-spacing:.04em}
+#login-form input,#register-form input,#forgot-form input,#reset-form input{width:100%;background:#F8F9FB;border:1.5px solid #E4E7ED;border-radius:9px;padding:11px 14px;font-size:13px;color:#111;font-family:'Barlow',sans-serif;outline:none;transition:border .15s,box-shadow .15s}
+#login-form input:focus,#register-form input:focus,#forgot-form input:focus,#reset-form input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(255,102,0,0.1)}
+.login-btn{width:100%;padding:12px;background:linear-gradient(135deg,#FF6600,#FF8800);color:#fff;border:none;border-radius:9px;font-size:13.5px;font-weight:700;cursor:pointer;margin-top:4px;font-family:'Montserrat',sans-serif;letter-spacing:.02em;transition:opacity .15s,transform .1s;box-shadow:0 4px 16px rgba(255,102,0,0.32)}
+.login-btn:hover{opacity:.91}.login-btn:active{transform:scale(.98)}
+.login-error{font-size:11px;color:#991B1B;background:#FEF2F2;border:1px solid rgba(220,38,38,.2);border-radius:7px;padding:8px 12px;margin-top:10px;display:none}
 .login-error.show{display:block}
-.register-link{font-size:11px;color:var(--text-2);text-align:center;margin-top:16px}
-.register-link a{color:var(--primary);cursor:pointer;text-decoration:none}
+.login-success{font-size:11px;color:#14532D;background:#F0FDF4;border:1px solid rgba(22,163,74,.2);border-radius:7px;padding:8px 12px;margin-top:10px;display:none}
+.login-success.show{display:block}
+.login-footer{font-size:11.5px;color:#aaa;margin-top:16px;display:flex;align-items:center;justify-content:space-between}
+.login-footer a{color:var(--primary);cursor:pointer;text-decoration:none;font-weight:600}
+@media(max-width:700px){#login-screen{flex-direction:column}.login-brand{flex:0 0 auto;padding:24px 20px;min-height:200px}.lb-slides,.lb-dots,.lb-tagline{display:none}.lb-lamp-wrap{margin-bottom:6px}.lb-logo-text{font-size:19px;margin-bottom:0}.login-panel{flex:1;padding:28px 20px}}
 
 /* ── Shell ── */
 #app-screen{display:none;height:100vh;overflow:hidden}
@@ -45,116 +218,230 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;f
 .shell{display:flex;width:100%;height:100%}
 
 /* ── Sidebar ── */
-.sidebar{width:210px;background:var(--surface);border-right:0.5px solid var(--border);display:flex;flex-direction:column;padding:14px 10px;flex-shrink:0;overflow-y:auto}
-.logo{display:flex;align-items:center;gap:10px;margin-bottom:22px;padding:4px 2px}
-.logo-icon{width:36px;height:36px;border-radius:9px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:15px;flex-shrink:0}
-.logo-name{font-size:13px;font-weight:700;color:var(--text)}
-.logo-sub{font-size:10px;color:var(--text-2)}
-.nav-sec{font-size:9px;color:var(--text-3);letter-spacing:.1em;text-transform:uppercase;padding:10px 10px 4px;font-weight:600}
-.nav-item{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;font-size:12px;color:var(--text-2);cursor:pointer;margin-bottom:1px;border:none;background:transparent;width:100%;text-align:left;transition:all .12s;font-family:inherit}
+.sidebar{width:216px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 10px;flex-shrink:0;overflow-y:auto}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:24px;padding:4px 4px}
+.logo-icon{width:36px;height:36px;border-radius:10px;background:var(--primary);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;color:#fff;font-size:16px;flex-shrink:0;box-shadow:0 3px 10px rgba(255,102,0,0.3)}
+.logo-name{font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;color:var(--text)}
+.logo-sub{font-size:10px;color:var(--text-3);margin-top:1px}
+.nav-sec{font-size:9px;color:var(--text-3);letter-spacing:.12em;text-transform:uppercase;padding:10px 10px 5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;transition:color .12s;border-radius:6px}
+.nav-sec:hover{color:var(--text-2);background:var(--surface-2)}
+.nav-chevron{transition:transform .2s;flex-shrink:0;opacity:.45;margin-top:1px}
+.nav-sec.collapsed .nav-chevron{transform:rotate(-90deg)}
+.nav-group-items.collapsed{display:none}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:500;color:var(--text-2);cursor:pointer;margin-bottom:1px;border:none;background:transparent;width:100%;text-align:left;transition:all .12s;font-family:'Barlow',sans-serif}
 .nav-item:hover{background:var(--surface-2);color:var(--text)}
-.nav-item.active{background:var(--primary-bg);color:var(--primary);font-weight:500}
-.nav-icon{width:14px;height:14px;flex-shrink:0;opacity:.8}
+.nav-item.active{background:var(--primary-bg);color:var(--primary);font-weight:600}
+.nav-icon{width:14px;height:14px;flex-shrink:0;opacity:.7}
 .nav-item.active .nav-icon{opacity:1}
 .sidebar-footer{margin-top:auto;padding:10px 4px}
-.user-pill{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:7px;background:var(--surface-2);border:0.5px solid var(--border);cursor:pointer}
-.user-pill:hover{background:var(--surface-3)}
-.user-avatar{width:28px;height:28px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.user-pill{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;transition:all .12s}
+.user-pill:hover{border-color:var(--primary);background:var(--primary-bg)}
+.user-avatar{width:30px;height:30px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
 .user-info{flex:1;min-width:0}
-.user-name{font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-name{font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
 .user-role{font-size:10px;color:var(--text-2)}
 
 /* ── Main ── */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.topbar{background:var(--surface);border-bottom:0.5px solid var(--border);padding:11px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.topbar-title{font-size:16px;font-weight:700;color:var(--text)}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 22px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
+.topbar-title{font-family:'Montserrat',sans-serif;font-size:16px;font-weight:700;color:var(--text)}
 .topbar-sub{font-size:11px;color:var(--text-2);margin-top:1px}
 .topbar-right{display:flex;gap:8px;align-items:center}
-.quarter-badge{font-size:11px;padding:4px 11px;border-radius:20px;background:var(--primary-bg);color:var(--primary);border:0.5px solid rgba(249,115,22,.3);font-weight:600}
-.ai-btn{font-size:12px;padding:6px 14px;border-radius:7px;background:linear-gradient(135deg,var(--primary),#fb923c);color:#fff;border:none;cursor:pointer;font-family:inherit;font-weight:600;display:flex;align-items:center;gap:6px}
-.ai-btn:hover{opacity:.9}
+.quarter-badge{font-size:11px;padding:4px 12px;border-radius:20px;background:var(--primary-bg);color:var(--primary);border:1px solid rgba(255,102,0,.2);font-weight:600}
+.ai-btn{display:none!important}
+/* hide all inline Ask Ayla / AI Brief buttons */
+button[onclick*="openAI"]:not(.ayla-float){display:none!important}
+/* floating Ayla button */
+.ayla-float{
+  position:fixed;bottom:28px;right:28px;z-index:9999;
+  width:76px;height:76px;border-radius:50%;
+  background:linear-gradient(145deg,#FF8C00,#FF4500);
+  border:none;cursor:pointer;padding:0;
+  isolation:isolate;
+  box-shadow:0 6px 24px rgba(255,80,0,0.55);
+  animation:aylaBob 3.2s ease-in-out infinite;
+  transition:opacity .4s cubic-bezier(0.34,1.56,0.64,1),
+             transform .4s cubic-bezier(0.34,1.56,0.64,1),
+             box-shadow .2s;
+}
+/* spinning glow ring */
+.ayla-float::before{
+  content:'';position:absolute;inset:-5px;border-radius:50%;
+  background:conic-gradient(from 0deg,transparent 50%,rgba(255,200,80,0.9) 70%,rgba(255,100,0,1) 85%,transparent 100%);
+  animation:aylaOrbit 2.4s linear infinite;
+  z-index:-1;
+}
+/* outer pulse ring */
+.ayla-float::after{
+  content:'';position:absolute;inset:-5px;border-radius:50%;
+  border:2.5px solid rgba(255,140,0,0.5);
+  animation:aylaRing 2.4s ease-out infinite;
+  z-index:-1;pointer-events:none;
+}
+.ayla-float:hover{
+  animation:none;
+  transform:scale(1.14) translateY(-4px);
+  box-shadow:0 12px 36px rgba(255,80,0,0.85),0 0 0 8px rgba(255,140,0,0.18);
+}
+.ayla-float:hover::before{animation:aylaOrbit .8s linear infinite}
+/* hide state — spins away */
+.ayla-float.ayla-hidden{
+  animation:none!important;
+  opacity:0!important;
+  transform:scale(0) rotate(200deg) translateY(30px)!important;
+  pointer-events:none!important;
+}
+/* tooltip */
+.ayla-float .ayla-tip{
+  position:absolute;right:calc(100% + 12px);top:50%;
+  transform:translateY(-50%) translateX(8px);
+  background:rgba(15,5,0,0.92);color:#FF9900;
+  font-size:11px;font-weight:700;font-family:'Montserrat',sans-serif;
+  padding:5px 12px;border-radius:8px;white-space:nowrap;
+  opacity:0;pointer-events:none;
+  transition:opacity .2s,transform .2s;
+  border:1px solid rgba(255,102,0,0.35);
+  box-shadow:0 3px 12px rgba(0,0,0,0.4);
+  letter-spacing:.4px;
+}
+.ayla-float:hover .ayla-tip{opacity:1;transform:translateY(-50%) translateX(0)}
+@keyframes aylaBob{
+  0%,100%{transform:translateY(0) scale(1)}
+  25%{transform:translateY(-10px) scale(1.04)}
+  50%{transform:translateY(-6px) scale(1.02)}
+  75%{transform:translateY(-9px) scale(1.03)}
+}
+@keyframes aylaOrbit{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes aylaRing{
+  0%{transform:scale(1);opacity:0.6}
+  70%{transform:scale(1.45);opacity:0}
+  100%{transform:scale(1.45);opacity:0}
+}
+/* Ayla face animations */
+@keyframes aylaBlink{0%,88%,100%{transform:scaleY(0)}92%,96%{transform:scaleY(1)}}
+@keyframes aylaEyeGlow{0%,100%{opacity:0.7}50%{opacity:1}}
+@keyframes aylaFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes aylaBrow{0%,80%,100%{transform:translateY(0)}85%,95%{transform:translateY(-1px)}}
+@keyframes aylaMood{0%,60%,100%{d:path("M23,36 Q29,39.5 35,36")}70%,90%{d:path("M23,36 Q29,38 35,36")}}
+.ayla-face-wrap{animation:aylaFloat 3.5s ease-in-out infinite}
+.ayla-lid-l{transform-origin:31px 31px;animation:aylaBlink 4.5s ease-in-out infinite}
+.ayla-lid-r{transform-origin:45px 31px;animation:aylaBlink 4.5s ease-in-out infinite}
+.ayla-brow-l{animation:aylaBrow 6s ease-in-out infinite}
+.ayla-brow-r{animation:aylaBrow 6s ease-in-out infinite 0.1s}
+.ayla-glow-l{animation:aylaEyeGlow 2s ease-in-out infinite}
+.ayla-glow-r{animation:aylaEyeGlow 2s ease-in-out infinite 0.3s}
+.notif-btn{position:relative;width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);transition:all .12s}
+.notif-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-bg)}
+.notif-badge{position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:var(--danger);border:2px solid var(--surface)}
+.notif-badge.hidden{display:none}
 .sync-status{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-2)}
 .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--success)}
 .sync-dot.spin{background:var(--warning);animation:pulse 1s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.content{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:14px}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideInLeft{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+@keyframes popIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+.content{flex:1;overflow-y:auto;padding:18px 22px 130px;display:flex;flex-direction:column;gap:14px}
+.content > *{animation:fadeInUp .22s ease both}
 
 /* ── Buttons ── */
-.btn{font-size:12px;padding:6px 12px;border-radius:7px;border:0.5px solid var(--border-2);background:var(--surface-2);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-family:inherit;transition:all .12s}
-.btn:hover{background:var(--surface-3)}
-.btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
-.btn-primary:hover{opacity:.9;background:var(--primary)}
-.btn-danger{background:var(--danger-bg);color:var(--danger-text);border-color:rgba(239,68,68,.3)}
-.btn-sm{font-size:11px;padding:4px 10px}
+.btn{font-size:12px;padding:7px 13px;border-radius:7px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-family:'Barlow',sans-serif;font-weight:500;transition:all .12s;box-shadow:0 1px 2px rgba(0,0,0,0.04)}
+.btn:active{transform:scale(.96)}
+.btn:hover{background:var(--surface-2);border-color:var(--primary)}
+.btn-primary{background:var(--primary);color:#fff;border-color:var(--primary);box-shadow:0 2px 6px rgba(255,102,0,0.2)}
+.btn-primary:hover{opacity:.92;background:var(--primary)}
+.btn-danger{background:var(--danger-bg);color:var(--danger-text);border-color:rgba(220,38,38,.25)}
+.btn-warning{background:var(--warning-bg);color:var(--warning-text);border-color:rgba(217,119,6,.25)}
+.btn-sm{font-size:11px;padding:5px 10px}
 
 /* ── Cards ── */
-.card{background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:14px 16px}
-.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:10px;flex-wrap:wrap}
-.card-title{font-size:13px;font-weight:600;color:var(--text)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);animation:fadeInUp .22s ease both}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;flex-wrap:wrap}
+.card-title{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;color:var(--text)}
 .card-desc{font-size:11px;color:var(--text-2);margin-top:2px}
 
 /* ── Tags / Badges ── */
-.tag{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500;white-space:nowrap}
+.tag{font-size:10px;padding:2px 8px;border-radius:5px;font-weight:600;white-space:nowrap}
 .tag-success{background:var(--success-bg);color:var(--success-text)}
 .tag-warning{background:var(--warning-bg);color:var(--warning-text)}
 .tag-info{background:var(--info-bg);color:var(--info-text)}
 .tag-danger{background:var(--danger-bg);color:var(--danger-text)}
-.tag-neutral{background:var(--surface-3);color:var(--text-2)}
+.tag-neutral{background:var(--surface-2);color:var(--text-2);border:1px solid var(--border)}
 .tag-primary{background:var(--primary-bg);color:var(--primary-text)}
 .tag-purple{background:var(--purple-bg);color:var(--purple)}
-.badge-qbo{font-size:9px;color:var(--info);background:var(--info-bg);padding:1px 5px;border-radius:3px;font-weight:500}
-.badge-manual{font-size:9px;color:var(--warning-text);background:var(--warning-bg);padding:1px 5px;border-radius:3px;font-weight:500}
-.badge-auto{font-size:9px;color:var(--success-text);background:var(--success-bg);padding:1px 5px;border-radius:3px;font-weight:500}
+.badge-qbo{font-size:9px;color:var(--info-text);background:var(--info-bg);padding:1px 5px;border-radius:3px;font-weight:600}
+.badge-manual{font-size:9px;color:var(--warning-text);background:var(--warning-bg);padding:1px 5px;border-radius:3px;font-weight:600}
+.badge-auto{font-size:9px;color:var(--success-text);background:var(--success-bg);padding:1px 5px;border-radius:3px;font-weight:600}
 
 /* ── Grid ── */
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.grid-5{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.grid-2 > *:nth-child(2){animation-delay:.04s}
+.grid-3 > *:nth-child(2){animation-delay:.05s}.grid-3 > *:nth-child(3){animation-delay:.10s}
+.grid-4 > *:nth-child(2){animation-delay:.04s}.grid-4 > *:nth-child(3){animation-delay:.08s}.grid-4 > *:nth-child(4){animation-delay:.12s}
 
 /* ── Metrics / KPI ── */
-.metric{background:var(--surface-2);border:0.5px solid var(--border);border-radius:8px;padding:12px 14px}
-.metric-label{font-size:10px;color:var(--text-2);margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
-.metric-value{font-size:22px;font-weight:700;color:var(--text)}
-.metric-sub{font-size:10px;color:var(--text-3);margin-top:4px;display:flex;align-items:center;gap:4px}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;box-shadow:var(--shadow);transition:all .18s;animation:fadeInUp .25s ease both}
+.metric.clickable{cursor:pointer}
+.metric.clickable:hover{border-color:var(--primary);box-shadow:0 2px 12px rgba(255,102,0,0.15);transform:translateY(-2px)}
+.metric-label{font-size:10px;color:var(--text-3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:4px}
+.metric-value{font-family:'Montserrat',sans-serif;font-size:22px;font-weight:700;color:var(--text)}
+.metric-sub{font-size:10px;color:var(--text-3);margin-top:5px;display:flex;align-items:center;gap:5px}
 .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.minfo{position:relative;display:inline-flex;align-items:center;cursor:default;flex-shrink:0}
+.minfo-icon{font-size:9px;color:var(--text-3);opacity:.6;line-height:1;font-style:normal;font-family:sans-serif}
+.minfo:hover .minfo-icon{opacity:1;color:var(--primary)}
+.minfo-tip{display:none;position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;white-space:nowrap;padding:4px 8px;border-radius:5px;z-index:999;pointer-events:none;line-height:1.4}
+.minfo-tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:var(--text)}
+.minfo:hover .minfo-tip{display:block}
 
 /* ── Finance Flow ── */
-.flow-bar{background:var(--surface);border:0.5px solid var(--border);border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:0;overflow-x:auto}
+.flow-bar{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:0;overflow-x:auto}
 .flow-step{display:flex;align-items:center;gap:0;flex-shrink:0}
-.flow-node{display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:7px;border:0.5px solid var(--border-2);background:var(--surface-2);cursor:pointer;transition:all .15s}
+.flow-node{display:flex;align-items:center;gap:8px;padding:7px 14px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface-2);cursor:pointer;transition:all .15s}
 .flow-node:hover,.flow-node.active{border-color:var(--primary);background:var(--primary-bg)}
 .flow-num{width:18px;height:18px;border-radius:50%;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--text-2);flex-shrink:0}
 .flow-node.active .flow-num{background:var(--primary);color:#fff}
-.flow-label{font-size:11px;font-weight:500;white-space:nowrap}
-.flow-arrow{font-size:14px;color:var(--text-3);padding:0 6px}
+.flow-label{font-size:11px;font-weight:500;white-space:nowrap;color:var(--text)}
+.flow-arrow{font-size:14px;color:var(--text-3);padding:0 8px}
 
 /* ── Tables ── */
-.table{width:100%;border-collapse:collapse;font-size:11px}
-.table th{font-size:10px;font-weight:600;color:var(--text-2);text-align:left;padding:8px 10px;border-bottom:0.5px solid var(--border);white-space:nowrap;background:var(--surface-2);text-transform:uppercase;letter-spacing:.04em}
-.table td{padding:7px 10px;border-bottom:0.5px solid var(--border);color:var(--text)}
+.table{width:100%;border-collapse:collapse;font-size:12px}
+.table th{font-size:10px;font-weight:600;color:var(--text-3);text-align:left;padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap;background:var(--surface-2);text-transform:uppercase;letter-spacing:.05em}
+.table td{padding:8px 11px;border-bottom:1px solid var(--border);color:var(--text)}
 .table tr:last-child td{border-bottom:none}
 .table tr:hover td{background:var(--surface-2)}
 
 /* ── Inputs ── */
-.input{background:var(--surface-2);border:0.5px solid var(--border-2);border-radius:5px;padding:4px 8px;font-size:11px;color:var(--text);font-family:inherit;outline:none}
-.input:focus{border-color:var(--primary);background:var(--surface-3)}
+.input{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12px;color:var(--text);font-family:'Barlow',sans-serif;outline:none;transition:border .15s}
+.input:focus{border-color:var(--primary)}
 .input.modified{border-color:var(--primary);background:var(--primary-bg);color:var(--primary-text)}
-.input-cell{width:90px}
-.search-input{width:100%;font-size:11px;padding:8px 11px;border:0.5px solid var(--border-2);border-radius:7px;margin-bottom:10px;background:var(--surface-2);color:var(--text);font-family:inherit;outline:none}
+.input-cell{width:95px}
+.search-input{width:100%;font-size:12px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;background:var(--surface);color:var(--text);font-family:'Barlow',sans-serif;outline:none}
 .search-input:focus{border-color:var(--primary)}
 
+/* ── Editable select ── */
+.editable-select-wrap{position:relative;display:inline-block}
+.editable-select-wrap input{padding-right:22px}
+.editable-select-wrap .dropdown-arrow{position:absolute;right:7px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-3);font-size:10px}
+.editable-dropdown{position:absolute;top:calc(100% + 3px);left:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);z-index:100;min-width:100%;max-height:180px;overflow-y:auto}
+.editable-dropdown-item{padding:7px 11px;font-size:12px;cursor:pointer;color:var(--text);white-space:nowrap}
+.editable-dropdown-item:hover{background:var(--primary-bg);color:var(--primary)}
+
 /* ── View tabs ── */
-.view-tabs{display:flex;gap:4px;background:var(--surface-2);border-radius:7px;padding:3px;margin-bottom:12px;border:0.5px solid var(--border)}
-.view-tab{flex:1;font-size:11px;padding:6px 10px;border-radius:5px;border:none;background:transparent;color:var(--text-2);cursor:pointer;font-weight:500;font-family:inherit;transition:all .12s}
-.view-tab.active{background:var(--surface);color:var(--text);border:0.5px solid var(--border-2)}
+.view-tabs{display:flex;gap:3px;background:var(--surface-2);border-radius:9px;padding:3px;margin-bottom:12px;border:1px solid var(--border)}
+.view-tab{flex:1;font-size:11px;padding:6px 12px;border-radius:7px;border:none;background:transparent;color:var(--text-2);cursor:pointer;font-weight:500;font-family:'Barlow',sans-serif;transition:all .12s}
+.view-tab.active{background:var(--surface);color:var(--text);border:1px solid var(--border);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,0.07)}
 .view-panel{display:none}
 .view-panel.active{display:block}
 
 /* ── Save bar ── */
-.save-bar{display:none;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--warning-bg);border:0.5px solid rgba(245,158,11,.3);border-radius:7px;margin-top:10px}
+.save-bar{display:none;align-items:center;justify-content:space-between;padding:9px 14px;background:var(--warning-bg);border:1px solid rgba(217,119,6,.25);border-radius:8px;margin-top:10px}
 .save-bar.visible{display:flex}
-.save-hint{font-size:11px;color:var(--warning-text);font-weight:500}
+.save-hint{font-size:11px;color:var(--warning-text);font-weight:600}
 
 /* ── Charts ── */
 .chart-wrap{height:180px;position:relative;width:100%}
@@ -162,180 +449,951 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;f
 .chart-wrap-sm{height:140px}
 
 /* ── Alerts ── */
-.alert{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:7px;margin-bottom:6px;font-size:11px}
-.alert-r{background:var(--danger-bg);border:0.5px solid rgba(239,68,68,.3);color:var(--danger-text)}
-.alert-a{background:var(--warning-bg);border:0.5px solid rgba(245,158,11,.3);color:var(--warning-text)}
-.alert-g{background:var(--success-bg);border:0.5px solid rgba(34,197,94,.3);color:var(--success-text)}
+.alert{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:9px;margin-bottom:6px;font-size:12px;font-weight:500}
+.alert-r{background:var(--danger-bg);border:1px solid rgba(220,38,38,.2);color:var(--danger-text)}
+.alert-a{background:var(--warning-bg);border:1px solid rgba(217,119,6,.2);color:var(--warning-text)}
+.alert-g{background:var(--success-bg);border:1px solid rgba(22,163,74,.2);color:var(--success-text)}
 
 /* ── Clients ── */
-.clients-grid{display:grid;grid-template-columns:290px 1fr;gap:12px}
-.client-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:0.5px solid var(--border);border-radius:8px;margin-bottom:5px;cursor:pointer;background:var(--surface);transition:all .12s}
+.clients-grid{display:grid;grid-template-columns:290px 1fr;gap:14px}
+.client-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;margin-bottom:5px;cursor:pointer;background:var(--surface);transition:all .12s}
 .client-item:hover{background:var(--surface-2);border-color:var(--border-2)}
 .client-item.selected{border-color:var(--primary);background:var(--primary-bg)}
-.client-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.client-avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;flex-shrink:0}
 .client-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .client-sub{font-size:10px;color:var(--text-2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.detail-row{display:flex;justify-content:space-between;padding:6px 0;font-size:11px;border-bottom:0.5px solid var(--border)}
+.detail-row{display:flex;justify-content:space-between;padding:7px 0;font-size:12px;border-bottom:1px solid var(--border)}
 .detail-row:last-child{border-bottom:none}
 .detail-label{color:var(--text-2)}
-.detail-value{font-weight:500;text-align:right}
+.detail-value{font-weight:600;text-align:right}
 
 /* ── Files ── */
-.file-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border:0.5px solid var(--border);border-radius:7px;margin-bottom:5px;background:var(--surface);transition:background .12s}
+.file-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:5px;background:var(--surface);transition:background .12s}
 .file-row:hover{background:var(--surface-2)}
-.file-icon{width:28px;height:28px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
+.file-icon{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0}
 .fi-pdf{background:var(--danger-bg);color:var(--danger)}
 .fi-xls{background:var(--success-bg);color:var(--success)}
 .fi-doc{background:var(--info-bg);color:var(--info)}
-.file-action{font-size:10px;padding:3px 8px;border:0.5px solid var(--border-2);border-radius:4px;background:transparent;color:var(--text-2);cursor:pointer;font-family:inherit}
-.file-action:hover{background:var(--surface-2)}
+.file-action{font-size:11px;padding:4px 9px;border:1px solid var(--border);border-radius:5px;background:transparent;color:var(--text-2);cursor:pointer;font-family:'Barlow',sans-serif}
+.file-action:hover{background:var(--surface-2);color:var(--primary)}
 
 /* ── Events / Calendar ── */
-.event-item{display:flex;gap:10px;padding:9px 11px;border:0.5px solid var(--border);border-radius:7px;cursor:pointer;background:var(--surface);margin-bottom:5px;transition:background .12s}
+.event-item{display:flex;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;cursor:pointer;background:var(--surface);margin-bottom:5px;transition:background .12s}
 .event-item:hover{background:var(--surface-2)}
 .event-bar{width:3px;border-radius:2px;flex-shrink:0;align-self:stretch;min-height:28px}
-.event-title{font-size:12px;font-weight:500}
-.event-meta{font-size:10px;color:var(--text-2);margin-top:3px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.countdown{font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px}
+.event-title{font-size:12px;font-weight:600}
+.event-meta{font-size:11px;color:var(--text-2);margin-top:3px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.countdown{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px}
 .cd-urgent{background:var(--danger-bg);color:var(--danger-text)}
 .cd-soon{background:var(--warning-bg);color:var(--warning-text)}
 .cd-ok{background:var(--success-bg);color:var(--success-text)}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
-.cal-hd{font-size:9px;color:var(--text-3);text-align:center;padding:3px 0;font-weight:600}
-.cal-day{font-size:11px;text-align:center;padding:5px 2px;border-radius:5px;cursor:pointer;min-height:26px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--text);transition:background .12s}
+.cal-hd{font-size:9px;color:var(--text-3);text-align:center;padding:3px 0;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.cal-day{font-size:12px;text-align:center;padding:5px 2px;border-radius:6px;cursor:pointer;min-height:28px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--text);transition:background .12s}
 .cal-day:hover{background:var(--surface-2)}
 .cal-day.today{background:var(--primary);color:#fff;font-weight:700}
-.cal-day.dim{opacity:.25}
-.cal-dot{width:3px;height:3px;border-radius:50%}
+.cal-day.dim{opacity:.3}
+.cal-dot{width:4px;height:4px;border-radius:50%}
 
 /* ── Tasks ── */
-.task-row{display:flex;gap:9px;align-items:flex-start;padding:7px 0;border-bottom:0.5px solid var(--border)}
+.task-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)}
 .task-row:last-child{border-bottom:none}
-.checkbox{width:16px;height:16px;border:0.5px solid var(--border-2);border-radius:4px;flex-shrink:0;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--surface-2)}
+.checkbox{width:17px;height:17px;border:1.5px solid var(--border-2);border-radius:5px;flex-shrink:0;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--surface);transition:all .12s}
 .checkbox.done{background:var(--success);border-color:var(--success)}
 .checkbox.done::after{content:'✓';font-size:10px;color:#fff;font-weight:700}
-.task-title{font-size:11px;line-height:1.5}
+.task-title{font-size:12px;line-height:1.5;font-weight:500}
 .task-title.done{text-decoration:line-through;color:var(--text-3)}
-.task-due{font-size:10px;color:var(--text-3);margin-top:2px}
-.task-priority-high{border-left:2px solid var(--danger)}
-.task-priority-medium{border-left:2px solid var(--warning)}
-.task-priority-low{border-left:2px solid var(--text-3)}
+.task-due{font-size:11px;color:var(--text-3);margin-top:2px}
+.task-ceo-badge{font-size:9px;padding:1px 6px;border-radius:4px;background:var(--purple-bg);color:var(--purple);font-weight:600;margin-left:5px}
 
 /* ── Progress ── */
-.progress-track{height:4px;background:var(--surface-3);border-radius:2px;overflow:hidden;width:60px;display:inline-block;vertical-align:middle}
-.progress-fill{height:100%;border-radius:2px;background:var(--primary)}
+.progress-track{height:5px;background:var(--surface-2);border:1px solid var(--border);border-radius:3px;overflow:hidden;width:60px;display:inline-block;vertical-align:middle}
+.progress-fill{height:100%;border-radius:3px;background:var(--primary)}
 .progress-fill.over{background:var(--danger)}
 .val-pos{color:var(--success);font-weight:600}
 .val-neg{color:var(--danger);font-weight:600}
 
-/* ── Reserve row ── */
-.reserve-row{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface-2);border:0.5px solid var(--border);border-radius:7px;margin-bottom:5px;gap:10px;font-size:11px}
-.del-btn{color:var(--danger-text);font-size:12px;padding:2px 7px;border:0.5px solid rgba(239,68,68,.3);border-radius:4px;cursor:pointer;background:var(--danger-bg);line-height:1;font-family:inherit}
+/* ── Reserve / Liability row ── */
+.reserve-row{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;margin-bottom:5px;gap:10px;font-size:12px}
+.del-btn{color:var(--danger-text);font-size:12px;padding:3px 8px;border:1px solid rgba(220,38,38,.25);border-radius:5px;cursor:pointer;background:var(--danger-bg);line-height:1;font-family:'Barlow',sans-serif;transition:opacity .12s}
 .del-btn:hover{opacity:.8}
+.hr-drop-item{display:block;width:100%;text-align:left;background:none;border:none;padding:8px 14px;font-size:12px;font-weight:500;color:var(--text);cursor:pointer;font-family:'Barlow',sans-serif;transition:background .1s}
+.hr-drop-item:hover{background:var(--surface-2)}
+
+/* ── Subscription section ── */
+.sub-kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;flex-direction:column;gap:4px}
+.sub-kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);font-weight:700}
+.sub-kpi-value{font-size:26px;font-weight:800;font-family:'Montserrat',sans-serif;color:var(--text);line-height:1}
+.sub-kpi-sub{font-size:11px;color:var(--text-2);margin-top:2px}
+.sub-status-active   {background:#DCFCE7;color:#15803D;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:700;display:inline-block}
+.sub-status-trial    {background:#EFF6FF;color:#1D4ED8;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:700;display:inline-block}
+.sub-status-paused   {background:#FFF7ED;color:#C2410C;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:700;display:inline-block}
+.sub-status-churned  {background:#FEF2F2;color:#B91C1C;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:700;display:inline-block}
+.sub-status-cancelled{background:#F3F4F6;color:#6B7280;padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:700;display:inline-block}
+
+/* ── Liability category ── */
+.liab-cat{border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px}
+.liab-cat-header{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:var(--surface-2);border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+.liab-cat-name{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;color:var(--text)}
+.liab-cat-total{font-family:'Montserrat',sans-serif;font-size:14px;font-weight:700;color:var(--danger-text)}
+.liab-breakdown{padding:10px 14px}
 
 /* ── Pipeline ── */
-.deal-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:0.5px solid var(--border);border-radius:8px;margin-bottom:5px;background:var(--surface);transition:background .12s}
+.deal-row{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--border);border-radius:9px;margin-bottom:5px;background:var(--surface);transition:background .12s}
 .deal-row:hover{background:var(--surface-2)}
-.stage-badge{font-size:9px;padding:2px 7px;border-radius:4px;font-weight:600;white-space:nowrap}
+.stage-badge{font-size:9px;padding:3px 8px;border-radius:5px;font-weight:700;white-space:nowrap}
 
 /* ── Statements ── */
-.stmt-row{display:flex;border-bottom:0.5px solid var(--border);font-size:11px}
+.stmt-row{border-bottom:1px solid var(--border);font-size:12px}
 .stmt-row:last-child{border-bottom:none}
 .stmt-row.subtotal{background:var(--surface-2);font-weight:600}
 .stmt-row.total{background:var(--primary-bg);font-weight:700;color:var(--primary-text)}
-.stmt-cat{padding:7px 10px;min-width:180px;flex-shrink:0;color:var(--text-2)}
+.stmt-cat{padding:8px 11px;min-width:180px;flex-shrink:0;color:var(--text-2)}
 .stmt-row.subtotal .stmt-cat,.stmt-row.total .stmt-cat{color:var(--text)}
-.stmt-cell{padding:7px 10px;min-width:80px;text-align:right;border-left:0.5px solid var(--border);white-space:nowrap}
+.stmt-cell{padding:8px 11px;min-width:82px;text-align:right;border-left:1px solid var(--border);white-space:nowrap}
 
 /* ── Modals ── */
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-start;justify-content:center;z-index:200;padding:40px 16px;overflow-y:auto;backdrop-filter:blur(2px)}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;z-index:200;padding:40px 16px;overflow-y:auto;backdrop-filter:blur(3px)}
 .modal-backdrop.open{display:flex}
-.modal{background:var(--surface);border:0.5px solid var(--border-2);border-radius:12px;padding:18px;width:100%;max-width:440px;box-shadow:0 24px 60px rgba(0,0,0,.6)}
-.modal-lg{max-width:680px}
-.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-.modal-title{font-size:14px;font-weight:700}
-.modal-close{font-size:20px;cursor:pointer;color:var(--text-2);background:none;border:none;padding:0 6px;line-height:1}
-.form-row{margin-bottom:11px}
-.form-row label{font-size:10px;color:var(--text-2);display:block;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-.form-row input,.form-row select,.form-row textarea{width:100%;font-size:12px;padding:8px 10px;border:0.5px solid var(--border-2);border-radius:7px;background:var(--surface-2);color:var(--text);font-family:inherit;outline:none}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;width:100%;max-width:460px;box-shadow:var(--shadow-lg);animation:popIn .18s ease both}
+.modal-lg{max-width:700px}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.modal-title{font-family:'Montserrat',sans-serif;font-size:15px;font-weight:700}
+.modal-close{font-size:20px;cursor:pointer;color:var(--text-3);background:none;border:none;padding:0 6px;line-height:1;transition:color .12s}
+.modal-close:hover{color:var(--text)}
+.form-row{margin-bottom:12px}
+.form-row label{font-size:10px;color:var(--text-2);display:block;margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.form-row input,.form-row select,.form-row textarea{width:100%;font-size:13px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-family:'Barlow',sans-serif;outline:none;transition:border .15s}
 .form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--primary)}
-.form-row select option{background:var(--surface-2);color:var(--text)}
-.form-row textarea{height:60px;resize:none}
-.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.form-row textarea{height:64px;resize:none}
+/* ── Date inputs (native fallback — LuxDatePicker overrides) ── */
+.form-row input[type="date"]{cursor:pointer;color-scheme:light;position:relative}
+.form-row input[type="date"]::-webkit-calendar-picker-indicator{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235E6C84' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'%3E%3C/rect%3E%3Cline x1='16' y1='2' x2='16' y2='6'%3E%3C/line%3E%3Cline x1='8' y1='2' x2='8' y2='6'%3E%3C/line%3E%3Cline x1='3' y1='10' x2='21' y2='10'%3E%3C/line%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:center;background-size:14px;width:22px;height:22px;cursor:pointer;opacity:.65;padding:0;transition:opacity .15s
+}
+.form-row input[type="date"]::-webkit-calendar-picker-indicator:hover{opacity:1}
+.form-row input[type="date"]::-webkit-datetime-edit-fields-wrapper{color:var(--text)}
+.form-row input[type="date"]::-webkit-datetime-edit-text{color:var(--text-3);padding:0 2px}
+.form-row input[type="date"]::-webkit-datetime-edit-month-field,.form-row input[type="date"]::-webkit-datetime-edit-day-field,.form-row input[type="date"]::-webkit-datetime-edit-year-field{color:var(--text);border-radius:3px;padding:1px 2px}
+.form-row input[type="date"]::-webkit-datetime-edit-month-field:focus,.form-row input[type="date"]::-webkit-datetime-edit-day-field:focus,.form-row input[type="date"]::-webkit-datetime-edit-year-field:focus{background:var(--primary);color:#fff;outline:none}
+/* date-wrap: visual container with calendar icon for standalone date inputs */
+.date-wrap{position:relative;display:flex;align-items:center}
+.date-wrap input[type="date"]{padding-right:36px;flex:1}
+.date-wrap .date-icon{position:absolute;right:10px;pointer-events:none;color:var(--text-3)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
 
 /* ── Toast ── */
-.toast{position:fixed;top:16px;right:16px;background:var(--surface-3);color:var(--text);font-size:12px;padding:10px 16px;border-radius:8px;border:0.5px solid var(--border-2);opacity:0;transition:opacity .25s;pointer-events:none;z-index:500}
-.toast.show{opacity:1}
+.toast{position:fixed;top:18px;right:18px;background:var(--text);color:#fff;font-size:12px;font-weight:500;padding:10px 16px;border-radius:9px;opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;z-index:500;box-shadow:var(--shadow-lg);transform:translateY(-6px);display:flex;align-items:center;gap:10px;min-width:160px;max-width:320px;border-left:3px solid transparent}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast-icon{width:28px;height:28px;flex-shrink:0;overflow:hidden}
+.toast-msg{flex:1;line-height:1.4}
+.toast--success{border-left-color:#22c55e;background:#1a2e1e}
+.toast--error{border-left-color:#ef4444;background:#2e1a1a}
+.toast--warning{border-left-color:#f97316;background:#2e2318}
+.toast--info{border-left-color:#3b82f6;background:#1a2035}
+/* ── Empty state ── */
+.empty-state{text-align:center;padding:44px 24px}
+.es-lottie{width:100px;height:100px;margin:0 auto 14px}
+.empty-state-title{font-size:14px;font-weight:600;color:var(--text-2);margin-bottom:5px}
+.empty-state-sub{font-size:12px;color:var(--text-3);line-height:1.5}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ANIMATION SYSTEM
+   RULE: never set opacity:0 on a CSS rule — only inside @keyframes from{}.
+   This way if the animation doesn't fire, elements are always visible.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Screen transition ── */
+@keyframes sectionIn {from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes sectionOut{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-7px)}}
+.section-enter{animation:sectionIn .25s ease forwards}
+.section-exit{animation:sectionOut .15s ease forwards;pointer-events:none}
+
+/* ── Card stagger — uses backwards fill so elements default to visible if anim fails ── */
+@keyframes cardIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.anim-cards .card{animation:cardIn .35s cubic-bezier(.4,0,.2,1) backwards}
+.anim-cards .card:nth-child(1){animation-delay:.03s}
+.anim-cards .card:nth-child(2){animation-delay:.08s}
+.anim-cards .card:nth-child(3){animation-delay:.13s}
+.anim-cards .card:nth-child(4){animation-delay:.18s}
+.anim-cards .card:nth-child(5){animation-delay:.22s}
+.anim-cards .card:nth-child(n+6){animation-delay:.26s}
+
+/* ── Metric KPI stagger ── */
+@keyframes metricIn{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+.anim-cards .metric{animation:metricIn .38s cubic-bezier(.4,0,.2,1) backwards}
+.anim-cards .metric:nth-child(1){animation-delay:.04s}
+.anim-cards .metric:nth-child(2){animation-delay:.09s}
+.anim-cards .metric:nth-child(3){animation-delay:.14s}
+.anim-cards .metric:nth-child(4){animation-delay:.19s}
+.anim-cards .metric:nth-child(5){animation-delay:.24s}
+
+/* ── Card title slide ── */
+@keyframes titleReveal{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+.anim-cards .card-title{animation:titleReveal .3s cubic-bezier(.4,0,.2,1) backwards;animation-delay:.05s}
+
+/* ── Metric number count pop ── */
+@keyframes numPop{0%{transform:scale(.82);opacity:.4}60%{transform:scale(1.07)}100%{transform:scale(1);opacity:1}}
+.metric-value{transform-origin:left center}
+.num-anim{animation:numPop .5s cubic-bezier(.4,0,.2,1) backwards}
+
+/* ── Button ripple ── */
+.btn-ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.32);transform:scale(0);animation:btnRipple .6s linear;pointer-events:none;z-index:0}
+@keyframes btnRipple{to{transform:scale(5);opacity:0}}
+
+/* ── Nav icon pop on navigate ── */
+@keyframes navIconPop{0%{transform:scale(1)}35%{transform:scale(1.55) rotate(-8deg)}65%{transform:scale(.85) rotate(4deg)}100%{transform:scale(1) rotate(0deg)}}
+.nav-item.nav-pop .nav-icon{animation:navIconPop .42s cubic-bezier(.4,0,.2,1)}
+/* Nav active glow */
+.nav-item.active .nav-icon{filter:drop-shadow(0 0 4px var(--primary));transition:filter .2s}
+@keyframes navActiveLine{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.nav-item.active::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:3px;background:var(--primary);border-radius:0 3px 3px 0;animation:navActiveLine .25s cubic-bezier(.4,0,.2,1) forwards}
+.nav-item{position:relative}
+
+/* ── Loading overlay ── */
+#loading-overlay{
+  position:fixed;inset:0;z-index:8900;
+  background:rgba(237,240,245,.94);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .25s;
+}
+#loading-overlay.active{opacity:1;pointer-events:all}
+#loading-lottie{width:80px;height:80px}
+#loading-text{font-size:14px;font-weight:600;color:var(--text-2);margin-top:14px;letter-spacing:.03em}
+#loading-progress{width:160px;height:3px;background:var(--border);border-radius:99px;margin-top:14px;overflow:hidden}
+#loading-progress-bar{height:100%;background:linear-gradient(90deg,var(--primary),#ff9900);border-radius:99px;width:0%;transition:width .3s ease}
+
+/* ── Alert popup ── */
+#modal-alert .modal{text-align:center;max-width:420px;padding:32px 28px 26px;position:relative}
+#modal-alert .modal-close-x{position:absolute;top:14px;right:16px;font-size:20px;background:none;border:none;cursor:pointer;color:var(--text-3);line-height:1;padding:4px;opacity:.5}
+#modal-alert .modal-close-x:hover{opacity:1}
+#alert-lottie{width:120px;height:120px;margin:0 auto 10px}
+#alert-title{font-size:20px;font-weight:800;color:var(--text);font-family:'Montserrat',sans-serif;margin-bottom:8px;line-height:1.2}
+#alert-body{font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:24px}
+.alert-ok-btn{min-width:110px;font-size:13px}
+
+/* ── Toast redesign ── */
+.toast{display:flex!important;align-items:center;gap:10px;min-width:180px;max-width:340px}
+.toast-icon{width:32px;height:32px;flex-shrink:0}
+.toast-msg{flex:1;line-height:1.4}
+.toast--success{background:#1a2e1e;border-left:3px solid #22c55e}
+.toast--error  {background:#2e1a1a;border-left:3px solid #ef4444}
+.toast--warning{background:#2e2318;border-left:3px solid #f97316}
+.toast--info   {background:#1a2035;border-left:3px solid #3b82f6}
+
+/* ── Logo name shimmer on app load ── */
+@keyframes logoShimmer{0%{background-position:-200%}100%{background-position:200%}}
+.logo-name{
+  background:linear-gradient(90deg,var(--text) 20%,var(--primary) 50%,var(--text) 80%);
+  background-size:300% 100%;
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:logoShimmer 1.2s ease .3s both
+}
+
+/* ── Sync spinner ── */
+@keyframes iconSpin{to{transform:rotate(360deg)}}
+.icon-spin{display:inline-block;animation:iconSpin .8s linear infinite}
+
+/* ── Confetti burst ── */
+@keyframes confettiDrop{0%{transform:translateY(-20px) rotate(0);opacity:1}100%{transform:translateY(70px) rotate(200deg);opacity:0}}
+.confetti-piece{position:absolute;width:7px;height:7px;border-radius:1px;animation:confettiDrop .85s ease forwards;pointer-events:none}
+
+/* ── Number counter shimmer ── */
+@keyframes counterShimmer{0%,100%{background-position:200% center}50%{background-position:-200% center}}
+.counting-shimmer{background:linear-gradient(90deg,var(--text) 25%,var(--primary) 50%,var(--text) 75%);background-size:200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:counterShimmer .65s ease}
+
+/* ── Row slide-in for lists ── */
+@keyframes rowIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
+.row-anim{animation:rowIn .25s cubic-bezier(.4,0,.2,1) backwards}
+
+/* ── Pulse badge ── */
+@keyframes pulseBadge{0%,100%{box-shadow:0 0 0 0 rgba(255,102,0,.4)}50%{box-shadow:0 0 0 6px rgba(255,102,0,0)}}
+.pulse-badge{animation:pulseBadge 2s infinite}
+
+/* ── Shake for error inputs ── */
+@keyframes inputShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.shake{animation:inputShake .4s ease}
+
+/* ── Notifications panel ── */
+.notif-panel{position:fixed;top:60px;right:18px;width:340px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-lg);z-index:300;display:none;flex-direction:column;max-height:480px;overflow:hidden}
+.notif-panel.open{display:flex}
+.notif-panel-head{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.notif-panel-title{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700}
+.notif-list{flex:1;overflow-y:auto}
+.notif-item{display:flex;gap:10px;padding:12px 15px;border-bottom:1px solid var(--border);align-items:flex-start;transition:background .12s}
+.notif-item:hover{background:var(--surface-2)}
+.notif-item:last-child{border-bottom:none}
+.notif-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+.notif-body{flex:1;min-width:0}
+.notif-title{font-size:12px;font-weight:600;color:var(--text)}
+.notif-sub{font-size:11px;color:var(--text-2);margin-top:2px;line-height:1.4}
+.notif-dismiss{font-size:16px;cursor:pointer;color:var(--text-3);padding:0 2px;line-height:1;background:none;border:none;flex-shrink:0}
+.notif-dismiss:hover{color:var(--danger)}
 
 /* ── AI Chat ── */
-.ai-chat-panel{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:flex-end;z-index:300;padding:20px;backdrop-filter:blur(3px)}
+.ai-chat-panel{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:flex-end;justify-content:flex-end;z-index:300;padding:20px;backdrop-filter:blur(4px)}
 .ai-chat-panel.open{display:flex}
-.ai-chat-box{background:var(--surface);border:0.5px solid var(--border-2);border-radius:14px;width:380px;max-height:520px;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.7)}
-.ai-chat-head{padding:14px 16px;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center}
-.ai-chat-msgs{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
-.ai-msg{max-width:85%;padding:9px 12px;border-radius:9px;font-size:12px;line-height:1.5}
-.ai-msg.bot{background:var(--surface-2);border:0.5px solid var(--border);color:var(--text);align-self:flex-start}
-.ai-msg.user{background:var(--primary-bg);border:0.5px solid rgba(249,115,22,.3);color:var(--primary-text);align-self:flex-end}
-.ai-chat-input{padding:12px 14px;border-top:0.5px solid var(--border);display:flex;gap:8px}
-.ai-chat-input input{flex:1;background:var(--surface-2);border:0.5px solid var(--border-2);border-radius:7px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;outline:none}
+.ai-chat-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:390px;max-height:540px;display:flex;flex-direction:column;box-shadow:var(--shadow-lg)}
+.ai-chat-head{padding:14px 17px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface-2);border-radius:16px 16px 0 0}
+.ai-chat-msgs{flex:1;overflow-y:auto;padding:14px 17px;display:flex;flex-direction:column;gap:10px}
+.ai-msg{max-width:87%;padding:10px 13px;border-radius:10px;font-size:12px;line-height:1.55}
+.ai-msg.bot{background:var(--surface-2);border:1px solid var(--border);color:var(--text);align-self:flex-start}
+.ai-msg.user{background:var(--primary);color:#fff;align-self:flex-end}
+.ai-chat-input{padding:13px 15px;border-top:1px solid var(--border);display:flex;gap:8px}
+.ai-chat-input input{flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:12px;color:var(--text);font-family:'Barlow',sans-serif;outline:none}
 .ai-chat-input input:focus{border-color:var(--primary)}
 
-@media(max-width:900px){.shell{flex-direction:column}.sidebar{display:none}.clients-grid{grid-template-columns:1fr}.grid-5{grid-template-columns:repeat(2,1fr)}}
+/* ── AI Proactive popup ── */
+.ai-popup{position:fixed;bottom:90px;right:20px;max-width:300px;background:var(--surface);border:1px solid var(--primary);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow-lg);z-index:290;display:none}
+.ai-popup.show{display:block;animation:slideUp .3s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.ai-popup-title{font-size:11px;font-weight:700;color:var(--primary);margin-bottom:5px;display:flex;align-items:center;gap:5px}
+.ai-popup-body{font-size:12px;color:var(--text-2);line-height:1.5}
+.ai-popup-actions{display:flex;gap:6px;margin-top:10px}
+
+/* ── Financial Ratios ── */
+.ratio-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.ratio-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 15px;box-shadow:var(--shadow)}
+.ratio-label{font-size:10px;color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.ratio-value{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:700}
+.ratio-sub{font-size:10px;color:var(--text-3);margin-top:4px}
+
+@media(max-width:900px){.shell{flex-direction:column}.sidebar{display:none}.clients-grid{grid-template-columns:1fr}.grid-5{grid-template-columns:repeat(2,1fr)}.ratio-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* ── Entrance Animations ── */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes countUp{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.anim-in{animation:fadeInUp .35s ease both}
+.anim-in-1{animation:fadeInUp .35s ease .05s both}
+.anim-in-2{animation:fadeInUp .35s ease .1s both}
+.anim-in-3{animation:fadeInUp .35s ease .15s both}
+.anim-in-4{animation:fadeInUp .35s ease .2s both}
+.metric-value{animation:countUp .4s ease both}
+.card{animation:fadeInUp .3s ease both}
+
+/* ── Logo lamp ── */
+.logo-lamp{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#FF6600,#FF8800);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 12px rgba(255,102,0,.4)}
+.logo-lamp svg{width:22px;height:22px}
+
+/* ── Commission badges ── */
+.comm-pending{background:#FFF7ED;color:#C2410C;border:1px solid #FED7AA}
+.comm-approved{background:#F0FDF4;color:#166534;border:1px solid #BBF7D0}
+.comm-paid{background:#EFF6FF;color:#1D4ED8;border:1px solid #BFDBFE}
+
+/* ── Project status ── */
+.proj-active{color:#16A34A}
+.proj-completed{color:#2563EB}
+.proj-paused{color:#D97706}
+.proj-proposal{color:#7C3AED}
+
+/* ── Editable select pill ── */
+.editable-select{position:relative;display:inline-flex;align-items:center}
+.editable-select input{padding-right:20px;cursor:pointer}
+.editable-select::after{content:'▾';position:absolute;right:8px;font-size:9px;color:var(--text-3);pointer-events:none}
+.es-dropdown{position:absolute;top:calc(100% + 3px);left:0;min-width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);z-index:200;overflow:hidden}
+.es-opt{padding:7px 11px;font-size:12px;cursor:pointer;white-space:nowrap;border-bottom:.5px solid var(--border)}
+.es-opt:last-child{border-bottom:none}
+.es-opt:hover{background:var(--primary-bg);color:var(--primary)}
+.es-opt-add{padding:7px 11px;font-size:11px;color:var(--text-3);cursor:pointer;border-top:1px dashed var(--border)}
+.es-opt-add:hover{color:var(--primary)}
+
+/* ── Pipeline notification banner ── */
+.pipe-alert{background:linear-gradient(135deg,#FFF7F5,#fff);border:1px solid #FFD4C0;border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;font-size:12px;margin-bottom:10px}
+
+/* ── Commission KPI ring ── */
+.comm-ring{width:88px;height:88px;flex-shrink:0}
+
+/* ── Custom Select Component ── */
+.csel-wrap{position:relative;width:100%}
+.csel-trigger{
+  display:flex;align-items:center;gap:8px;
+  padding:9px 11px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface);color:var(--text);font-family:'Barlow',sans-serif;
+  font-size:13px;cursor:pointer;user-select:none;transition:border-color .15s,box-shadow .15s;
+  min-height:38px;
+}
+.csel-trigger:hover{border-color:var(--border-2)}
+.csel-trigger.open{border-color:var(--primary);box-shadow:0 0 0 3px rgba(255,102,0,.1)}
+.csel-val{flex:1;display:flex;align-items:center;gap:7px;overflow:hidden;min-width:0}
+.csel-val>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.csel-placeholder{color:var(--text-3)!important}
+.csel-arrow{font-size:9px;color:var(--text-3);transition:transform .15s;flex-shrink:0;line-height:1;margin-left:auto}
+.csel-trigger.open .csel-arrow{transform:rotate(180deg)}
+.csel-sdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block}
+/* Panel */
+.csel-panel{
+  position:fixed;z-index:9999;
+  background:var(--surface);border:1.5px solid var(--border);
+  border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.14),0 2px 8px rgba(0,0,0,.06);
+  overflow:hidden;
+  animation:cselSlide .12s ease;
+}
+@keyframes cselSlide{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.csel-search-wrap{padding:8px 8px 6px;border-bottom:1px solid var(--border);background:var(--surface)}
+.csel-search{
+  width:100%;padding:7px 10px 7px 28px;background:var(--surface-2);
+  border:1px solid var(--border);border-radius:7px;font-size:12px;
+  color:var(--text);outline:none;font-family:'Barlow',sans-serif;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 14 14' fill='none' stroke='%2397A0AF' stroke-width='1.5'%3E%3Ccircle cx='6' cy='6' r='4'/%3E%3Cpath d='m9 9 3 3'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:8px center;
+}
+.csel-search:focus{border-color:var(--primary)}
+.csel-options{overflow-y:auto;padding:4px 0}
+.csel-options::-webkit-scrollbar{width:4px}
+.csel-options::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:4px}
+.csel-opt{
+  display:flex;align-items:center;gap:8px;padding:8px 12px;
+  cursor:pointer;font-size:12px;color:var(--text);transition:background .08s;white-space:nowrap;
+}
+.csel-opt:hover,.csel-opt.csel-focused{background:var(--surface-2)}
+.csel-opt.csel-selected{background:var(--primary-bg)}
+.csel-opt.csel-selected .csel-opt-lbl{color:var(--primary);font-weight:600}
+.csel-opt-lbl{flex:1;overflow:hidden;text-overflow:ellipsis}
+.csel-opt-chk{font-size:10px;color:var(--primary);margin-left:auto;flex-shrink:0}
+.csel-no-opts{padding:14px 12px;font-size:12px;color:var(--text-3);text-align:center}
+.csel-footer{border-top:1px solid var(--border)}
+.csel-addbtn{
+  display:flex;align-items:center;gap:7px;padding:9px 12px;
+  cursor:pointer;font-size:12px;color:var(--primary);font-weight:600;transition:background .08s;
+}
+.csel-addbtn:hover{background:var(--primary-bg)}
+.csel-addrow{display:none;gap:6px;padding:8px;background:var(--surface-2)}
+.csel-addrow.on{display:flex}
+.csel-addinp{
+  flex:1;padding:6px 10px;background:var(--surface);border:1.5px solid var(--border);
+  border-radius:7px;font-size:12px;color:var(--text);outline:none;font-family:'Barlow',sans-serif;min-width:0;
+}
+.csel-addinp:focus{border-color:var(--primary)}
+
+/* ── Luxury Date Picker ── */
+.ldp-wrap{position:relative;display:block}
+.ldp-display{display:flex;align-items:center;gap:8px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px;cursor:pointer;user-select:none;transition:border-color .15s,box-shadow .15s;font-family:'Barlow',sans-serif;min-height:38px}
+.ldp-display:hover,.ldp-display:focus{border-color:var(--primary);outline:none}
+.ldp-display.ldp-open{border-color:var(--primary);box-shadow:0 0 0 3px rgba(255,102,0,.1)}
+.ldp-display.ldp-empty{color:var(--text-3)}
+.ldp-display-text{flex:1}
+.ldp-display::after{content:'';width:14px;height:14px;flex-shrink:0;margin-left:auto;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235E6C84' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");background-size:contain;background-repeat:no-repeat;opacity:.5}
+.ldp-panel{position:fixed;z-index:10000;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.14),0 2px 8px rgba(0,0,0,.06);padding:12px;min-width:240px;animation:cselSlide .12s ease}
+.ldp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.ldp-nav{width:28px;height:28px;border-radius:7px;border:1px solid var(--border);background:var(--surface-2);cursor:pointer;font-size:18px;line-height:1;color:var(--text-2);display:flex;align-items:center;justify-content:center;transition:all .12s}
+.ldp-nav:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-bg)}
+.ldp-month{font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700;color:var(--text)}
+.ldp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.ldp-dow{text-align:center;font-size:9.5px;font-weight:700;color:var(--text-3);padding:3px 0;letter-spacing:.05em;text-transform:uppercase}
+.ldp-day{text-align:center;padding:7px 0;border-radius:6px;font-size:12px;cursor:pointer;color:var(--text);transition:background .1s;line-height:1}
+.ldp-day:hover{background:var(--surface-2)}
+.ldp-day.ldp-other{color:var(--text-3)}
+.ldp-day.ldp-today{font-weight:700;color:var(--primary)}
+.ldp-day.ldp-sel{background:var(--primary)!important;color:#fff!important;font-weight:700}
+.ldp-footer{display:flex;justify-content:space-between;margin-top:8px;border-top:1px solid var(--border);padding-top:8px;gap:6px}
+.ldp-clear,.ldp-today-btn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:none;font-family:'Barlow',sans-serif;transition:all .12s}
+.ldp-clear{background:var(--surface-2);color:var(--text-2)}.ldp-clear:hover{background:var(--danger-bg);color:var(--danger-text)}
+.ldp-today-btn{background:var(--primary-bg);color:var(--primary)}.ldp-today-btn:hover{background:var(--primary);color:#fff}
+
+/* ── Dashboard drag-and-drop ── */
+.dash-section{position:relative;border-radius:0;transition:opacity .15s}
+.dash-section.dash-dragging{opacity:.35;pointer-events:none}
+.dash-section.dash-drag-over-top{box-shadow:0 -3px 0 var(--primary)}
+.dash-section.dash-drag-over-bot{box-shadow:0 3px 0 var(--primary)}
+.dash-drag-handle{
+  position:absolute;top:8px;right:8px;z-index:10;
+  font-size:14px;color:var(--text-3);cursor:grab;line-height:1;
+  opacity:0;transition:opacity .15s;user-select:none;
+  padding:4px;border-radius:5px;
+}
+.dash-section:hover .dash-drag-handle{opacity:1}
+.dash-drag-handle:hover{color:var(--primary);background:var(--primary-bg)}
+.dash-drag-handle:active{cursor:grabbing}
 </style>
 </head>
 <body>
 
 <!-- Login Screen -->
 <div id="login-screen">
-  <div class="login-box">
-    <div class="login-logo">A</div>
-    <div class="login-title">Finance Command Center</div>
-    <div class="login-sub">Sign in to your CFO workspace</div>
-    <div class="login-form" id="login-form">
-      <div class="form-row"><label>Email</label><input type="email" id="l-email" placeholder="admin@aladdinfinance.com" autocomplete="email"></div>
-      <div class="form-row"><label>Password</label><input type="password" id="l-pass" placeholder="••••••••" autocomplete="current-password"></div>
-      <button class="login-btn" onclick="doLogin()">Sign in</button>
-      <div class="login-error" id="login-err"></div>
+  <!-- Left form panel -->
+  <div class="login-panel">
+    <div class="login-box">
+      <!-- Brand video logo — centered above Welcome back -->
+      <div class="login-vid-wrap">
+        <video class="login-vid" src="/media/aladdinb2b_logo.mp4" autoplay loop muted playsinline></video>
+      </div>
+
+      <!-- Login form -->
+      <div id="login-form">
+        <div class="login-title">Welcome back</div>
+        <div class="login-sub">Sign in to your CFO Command Center</div>
+        <div class="form-row"><label>Email address</label><input type="email" id="l-email" placeholder="you@company.com" autocomplete="email"></div>
+        <div class="form-row"><label>Password</label>
+          <div class="pw-wrap">
+            <input type="password" id="l-pass" placeholder="••••••••" autocomplete="current-password">
+            <button class="pw-toggle" type="button" onclick="togglePw('l-pass',this)" title="Show password">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>
+            </button>
+          </div>
+        </div>
+        <button class="login-btn" onclick="doLogin()">Sign In</button>
+        <div class="login-error" id="login-err"></div>
+        <div class="login-footer">
+          <a onclick="showForgotForm()">Forgot password?</a>
+          <span id="reg-link"></span>
+        </div>
+      </div>
+
+      <!-- Register form -->
+      <div id="register-form" style="display:none">
+        <div class="login-title">Create account</div>
+        <div class="login-sub">You've been invited to join the team</div>
+        <div class="form-row"><label>Full name</label><input type="text" id="r-name" placeholder="Your full name"></div>
+        <div class="form-row"><label>Email</label><input type="email" id="r-email" readonly></div>
+        <div class="form-row"><label>Password</label>
+          <div class="pw-wrap">
+            <input type="password" id="r-pass" placeholder="Create a strong password" oninput="updateStrength(this,'r-strength')">
+            <button class="pw-toggle" type="button" onclick="togglePw('r-pass',this)" title="Show password">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>
+            </button>
+          </div>
+          <div class="pw-strength" id="r-strength" style="display:none">
+            <div class="pw-strength-bar"><div class="pw-strength-fill" style="width:0%"></div></div>
+            <span class="pw-strength-label"></span>
+          </div>
+        </div>
+        <button class="login-btn" onclick="doRegister()">Create Account</button>
+        <div class="login-error" id="reg-err"></div>
+        <div class="login-footer"><a onclick="showLoginForm()">&#8592; Back to sign in</a></div>
+      </div>
+
+      <!-- Forgot password form -->
+      <div id="forgot-form" style="display:none">
+        <div class="login-title">Reset password</div>
+        <div class="login-sub">Enter your email and we'll send you a reset link</div>
+        <div class="form-row"><label>Email address</label><input type="email" id="fp-email" placeholder="you@company.com"></div>
+        <button class="login-btn" onclick="doForgotPassword()">Send Reset Link</button>
+        <div class="login-error" id="fp-err"></div>
+        <div class="login-success" id="fp-ok"></div>
+        <div class="login-footer"><a onclick="showLoginForm()">&#8592; Back to sign in</a></div>
+      </div>
+
+      <!-- Reset password form -->
+      <div id="reset-form" style="display:none">
+        <div class="login-title">Set new password</div>
+        <div class="login-sub">Choose a strong password for your account</div>
+        <div class="form-row"><label>New password</label>
+          <div class="pw-wrap">
+            <input type="password" id="rp-pass" placeholder="New password" oninput="updateStrength(this,'rp-strength')">
+            <button class="pw-toggle" type="button" onclick="togglePw('rp-pass',this)" title="Show password">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>
+            </button>
+          </div>
+          <div class="pw-strength" id="rp-strength" style="display:none">
+            <div class="pw-strength-bar"><div class="pw-strength-fill" style="width:0%"></div></div>
+            <span class="pw-strength-label"></span>
+          </div>
+        </div>
+        <div class="form-row"><label>Confirm password</label>
+          <div class="pw-wrap">
+            <input type="password" id="rp-confirm" placeholder="Confirm new password">
+            <button class="pw-toggle" type="button" onclick="togglePw('rp-confirm',this)" title="Show password">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>
+            </button>
+          </div>
+        </div>
+        <button class="login-btn" onclick="doResetPassword()">Set New Password</button>
+        <div class="login-error" id="rp-err"></div>
+        <div class="login-success" id="rp-ok"></div>
+      </div>
     </div>
-    <div id="register-form" style="display:none">
-      <div class="form-row"><label>Your name</label><input type="text" id="r-name" placeholder="Full name"></div>
-      <div class="form-row"><label>Email</label><input type="email" id="r-email" readonly></div>
-      <div class="form-row"><label>Password</label><input type="password" id="r-pass" placeholder="Min. 8 characters"></div>
-      <button class="login-btn" onclick="doRegister()">Create account</button>
-      <div class="login-error" id="reg-err"></div>
+  </div>
+
+  <!-- Right finance brand panel -->
+  <div class="login-brand">
+    <!-- Particle canvas -->
+    <canvas id="lb-canvas"></canvas>
+
+    <!-- Animated lamp with smoke -->
+    <div class="lb-lamp-wrap">
+      <div class="lb-smoke">
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <div style="width:260px;height:260px;border-radius:50%;overflow:hidden;box-shadow:0 0 22px rgba(255,102,0,0.65),0 0 55px rgba(255,102,0,0.28)">
+        <img src="/media/pic.JPEG" alt="Aladdin Finance" style="width:100%;height:100%;object-fit:cover;object-position:center center;display:block;">
+      </div>
     </div>
-    <div class="register-link" id="reg-link"></div>
+
+    <div class="lb-logo-text">Aladdin <span>Finance</span></div>
+    <div class="lb-tagline">CFO Command Center</div>
+
+    <!-- Slides carousel -->
+    <div class="lb-slides">
+
+      <!-- Slide 1: Revenue Dashboard -->
+      <div class="lb-slide active" data-slide="0">
+        <div class="lb-kpi-row">
+          <div class="lb-kpi">
+            <div class="lb-kpi-label">Revenue YTD</div>
+            <div class="lb-kpi-val">$2.4M</div>
+            <div class="lb-kpi-chg lb-up">&#8593; 18.4%</div>
+          </div>
+          <div class="lb-kpi">
+            <div class="lb-kpi-label">Cash Position</div>
+            <div class="lb-kpi-val">$842K</div>
+            <div class="lb-kpi-chg lb-up">&#8593; 7.2%</div>
+          </div>
+          <div class="lb-kpi">
+            <div class="lb-kpi-label">Pipeline</div>
+            <div class="lb-kpi-val">$1.2M</div>
+            <div class="lb-kpi-chg lb-up">&#8593; 23.1%</div>
+          </div>
+        </div>
+        <div class="lb-chart-card">
+          <div class="lb-chart-title">Revenue Trend <span>Jan &mdash; Jun 2026</span></div>
+          <svg class="lb-sparkline" viewBox="0 0 460 80" width="100%" height="80">
+            <defs>
+              <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="rgba(255,102,0,0.38)"/>
+                <stop offset="100%" stop-color="rgba(255,102,0,0.02)"/>
+              </linearGradient>
+            </defs>
+            <path class="lb-spark-area" d="M20,55 L100,40 L180,30 L260,38 L340,15 L420,33 L420,64 L20,64 Z" fill="url(#sparkGrad)"/>
+            <path class="lb-spark-path" d="M20,55 L100,40 L180,30 L260,38 L340,15 L420,33"/>
+            <g class="lb-spark-dots">
+              <circle cx="20" cy="55" r="3.5"/><circle cx="100" cy="40" r="3.5"/>
+              <circle cx="180" cy="30" r="3.5"/><circle cx="260" cy="38" r="3.5"/>
+              <circle cx="340" cy="15" r="3.5"/><circle cx="420" cy="33" r="3.5"/>
+            </g>
+            <text x="20" y="76" fill="rgba(255,255,255,0.28)" font-size="8" text-anchor="middle" font-family="Barlow,sans-serif">Jan</text>
+            <text x="100" y="76" fill="rgba(255,255,255,0.28)" font-size="8" text-anchor="middle" font-family="Barlow,sans-serif">Feb</text>
+            <text x="180" y="76" fill="rgba(255,255,255,0.28)" font-size="8" text-anchor="middle" font-family="Barlow,sans-serif">Mar</text>
+            <text x="260" y="76" fill="rgba(255,255,255,0.28)" font-size="8" text-anchor="middle" font-family="Barlow,sans-serif">Apr</text>
+            <text x="340" y="76" fill="rgba(255,255,255,0.28)" font-size="8" text-anchor="middle" font-family="Barlow,sans-serif">May</text>
+            <text x="420" y="76" fill="rgba(255,255,255,0.28)" font-size="8" text-anchor="middle" font-family="Barlow,sans-serif">Jun</text>
+          </svg>
+          <div class="lb-chart-footer">
+            <span>Monthly Revenue</span>
+            <span class="lb-chart-total">$2.4M YTD</span>
+          </div>
+        </div>
+        <div class="lb-stat-row">
+          <div class="lb-stat">
+            <div class="lb-stat-icon"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="#FF6600" stroke-width="1.6"><polyline points="1,11 4,7 7,9 10,4 13,2"/></svg></div>
+            <div><div class="lb-stat-val">68.4%</div><div class="lb-stat-label">Gross Margin</div></div>
+          </div>
+          <div class="lb-stat">
+            <div class="lb-stat-icon"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="#FF6600" stroke-width="1.5"><circle cx="7" cy="7" r="5.5"/><path d="M7 3v4l2.5 2"/></svg></div>
+            <div><div class="lb-stat-val">$48K</div><div class="lb-stat-label">Monthly Burn</div></div>
+          </div>
+          <div class="lb-stat">
+            <div class="lb-stat-icon"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="#FF6600" stroke-width="1.5"><circle cx="7" cy="7" r="5.5"/><circle cx="7" cy="7" r="2.5"/></svg></div>
+            <div><div class="lb-stat-val">94.2%</div><div class="lb-stat-label">Quota Attained</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 2: Sales Pipeline -->
+      <div class="lb-slide" data-slide="1">
+        <div class="lb-kpi-row">
+          <div class="lb-kpi">
+            <div class="lb-kpi-label">Win Rate</div>
+            <div class="lb-kpi-val">34.2%</div>
+            <div class="lb-kpi-chg lb-up">&#8593; 4.1%</div>
+          </div>
+          <div class="lb-kpi">
+            <div class="lb-kpi-label">Avg Deal</div>
+            <div class="lb-kpi-val">$42K</div>
+            <div class="lb-kpi-chg lb-up">&#8593; 12.8%</div>
+          </div>
+          <div class="lb-kpi">
+            <div class="lb-kpi-label">Active Deals</div>
+            <div class="lb-kpi-val">28</div>
+            <div class="lb-kpi-chg lb-up">&#8593; 3 new</div>
+          </div>
+        </div>
+        <div class="lb-funnel-card">
+          <div class="lb-chart-title">Sales Pipeline <span>stage breakdown</span></div>
+          <div class="lb-funnel">
+            <div class="lb-funnel-row">
+              <div class="lb-funnel-label">Prospect</div>
+              <div class="lb-funnel-bar-wrap"><div class="lb-funnel-bar" style="--pct:100%;background:rgba(255,102,0,0.75)"></div></div>
+              <div class="lb-funnel-val">24</div>
+            </div>
+            <div class="lb-funnel-row">
+              <div class="lb-funnel-label">Qualified</div>
+              <div class="lb-funnel-bar-wrap"><div class="lb-funnel-bar" style="--pct:75%;background:rgba(255,120,0,0.65);transition-delay:0.1s"></div></div>
+              <div class="lb-funnel-val">18</div>
+            </div>
+            <div class="lb-funnel-row">
+              <div class="lb-funnel-label">Proposal</div>
+              <div class="lb-funnel-bar-wrap"><div class="lb-funnel-bar" style="--pct:50%;background:rgba(255,140,0,0.6);transition-delay:0.2s"></div></div>
+              <div class="lb-funnel-val">12</div>
+            </div>
+            <div class="lb-funnel-row">
+              <div class="lb-funnel-label">Negotiation</div>
+              <div class="lb-funnel-bar-wrap"><div class="lb-funnel-bar" style="--pct:33%;background:rgba(200,80,220,0.6);transition-delay:0.3s"></div></div>
+              <div class="lb-funnel-val">8</div>
+            </div>
+            <div class="lb-funnel-row">
+              <div class="lb-funnel-label">Won</div>
+              <div class="lb-funnel-bar-wrap"><div class="lb-funnel-bar" style="--pct:21%;background:rgba(52,211,153,0.75);transition-delay:0.4s"></div></div>
+              <div class="lb-funnel-val">5</div>
+            </div>
+          </div>
+        </div>
+        <div class="lb-stat-row">
+          <div class="lb-stat">
+            <div class="lb-stat-icon"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="#FF6600" stroke-width="1.5"><path d="M2 12 L5 2 L8 8 L11 4 L14 12 Z" fill="rgba(255,102,0,0.3)"/></svg></div>
+            <div><div class="lb-stat-val">$1.76M</div><div class="lb-stat-label">Pipe Weighted</div></div>
+          </div>
+          <div class="lb-stat">
+            <div class="lb-stat-icon"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="#FF6600" stroke-width="1.5"><rect x="1" y="5" width="3" height="7" rx="1"/><rect x="5.5" y="3" width="3" height="9" rx="1"/><rect x="10" y="1" width="3" height="11" rx="1"/></svg></div>
+            <div><div class="lb-stat-val">22 days</div><div class="lb-stat-label">Avg Velocity</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 3: Financial Health -->
+      <div class="lb-slide" data-slide="2">
+        <div class="lb-rings-row">
+          <div class="lb-ring">
+            <svg viewBox="0 0 60 60" width="72" height="72">
+              <circle cx="30" cy="30" r="24" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/>
+              <circle class="lb-ring-arc" cx="30" cy="30" r="24" fill="none" stroke="#FF6600" stroke-width="5" style="--offset:47.7"/>
+            </svg>
+            <div class="lb-ring-val">68.4%</div>
+            <div class="lb-ring-label">Gross Margin</div>
+          </div>
+          <div class="lb-ring">
+            <svg viewBox="0 0 60 60" width="72" height="72">
+              <circle cx="30" cy="30" r="24" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/>
+              <circle class="lb-ring-arc" cx="30" cy="30" r="24" fill="none" stroke="#FF8800" stroke-width="5" style="--offset:8.7"/>
+            </svg>
+            <div class="lb-ring-val">94.2%</div>
+            <div class="lb-ring-label">Quota Hit</div>
+          </div>
+          <div class="lb-ring">
+            <svg viewBox="0 0 60 60" width="72" height="72">
+              <circle cx="30" cy="30" r="24" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5"/>
+              <circle class="lb-ring-arc" cx="30" cy="30" r="24" fill="none" stroke="#34d399" stroke-width="5" style="--offset:33.2"/>
+            </svg>
+            <div class="lb-ring-val">78%</div>
+            <div class="lb-ring-label">Budget Used</div>
+          </div>
+        </div>
+        <div class="lb-chart-card">
+          <div class="lb-chart-title">Key Ratios <span>Q2 2026</span></div>
+          <div class="lb-ratio-list">
+            <div class="lb-ratio-row">
+              <span class="lb-ratio-name">Current Ratio</span>
+              <div class="lb-ratio-bar-wrap"><div class="lb-ratio-bar" style="--w:80%;--c:#FF6600"></div></div>
+              <span class="lb-ratio-val">2.4x</span>
+            </div>
+            <div class="lb-ratio-row">
+              <span class="lb-ratio-name">Debt / Equity</span>
+              <div class="lb-ratio-bar-wrap"><div class="lb-ratio-bar" style="--w:38%;--c:#FF8800"></div></div>
+              <span class="lb-ratio-val">0.38</span>
+            </div>
+            <div class="lb-ratio-row">
+              <span class="lb-ratio-name">Return on Equity</span>
+              <div class="lb-ratio-bar-wrap"><div class="lb-ratio-bar" style="--w:62%;--c:#34d399"></div></div>
+              <span class="lb-ratio-val">18.6%</span>
+            </div>
+          </div>
+        </div>
+        <div class="lb-stat-row">
+          <div class="lb-stat">
+            <div class="lb-stat-icon"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="#FF6600" stroke-width="1.5"><path d="M7 1v12M1 7h12"/></svg></div>
+            <div><div class="lb-stat-val">14 mo</div><div class="lb-stat-label">Cash Runway</div></div>
+          </div>
+          <div class="lb-stat">
+            <div class="lb-stat-icon"><svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="#FF6600" stroke-width="1.5"><path d="M1 7 Q3.5 2 7 7 Q10.5 12 13 7"/></svg></div>
+            <div><div class="lb-stat-val">32 days</div><div class="lb-stat-label">AR Days</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="lb-dots">
+      <span class="lb-dot active" onclick="lbGoTo(0)"></span>
+      <span class="lb-dot" onclick="lbGoTo(1)"></span>
+      <span class="lb-dot" onclick="lbGoTo(2)"></span>
+    </div>
   </div>
 </div>
+
+<!-- Login brand canvas particle animation -->
+<script>
+(function(){
+  function initLbCanvas(){
+    const canvas = document.getElementById('lb-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let W, H, particles=[], raf;
+
+    function resize(){
+      const r=canvas.parentElement.getBoundingClientRect();
+      W=canvas.width=r.width; H=canvas.height=r.height;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Spawn burst of particles at start
+    function spawnParticle(burst){
+      const cx=W*0.5, cy=H*0.48;
+      const angle = Math.random()*Math.PI*2;
+      const speed = burst ? (1.5+Math.random()*3.5) : (0.2+Math.random()*0.7);
+      const r = burst ? (1+Math.random()*2.5) : (0.5+Math.random()*1.5);
+      const colors = ['rgba(255,102,0,','rgba(255,140,0,','rgba(255,180,60,','rgba(255,80,20,'];
+      const col = colors[Math.floor(Math.random()*colors.length)];
+      return {
+        x: cx + (Math.random()-0.5)*60,
+        y: cy + (Math.random()-0.5)*40,
+        vx: Math.cos(angle)*speed,
+        vy: Math.sin(angle)*speed - (burst?1.5:0.5),
+        r, alpha:burst?0.9:0.5,
+        decay: burst ? (0.008+Math.random()*0.012) : (0.003+Math.random()*0.005),
+        col
+      };
+    }
+
+    // Initial burst
+    for(let i=0;i<60;i++) particles.push(spawnParticle(true));
+
+    function tick(){
+      ctx.clearRect(0,0,W,H);
+      // ambient stars
+      if(Math.random()<0.15) particles.push(spawnParticle(false));
+
+      particles = particles.filter(p=>{
+        p.x+=p.vx; p.y+=p.vy;
+        p.vy+=0.012; // gentle gravity
+        p.alpha-=p.decay;
+        if(p.alpha<=0) return false;
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+        ctx.fillStyle=p.col+p.alpha+')';
+        ctx.fill();
+        return true;
+      });
+
+      // floating star dots
+      ctx.save();
+      for(let i=0;i<3;i++){
+        const sx=Math.random()*W, sy=Math.random()*H;
+        const sa=0.08+Math.random()*0.15;
+        ctx.beginPath(); ctx.arc(sx,sy,0.6,0,Math.PI*2);
+        ctx.fillStyle='rgba(255,160,80,'+sa+')'; ctx.fill();
+      }
+      ctx.restore();
+      raf=requestAnimationFrame(tick);
+    }
+    tick();
+
+    // cleanup when login hidden
+    const obs=new MutationObserver(()=>{
+      if(document.getElementById('login-screen')?.classList.contains('hidden')){
+        cancelAnimationFrame(raf); obs.disconnect();
+      }
+    });
+    const ls=document.getElementById('login-screen');
+    if(ls) obs.observe(ls,{attributes:true,attributeFilter:['class']});
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',initLbCanvas);
+  } else { initLbCanvas(); }
+})();
+</script>
+
+<!-- Login brand carousel -->
+<script>
+(function(){
+  var _cur = 0, _timer, _count = 3;
+  window.lbGoTo = function(n) {
+    var slides = document.querySelectorAll('.lb-slide');
+    var dots   = document.querySelectorAll('.lb-dot');
+    slides.forEach(function(s,i){ s.classList.toggle('active', i===n); });
+    dots.forEach(function(d,i){ d.classList.toggle('active', i===n); });
+    _cur = n;
+  };
+  function _next(){ window.lbGoTo((_cur+1) % _count); }
+  function _startTimer(){ _timer = setInterval(_next, 5000); }
+  function _stopTimer(){ clearInterval(_timer); }
+  function _init(){
+    _startTimer();
+    var brand = document.querySelector('.login-brand');
+    if (brand) {
+      brand.addEventListener('mouseenter', _stopTimer);
+      brand.addEventListener('mouseleave', _startTimer);
+    }
+  }
+  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', _init); }
+  else { _init(); }
+})();
+</script>
 
 <!-- Main App -->
 <div id="app-screen">
   <div class="shell">
     <aside class="sidebar">
       <div class="logo">
-        <div class="logo-icon">A</div>
-        <div><div class="logo-name">Aladdin</div><div class="logo-sub">CFO Center</div></div>
+        <img src="/media/pic.JPEG" style="width:36px;height:36px;border-radius:50%;object-fit:cover;object-position:center;flex-shrink:0;box-shadow:0 3px 12px rgba(255,102,0,.4)">
+        <div><div class="logo-name">Aladdin Finance</div><div class="logo-sub">CFO Command Center</div></div>
       </div>
-      <div class="nav-sec">Overview</div>
-      <button class="nav-item active" data-section="dashboard"><svg class="nav-icon" viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>Dashboard</button>
-      <div class="nav-sec">Finance</div>
-      <button class="nav-item" data-section="cash"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="3" width="12" height="8" rx="1.5"/><path d="M1 6h12"/></svg>Cash & Reserves</button>
-      <button class="nav-item" data-section="cashflow"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><polyline points="1,10 4,6 7,8 10,4 13,2"/></svg>Cash Flow</button>
-      <button class="nav-item" data-section="budget"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="3" width="12" height="10" rx="1"/><path d="M1 7h12M5 3V1M9 3V1"/></svg>Budget</button>
-      <button class="nav-item" data-section="revenue"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="8" width="2.5" height="5" rx=".5"/><rect x="6" y="5" width="2.5" height="8" rx=".5"/><rect x="10" y="2" width="2.5" height="11" rx=".5"/></svg>Revenue</button>
-      <button class="nav-item" data-section="pipeline"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M1 7h12M7 1l6 6-6 6"/></svg>Sales Pipeline</button>
-      <button class="nav-item" data-section="clients"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="5" cy="4" r="2"/><path d="M1 12c0-2.2 1.8-4 4-4s4 1.8 4 4"/><circle cx="11" cy="5" r="1.5"/><path d="M11 8.5c1.4 0 2.5 1.1 2.5 2.5"/></svg>Clients</button>
-      <button class="nav-item" data-section="statements"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="1" width="10" height="12" rx="1"/><path d="M4 4h6M4 7h6M4 10h4"/></svg>Financial Statements</button>
-      <div class="nav-sec">Planning</div>
-      <button class="nav-item" data-section="calendar"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="2" width="12" height="11" rx="1.5"/><path d="M1 6h12M4 1v2M10 1v2"/></svg>Calendar</button>
-      <button class="nav-item" data-section="tasks"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="12" height="12" rx="1.5"/><path d="M4 7l2 2 4-4"/></svg>Tasks</button>
-      <div class="nav-sec">Documents</div>
-      <button class="nav-item" data-section="files"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M8 1H3a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V5L8 1z"/><path d="M8 1v4h4"/><path d="M4 8h5M4 10h3"/></svg>Legal Documents</button>
-      <div class="nav-sec">System</div>
-      <button class="nav-item" data-section="settings"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="7" cy="7" r="2"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.9 2.9l1 1M10 10l1 1M2.9 11.1l1-1M10 4l1-1"/></svg>Settings & Users</button>
+      <!-- Financials -->
+      <div class="nav-sec" onclick="toggleNavGroup('financials')"><span>Financials</span><svg class="nav-chevron" width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3.5L5 6.5L8 3.5"/></svg></div>
+      <div class="nav-group-items" id="ng-financials">
+        <button class="nav-item active" data-section="dashboard"><svg class="nav-icon" viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>Dashboard</button>
+        <button class="nav-item" data-section="cash"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="3" width="12" height="8" rx="1.5"/><path d="M1 6h12"/></svg>Cash & Reserves</button>
+        <button class="nav-item" data-section="cashflow"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><polyline points="1,10 4,6 7,8 10,4 13,2"/></svg>Cash Flow</button>
+        <button class="nav-item" data-section="budget"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="3" width="12" height="10" rx="1"/><path d="M1 7h12M5 3V1M9 3V1"/></svg>Budget</button>
+        <button class="nav-item" data-section="revenue"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="8" width="2.5" height="5" rx=".5"/><rect x="6" y="5" width="2.5" height="8" rx=".5"/><rect x="10" y="2" width="2.5" height="11" rx=".5"/></svg>Revenue</button>
+        <button class="nav-item" data-section="ar"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="1" width="10" height="12" rx="1"/><path d="M4 4h6M4 7h6M4 10h3"/></svg>Account Receivables</button>
+        <button class="nav-item" data-section="liabilities"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="12" height="12" rx="1.5"/><path d="M7 4v3l2 2"/><path d="M4 10h6"/></svg>Liabilities</button>
+        <button class="nav-item" data-section="statements"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="1" width="10" height="12" rx="1"/><path d="M4 4h6M4 7h6M4 10h4"/></svg>Financial Statements</button>
+      </div>
+
+      <!-- Sales -->
+      <div class="nav-sec" onclick="toggleNavGroup('sales')"><span>Sales</span><svg class="nav-chevron" width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3.5L5 6.5L8 3.5"/></svg></div>
+      <div class="nav-group-items" id="ng-sales">
+        <button class="nav-item" data-section="pipeline"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M1 7h12M7 1l6 6-6 6"/></svg>Sales Pipeline</button>
+        <button class="nav-item" data-section="clients"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="5" cy="4" r="2"/><path d="M1 12c0-2.2 1.8-4 4-4s4 1.8 4 4"/><circle cx="11" cy="5" r="1.5"/><path d="M11 8.5c1.4 0 2.5 1.1 2.5 2.5"/></svg>Clients</button>
+        <button class="nav-item" data-section="commissions"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="7" cy="7" r="5.5"/><path d="M5 9l4-4M5.5 5.5h.01M8.5 8.5h.01"/></svg>Commissions</button>
+        <button class="nav-item" data-section="subscriptions"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="2" width="12" height="10" rx="1.5"/><path d="M1 6h12M4 9.5h2M8 9.5h2"/><circle cx="3.5" cy="4" r=".7" fill="currentColor" stroke="none"/><circle cx="6" cy="4" r=".7" fill="currentColor" stroke="none"/></svg>Subscriptions</button>
+      </div>
+
+      <!-- People -->
+      <div class="nav-sec" onclick="toggleNavGroup('people')"><span>People</span><svg class="nav-chevron" width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3.5L5 6.5L8 3.5"/></svg></div>
+      <div class="nav-group-items" id="ng-people">
+        <button class="nav-item" data-section="hr"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="5" cy="4" r="2"/><path d="M1 12c0-2.2 1.8-4 4-4s4 1.8 4 4"/><circle cx="11" cy="4.5" r="1.5"/><path d="M11 8c1.7 0 3 1.3 3 3"/></svg>HR</button>
+      </div>
+
+      <!-- Planning -->
+      <div class="nav-sec" onclick="toggleNavGroup('planning')"><span>Planning</span><svg class="nav-chevron" width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3.5L5 6.5L8 3.5"/></svg></div>
+      <div class="nav-group-items" id="ng-planning">
+        <button class="nav-item" data-section="calendar"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="2" width="12" height="11" rx="1.5"/><path d="M1 6h12M4 1v2M10 1v2"/></svg>Scheduler</button>
+        <button class="nav-item" data-section="tasks"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="12" height="12" rx="1.5"/><path d="M4 7l2 2 4-4"/></svg>Tasks</button>
+        <button class="nav-item" data-section="requests"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 2h10a1 1 0 011 1v7a1 1 0 01-1 1H5l-3 2V3a1 1 0 011-1z"/></svg>Requests</button>
+        <button class="nav-item" data-section="projects"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="4" width="12" height="9" rx="1"/><path d="M4 4V3a1 1 0 011-1h4a1 1 0 011 1v1"/><path d="M1 8h12"/></svg>Projects</button>
+      </div>
+
+      <!-- Reports -->
+      <div class="nav-sec" onclick="toggleNavGroup('reports')"><span>Reports</span><svg class="nav-chevron" width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3.5L5 6.5L8 3.5"/></svg></div>
+      <div class="nav-group-items" id="ng-reports">
+        <button class="nav-item" data-section="files"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M8 1H3a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V5L8 1z"/><path d="M8 1v4h4"/><path d="M4 8h5M4 10h3"/></svg>Legal Documents</button>
+        <button class="nav-item" data-section="gmail"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="2.5" width="12" height="9" rx="1.5"/><path d="M1 4l6 4 6-4"/></svg>Gmail Inbox</button>
+        <button class="nav-item" data-section="reports"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="1" width="12" height="12" rx="1.5"/><path d="M3 4h8M3 7h8M3 10h4"/><circle cx="11" cy="10.5" r="1.5" fill="currentColor" stroke="none"/></svg>Reports & Emails</button>
+      </div>
+
+      <!-- System -->
+      <div class="nav-sec" onclick="toggleNavGroup('system')"><span>System</span><svg class="nav-chevron" width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3.5L5 6.5L8 3.5"/></svg></div>
+      <div class="nav-group-items" id="ng-system">
+        <button class="nav-item" data-section="settings"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="7" cy="7" r="2"/><path d="M7 1v1.5M7 11.5V13M1 7h1.5M11.5 7H13M2.9 2.9l1 1M10 10l1 1M2.9 11.1l1-1M10 4l1-1"/></svg>Settings & Users</button>
+      </div>
       <div class="sidebar-footer">
         <div class="user-pill" onclick="showSection('settings')">
-          <div class="user-avatar" id="ua-init">A</div>
+          <div class="user-avatar" id="ua-init">G</div>
           <div class="user-info"><div class="user-name" id="ua-name">Loading...</div><div class="user-role" id="ua-role">—</div></div>
           <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" style="flex-shrink:0;opacity:.5"><path d="M4 6l3-3 3 3M4 9l3 3 3-3"/></svg>
         </div>
@@ -345,15 +1403,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;f
     <div class="main">
       <div class="topbar">
         <div>
-          <div class="topbar-title">Finance Command Center</div>
+          <div class="topbar-title">CFO Genie</div>
           <div class="topbar-sub" id="today-date">Loading...</div>
         </div>
         <div class="topbar-right">
           <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">Connecting...</span></div>
           <span class="quarter-badge" id="quarter-badge">Q2 2026</span>
-          <button class="ai-btn" onclick="openAI()">
+          <button class="notif-btn" onclick="toggleNotifPanel()" title="Notifications">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="notif-badge hidden" id="notif-badge"></span>
+          </button>
+          <button class="ai-btn" onclick="openAI(state.section)">
             <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="6"/><path d="M5 6h4M5 8h3"/></svg>
-            Ask AI Agent
+            Ask Ayla
           </button>
         </div>
       </div>
@@ -362,17 +1424,50 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;f
   </div>
 </div>
 
+<!-- Notification Panel -->
+<div class="notif-panel" id="notif-panel">
+  <div class="notif-panel-head">
+    <div class="notif-panel-title">Notifications</div>
+    <button class="btn btn-sm" onclick="dismissAllNotifs()">Dismiss all</button>
+  </div>
+  <div class="notif-list" id="notif-list"></div>
+</div>
+
 <!-- Modals -->
 <div class="modal-backdrop" id="modal-event">
   <div class="modal">
-    <div class="modal-header"><div class="modal-title">Add Calendar Event</div><button class="modal-close" onclick="closeModal('modal-event')">×</button></div>
-    <div class="form-row"><label>Type</label><select id="evt-type"><option value="tax">Tax deadline</option><option value="meeting">Meeting</option><option value="deadline">Deadline</option><option value="task">Task</option><option value="planning">Planning</option></select></div>
+    <div class="modal-header"><div class="modal-title" id="evt-modal-title">Add Calendar Event</div><button class="modal-close" onclick="closeModal('modal-event')">×</button></div>
+    <div class="form-row"><label>Type</label>
+      <select id="evt-type" onchange="handleSelectOther(this)">
+        <option value="meeting">Meeting</option>
+        <option value="deadline">Deadline</option>
+        <option value="tax">Tax Deadline</option>
+        <option value="task">Task</option>
+        <option value="planning">Planning</option>
+        <option value="review">Review</option>
+        <option value="board meeting">Board Meeting</option>
+        <option value="client call">Client Call</option>
+        <option value="training">Training</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
     <div class="form-row"><label>Title</label><input type="text" id="evt-title" placeholder="Event title"></div>
     <div class="form-row"><label>Date</label><input type="date" id="evt-date"></div>
-    <div class="form-row"><label>Recurring</label><select id="evt-recur"><option value="none">One-time</option><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></div>
+    <div class="form-row"><label>Time (optional)</label><input type="time" id="evt-time"></div>
+    <div class="form-row" id="evt-zoom-link-row" style="display:none"><label>Zoom Meeting Link</label><div style="display:flex;gap:6px"><input type="text" id="evt-zoom-link" readonly style="flex:1;background:var(--surface-2);color:var(--info);font-size:11px;font-family:monospace" placeholder="Generate a Zoom link..."><button type="button" class="btn btn-sm" onclick="copyZoomLink()" style="flex-shrink:0" title="Copy link">📋</button></div></div>
+    <div class="form-row"><button type="button" id="evt-zoom-btn" class="btn btn-sm" style="width:100%;justify-content:center;background:rgba(45,140,255,0.08);border:1px solid rgba(45,140,255,0.25);color:#2D8CFF" onclick="createZoomMeeting()">🎥 Generate Zoom Meeting</button></div>
+    <div class="form-row"><label>Recurring</label>
+      <select id="evt-recur" onchange="handleSelectOther(this)">
+        <option value="none">One-time</option>
+        <option value="monthly">Monthly</option>
+        <option value="quarterly">Quarterly</option>
+        <option value="annual">Annual</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
     <div class="form-row"><label>Amount (optional)</label><input type="number" id="evt-amount" placeholder="e.g. 42000"></div>
     <div class="form-row"><label>Note</label><textarea id="evt-note" placeholder="Additional context..."></textarea></div>
-    <div class="modal-actions"><button class="btn" onclick="closeModal('modal-event')">Cancel</button><button class="btn btn-primary" onclick="saveEvent()">Save Event</button></div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal('modal-event')">Cancel</button><button class="btn btn-primary" id="evt-save-btn" onclick="saveEvent()">Save Event</button></div>
   </div>
 </div>
 
@@ -380,11 +1475,80 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;f
   <div class="modal">
     <div class="modal-header"><div class="modal-title" id="client-modal-title">Add Client</div><button class="modal-close" onclick="closeModal('modal-client')">×</button></div>
     <div class="form-row"><label>Client Name <span class="badge-qbo">QBO</span></label><input type="text" id="cl-name" placeholder="e.g. Informa Markets"></div>
-    <div class="form-row"><label>Segment</label><select id="cl-type"><option>Enterprise</option><option>SMB</option><option>Government</option></select></div>
-    <div class="form-row"><label>Country</label><input type="text" id="cl-country" placeholder="e.g. UAE"></div>
-    <div class="form-row"><label>Annual Revenue ($) <span class="badge-qbo">QBO</span></label><input type="number" id="cl-revenue" placeholder="196000"></div>
+    <div class="form-row"><label>Segment</label>
+      <select id="cl-type" onchange="handleSelectOther(this)">
+        <option value="Enterprise">Enterprise</option>
+        <option value="SMB">SMB</option>
+        <option value="Government">Government</option>
+        <option value="Startup">Startup</option>
+        <option value="NGO">NGO</option>
+        <option value="Education">Education</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Country</label>
+      <select id="cl-country" onchange="handleSelectOther(this)">
+        <option value="">— Select —</option>
+        <option value="UAE">UAE</option>
+        <option value="Saudi Arabia">Saudi Arabia</option>
+        <option value="Qatar">Qatar</option>
+        <option value="Kuwait">Kuwait</option>
+        <option value="Bahrain">Bahrain</option>
+        <option value="Oman">Oman</option>
+        <option value="Egypt">Egypt</option>
+        <option value="Jordan">Jordan</option>
+        <option value="Lebanon">Lebanon</option>
+        <option value="Iraq">Iraq</option>
+        <option value="USA">USA</option>
+        <option value="UK">UK</option>
+        <option value="Germany">Germany</option>
+        <option value="France">France</option>
+        <option value="India">India</option>
+        <option value="Pakistan">Pakistan</option>
+        <option value="Singapore">Singapore</option>
+        <option value="Australia">Australia</option>
+        <option value="Canada">Canada</option>
+        <option value="Turkey">Turkey</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row"><label>Contact Person</label><input type="text" id="cl-contact" placeholder="e.g. John Smith"></div>
+      <div class="form-row"><label>Email</label><input type="email" id="cl-email" placeholder="contact@client.com"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row"><label>Phone</label><input type="text" id="cl-phone" placeholder="+971 50 000 0000"></div>
+      <div class="form-row"><label>Annual Revenue ($) <span class="badge-qbo">QBO</span></label><input type="number" id="cl-revenue" placeholder="196000"></div>
+    </div>
+    <div class="form-row"><label>Address</label><input type="text" id="cl-address" placeholder="City, Country or full address"></div>
     <div class="form-row"><label>SaaS Revenue ($)</label><input type="number" id="cl-saas" placeholder="74000"></div>
     <div class="form-row"><label>Contract Renewal Date</label><input type="date" id="cl-renewal"></div>
+    <div style="border-top:0.5px solid var(--border);margin:14px 0 12px;padding-top:12px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:10px">Billing & Charges</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-row"><label>Monthly Charge ($)</label><input type="number" id="cl-charge-amount" placeholder="e.g. 5000" min="0"></div>
+        <div class="form-row"><label>Billing Cycle</label>
+          <select id="cl-billing-cycle">
+            <option value="">— None —</option>
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="annually">Annually</option>
+            <option value="one-time">One-time</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row"><label>Payment Terms</label>
+        <select id="cl-payment-terms">
+          <option value="">— Not set —</option>
+          <option value="net15">Net 15</option>
+          <option value="net30">Net 30</option>
+          <option value="net45">Net 45</option>
+          <option value="net60">Net 60</option>
+          <option value="prepaid">Prepaid</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+    </div>
     <div class="form-row"><label>CFO Notes</label><textarea id="cl-notes" placeholder="Internal notes..."></textarea></div>
     <div class="modal-actions"><button class="btn" onclick="closeModal('modal-client')">Cancel</button><button class="btn btn-primary" onclick="saveClient()">Save Client</button></div>
   </div>
@@ -393,7 +1557,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;f
 <div class="modal-backdrop" id="modal-reserve">
   <div class="modal">
     <div class="modal-header"><div class="modal-title">Add Cash Reserve</div><button class="modal-close" onclick="closeModal('modal-reserve')">×</button></div>
-    <div class="form-row"><label>Bank Account</label><select id="rs-bank"><option>ENBD</option><option>Mashreq</option><option>Wio</option><option>Stripe Balance</option></select></div>
+    <div class="form-row"><label>Bank Account</label>
+      <select id="rs-bank" onchange="handleSelectOther(this)">
+        <option value="ENBD">ENBD</option>
+        <option value="Mashreq">Mashreq</option>
+        <option value="Wio">Wio</option>
+        <option value="Stripe Balance">Stripe Balance</option>
+        <option value="FAB">FAB</option>
+        <option value="ADCB">ADCB</option>
+        <option value="DIB">DIB</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
     <div class="form-row"><label>Reserve Name</label><input type="text" id="rs-name" placeholder="e.g. VAT provision, Payroll reserve"></div>
     <div class="form-row"><label>Amount ($)</label><input type="number" id="rs-amount" placeholder="42000"></div>
     <div class="modal-actions"><button class="btn" onclick="closeModal('modal-reserve')">Cancel</button><button class="btn btn-primary" onclick="saveReserve()">Save Reserve</button></div>
@@ -402,11 +1577,194 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;f
 
 <div class="modal-backdrop" id="modal-task">
   <div class="modal">
-    <div class="modal-header"><div class="modal-title">Add Task</div><button class="modal-close" onclick="closeModal('modal-task')">×</button></div>
+    <div class="modal-header"><div class="modal-title" id="task-modal-title">Add Task</div><button class="modal-close" onclick="closeModal('modal-task')">×</button></div>
     <div class="form-row"><label>Task Title</label><input type="text" id="task-title" placeholder="Describe the task..."></div>
     <div class="form-row"><label>Deadline</label><input type="date" id="task-deadline"></div>
-    <div class="form-row"><label>Priority</label><select id="task-priority"><option value="high">High</option><option value="medium" selected>Medium</option><option value="low">Low</option></select></div>
-    <div class="modal-actions"><button class="btn" onclick="closeModal('modal-task')">Cancel</button><button class="btn btn-primary" onclick="saveTask()">Add Task</button></div>
+    <div class="form-row"><label>Notify Email <span style="font-size:10px;color:var(--text-2);font-weight:400">(completion alert recipient)</span></label><input type="email" id="task-notify-email" placeholder="person@example.com"></div>
+    <div class="form-row"><label>Priority</label>
+      <select id="task-priority" onchange="handleSelectOther(this)">
+        <option value="high">High</option>
+        <option value="medium" selected>Medium</option>
+        <option value="low">Low</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Type</label>
+      <select id="task-type" onchange="handleSelectOther(this)">
+        <option value="task">Standard Task</option>
+        <option value="ceo">Requested from CEO</option>
+        <option value="cpo">Requested from CPO</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
+    <div id="ceo-extra" style="display:none">
+      <div class="form-row"><label>Reminder (days before deadline)</label><input type="number" id="task-remind-days" value="3" min="1"></div>
+      <div class="form-row"><label id="ceo-note-label">Instructions</label><textarea id="task-ceo-note" placeholder="Details from CEO / CPO..."></textarea></div>
+    </div>
+    <div class="form-row" style="display:flex;align-items:center;gap:10px;margin-top:4px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">
+        <input type="checkbox" id="task-recurring" onchange="document.getElementById('task-recur-opts').style.display=this.checked?'flex':'none'" style="width:16px;height:16px;accent-color:var(--primary)">
+        <span style="font-size:12px;font-weight:500">Recurring task</span>
+      </label>
+    </div>
+    <div id="task-recur-opts" style="display:none;gap:10px;align-items:center;margin-top:4px">
+      <label style="font-size:11px;color:var(--text-2);white-space:nowrap">Repeat every</label>
+      <select id="task-recur-interval" class="input" style="width:auto;font-size:12px" onchange="handleSelectOther(this)">
+        <option value="daily">Day</option>
+        <option value="weekly" selected>Week</option>
+        <option value="monthly">Month</option>
+        <option value="quarterly">Quarter</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal('modal-task')">Cancel</button><button class="btn btn-primary" id="task-save-btn" onclick="saveTask()">Add Task</button></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-task-notify">
+  <div class="modal" style="max-width:860px;padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px;background:linear-gradient(135deg,#0D9488,#059669);border-radius:12px 12px 0 0">
+      <div style="font-size:15px;font-weight:700;color:#fff">✅ Send Completion Notification</div>
+      <button class="modal-close" style="color:#fff;opacity:.8" onclick="closeModal('modal-task-notify')">×</button>
+    </div>
+    <div id="task-notify-body" style="overflow-y:auto;max-height:82vh"></div>
+  </div>
+</div>
+
+<!-- ── HR: Add / Edit Employee ─────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="modal-hr-emp">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div class="modal-title" id="hr-emp-modal-title">Add Employee</div>
+      <button class="modal-close" onclick="closeModal('modal-hr-emp')">×</button>
+    </div>
+    <!-- Tabs -->
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:16px">
+      <button id="hr-emp-tab-personal" onclick="switchHrEmpTab('personal')" style="flex:1;padding:9px;font-size:11px;font-weight:600;border:none;background:transparent;cursor:pointer;border-bottom:2px solid var(--primary);color:var(--primary)">Personal</button>
+      <button id="hr-emp-tab-job"      onclick="switchHrEmpTab('job')"      style="flex:1;padding:9px;font-size:11px;font-weight:600;border:none;background:transparent;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-2)">Job & Pay</button>
+      <button id="hr-emp-tab-leave"    onclick="switchHrEmpTab('leave')"    style="flex:1;padding:9px;font-size:11px;font-weight:600;border:none;background:transparent;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-2)">Leave Balances</button>
+    </div>
+    <!-- Personal tab -->
+    <div id="hr-emp-panel-personal">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-row" style="margin:0"><label>First Name *</label><input class="input" id="hr-emp-first" placeholder="First name"></div>
+        <div class="form-row" style="margin:0"><label>Last Name *</label><input class="input" id="hr-emp-last" placeholder="Last name"></div>
+        <div class="form-row" style="margin:0"><label>Email</label><input type="email" class="input" id="hr-emp-email" placeholder="work@company.com"></div>
+        <div class="form-row" style="margin:0"><label>Phone</label><input class="input" id="hr-emp-phone" placeholder="+971 50 000 0000"></div>
+        <div class="form-row" style="margin:0"><label>Date of Birth</label><input type="date" class="input" id="hr-emp-dob"></div>
+        <div class="form-row" style="margin:0"><label>Gender</label>
+          <select class="input" id="hr-emp-gender"><option value="">Select…</option><option>Male</option><option>Female</option><option>Prefer not to say</option></select>
+        </div>
+        <div class="form-row" style="margin:0"><label>Nationality</label>
+          <select class="input" id="hr-emp-nationality">
+            <option value="">Select…</option>
+            <option>Emirati</option><option>Afghan</option><option>Albanian</option><option>Algerian</option><option>American</option><option>Argentine</option><option>Australian</option><option>Austrian</option><option>Azerbaijani</option><option>Bahraini</option><option>Bangladeshi</option><option>Belgian</option><option>Bolivian</option><option>Brazilian</option><option>British</option><option>Bulgarian</option><option>Cambodian</option><option>Cameroonian</option><option>Canadian</option><option>Chilean</option><option>Chinese</option><option>Colombian</option><option>Congolese</option><option>Croatian</option><option>Cuban</option><option>Czech</option><option>Danish</option><option>Dutch</option><option>Egyptian</option><option>Ethiopian</option><option>Filipino</option><option>Finnish</option><option>French</option><option>Georgian</option><option>German</option><option>Ghanaian</option><option>Greek</option><option>Guatemalan</option><option>Honduran</option><option>Hungarian</option><option>Indian</option><option>Indonesian</option><option>Iranian</option><option>Iraqi</option><option>Irish</option><option>Israeli</option><option>Italian</option><option>Ivorian</option><option>Japanese</option><option>Jordanian</option><option>Kazakhstani</option><option>Kenyan</option><option>Kuwaiti</option><option>Lebanese</option><option>Libyan</option><option>Malay</option><option>Malaysian</option><option>Maldivian</option><option>Mauritanian</option><option>Mexican</option><option>Moroccan</option><option>Mozambican</option><option>Myanmar</option><option>Nepalese</option><option>New Zealander</option><option>Nigerian</option><option>Norwegian</option><option>Omani</option><option>Pakistani</option><option>Palestinian</option><option>Peruvian</option><option>Polish</option><option>Portuguese</option><option>Qatari</option><option>Romanian</option><option>Russian</option><option>Saudi</option><option>Senegalese</option><option>Serbian</option><option>Singaporean</option><option>Somali</option><option>South African</option><option>South Korean</option><option>Spanish</option><option>Sri Lankan</option><option>Sudanese</option><option>Swedish</option><option>Swiss</option><option>Syrian</option><option>Taiwanese</option><option>Tanzanian</option><option>Thai</option><option>Tunisian</option><option>Turkish</option><option>Ugandan</option><option>Ukrainian</option><option>Uruguayan</option><option>Uzbekistani</option><option>Venezuelan</option><option>Vietnamese</option><option>Yemeni</option><option>Zambian</option><option>Zimbabwean</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <!-- Job tab -->
+    <div id="hr-emp-panel-job" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-row" style="margin:0"><label>Employee ID</label><input class="input" id="hr-emp-empid" placeholder="EMP-001"></div>
+        <div class="form-row" style="margin:0"><label>Start Date</label><input type="date" class="input" id="hr-emp-start"></div>
+        <div class="form-row" style="margin:0"><label>Department</label>
+          <select class="input" id="hr-emp-dept" onchange="handleSelectOther(this)"><option value="">Select…</option></select>
+        </div>
+        <div class="form-row" style="margin:0"><label>Position</label>
+          <select class="input" id="hr-emp-pos" onchange="handleSelectOther(this)"><option value="">Select…</option></select>
+        </div>
+        <div class="form-row" style="margin:0"><label>Employment Type</label>
+          <select class="input" id="hr-emp-type">
+            <option value="full-time">Full-time</option>
+          </select>
+        </div>
+        <div class="form-row" style="margin:0"><label>Status</label>
+          <select class="input" id="hr-emp-status">
+            <option value="active">Active</option>
+            <option value="on-leave">On Leave</option>
+          </select>
+        </div>
+        <div class="form-row" style="margin:0"><label>Hours / Month</label><input type="number" class="input" id="hr-emp-hours" placeholder="160" min="0" max="744" oninput="hrCalcSalary()"></div>
+        <div class="form-row" style="margin:0"><label>Monthly Salary (USD)</label><input type="number" class="input" id="hr-emp-salary" placeholder="0" oninput="hrCalcSalary()"></div>
+        <div class="form-row" style="margin:0"><label>Rate / Hour <span style="font-size:10px;font-weight:400;color:var(--text-2)">(auto)</span></label><input type="number" class="input" id="hr-emp-rate" placeholder="—" min="0" step="0.01" readonly style="background:var(--surface-2);color:var(--text-2)"></div>
+        <div class="form-row" style="margin:0"><label>Currency</label>
+          <select class="input" id="hr-emp-currency"><option value="AED">AED</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="GBP">GBP</option></select>
+        </div>
+        <div class="form-row" style="margin:0;grid-column:1/-1"><label>Manager</label>
+          <select class="input" id="hr-emp-manager"><option value="">No manager</option></select>
+        </div>
+      </div>
+    </div>
+    <!-- Leave Balances tab -->
+    <div id="hr-emp-panel-leave" style="display:none">
+      <div id="hr-emp-leave-fields" style="display:grid;grid-template-columns:1fr 1fr;gap:12px"></div>
+      <div style="margin-top:12px;font-size:11px;color:var(--text-2)">Balances are automatically deducted when leave is approved.</div>
+    </div>
+    <div class="form-row" style="margin-top:16px"><label>Notes</label><textarea class="input" id="hr-emp-notes" rows="2" placeholder="Any notes…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-hr-emp')">Cancel</button>
+      <button class="btn btn-primary" id="hr-emp-save-btn" onclick="saveEmployee()">Add Employee</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── HR: Time-Off Request ───────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="modal-hr-timeoff">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header"><div class="modal-title">Request Time Off</div><button class="modal-close" onclick="closeModal('modal-hr-timeoff')">×</button></div>
+    <div class="form-row"><label>Employee</label>
+      <select class="input" id="hr-tof-emp"><option value="">Select employee…</option></select>
+    </div>
+    <div class="form-row"><label>Leave Type</label>
+      <select class="input" id="hr-tof-type"><option value="annual">Annual Leave</option><option value="sick">Sick Leave</option><option value="emergency">Emergency Leave</option><option value="unpaid">Unpaid Leave</option></select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-row" style="margin:0"><label>Start Date *</label><input type="date" class="input" id="hr-tof-start"></div>
+      <div class="form-row" style="margin:0"><label>End Date *</label><input type="date" class="input" id="hr-tof-end"></div>
+    </div>
+    <div class="form-row"><label>Days <span id="hr-tof-days-hint" style="font-size:10px;color:var(--text-2)"></span></label><input type="number" class="input" id="hr-tof-days" min="1" placeholder="Number of working days"></div>
+    <div class="form-row"><label>Reason <span style="font-size:10px;color:var(--text-2);font-weight:400">(optional)</span></label><textarea class="input" id="hr-tof-reason" rows="2" placeholder="Brief reason…"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-hr-timeoff')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveHRTimeOff()">Submit Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── HR: Approve / Reject Leave (compose + live preview) ───────────────── -->
+<div class="modal-backdrop" id="modal-hr-action">
+  <div class="modal" style="max-width:860px;padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 22px" id="modal-hr-action-hdr">
+      <div class="modal-title" id="hr-action-title">Approve Leave</div>
+      <button class="modal-close" onclick="closeModal('modal-hr-action')">×</button>
+    </div>
+    <div id="hr-action-body" style="overflow-y:auto;max-height:82vh"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-welcome-email">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title">Send Welcome Email</div>
+      <button class="modal-close" onclick="closeModal('modal-welcome-email')">×</button>
+    </div>
+    <div class="form-row">
+      <label>To</label>
+      <input type="text" id="welcome-to" readonly style="background:var(--surface-2);color:var(--text-2)">
+    </div>
+    <div class="form-row">
+      <label>Subject</label>
+      <input type="text" id="welcome-subject" placeholder="Welcome to Aladdin Finance!">
+    </div>
+    <div class="form-row">
+      <label>Personal Note <span style="font-size:10px;color:var(--text-3)">(optional — appended to email)</span></label>
+      <textarea id="welcome-note" rows="4" placeholder="Add a personal note to the new team member…" style="width:100%;resize:vertical"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+      <button class="btn" onclick="closeModal('modal-welcome-email')">Cancel</button>
+      <button class="btn btn-primary" onclick="doSendWelcomeEmail()">✉ Send Email</button>
+    </div>
   </div>
 </div>
 
@@ -415,12 +1773,41 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;f
     <div class="modal-header"><div class="modal-title" id="deal-modal-title">Add Deal</div><button class="modal-close" onclick="closeModal('modal-deal')">×</button></div>
     <div class="form-row"><label>Deal Name</label><input type="text" id="deal-name" placeholder="e.g. TechCorp Enterprise License"></div>
     <div class="form-row"><label>Client</label><input type="text" id="deal-client" placeholder="Client name"></div>
-    <div class="form-row"><label>Type</label><select id="deal-type"><option>Enterprise</option><option>Government</option><option>Tradeshow</option></select></div>
+    <div class="form-row"><label>Channel</label>
+      <select id="deal-type" onchange="handleSelectOther(this)">
+        <option value="Enterprise">Enterprise</option>
+        <option value="Government">Government</option>
+        <option value="Tradeshow">Tradeshow</option>
+        <option value="SaaS">SaaS</option>
+        <option value="Services">Services</option>
+        <option value="Partnership">Partnership</option>
+        <option value="Reseller">Reseller</option>
+        <option value="Referral">Referral</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
     <div class="form-row"><label>Value ($)</label><input type="number" id="deal-value" placeholder="250000"></div>
     <div class="form-row"><label>Probability (%)</label><input type="number" id="deal-prob" min="0" max="100" placeholder="75"></div>
-    <div class="form-row"><label>Stage</label><select id="deal-stage"><option>Prospecting</option><option>Qualification</option><option>Proposal</option><option>Negotiation</option><option>Closed Won</option><option>Closed Lost</option></select></div>
-    <div class="form-row"><label>Expected Close Date</label><input type="date" id="deal-close"></div>
-    <div class="form-row"><label>Owner</label><input type="text" id="deal-owner" placeholder="Sales rep name"></div>
+    <div class="form-row"><label>Stage</label>
+      <select id="deal-stage" onchange="handleSelectOther(this)">
+        <option value="Prospecting">Prospecting</option>
+        <option value="Qualification">Qualification</option>
+        <option value="Proposal">Proposal</option>
+        <option value="Negotiation">Negotiation</option>
+        <option value="Closed Won">Closed Won</option>
+        <option value="Closed Lost">Closed Lost</option>
+        <option value="On Hold">On Hold</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row"><label>Expected Close Date</label><input type="date" id="deal-close"></div>
+      <div class="form-row"><label>Next Follow-up Date</label><input type="date" id="deal-followup"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row"><label>Owner</label><select id="deal-owner"><option value="">— select rep —</option></select></div>
+      <div class="form-row"><label>Owner Email</label><input type="email" id="deal-owner-email" placeholder="rep@company.com"></div>
+    </div>
     <div class="form-row"><label>Notes</label><textarea id="deal-notes" placeholder="Deal notes..."></textarea></div>
     <div class="modal-actions"><button class="btn" onclick="closeModal('modal-deal')">Cancel</button><button class="btn btn-primary" onclick="saveDeal()">Save Deal</button></div>
   </div>
@@ -439,7 +1826,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;f
     <div class="modal-header"><div class="modal-title">Invite Team Member</div><button class="modal-close" onclick="closeModal('modal-invite')">×</button></div>
     <div class="form-row"><label>Email Address</label><input type="email" id="inv-email" placeholder="colleague@company.com"></div>
     <div class="form-row"><label>Full Name (optional)</label><input type="text" id="inv-name" placeholder="Their name"></div>
-    <div class="form-row"><label>Role</label><select id="inv-role"><option value="admin">Admin — full access</option><option value="cfo">CFO — all finance</option><option value="finance">Finance — read + edit</option><option value="sales">Sales — pipeline only</option><option value="viewer">Viewer — read only</option></select></div>
+    <div class="form-row"><label>Role</label>
+      <select id="inv-role" onchange="handleSelectOther(this)">
+        <option value="admin">Admin — full access</option>
+        <option value="cfo">CFO — all finance</option>
+        <option value="finance">Finance — read + edit</option>
+        <option value="sales">Sales — pipeline only</option>
+        <option value="viewer">Viewer — read only</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
     <div class="modal-actions"><button class="btn" onclick="closeModal('modal-invite')">Cancel</button><button class="btn btn-primary" onclick="sendInvite()">Generate Invitation Link</button></div>
   </div>
 </div>
@@ -452,28 +1848,555 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;f
   </div>
 </div>
 
+<!-- Confirm modal -->
+<div class="modal-backdrop" id="modal-confirm">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-header"><div class="modal-title" style="font-size:14px">Confirm Action</div><button class="modal-close" onclick="closeModal('modal-confirm')">×</button></div>
+    <div id="confirm-lottie" style="width:72px;height:72px;margin:0 auto 10px"></div>
+    <div style="font-size:13px;color:var(--text);margin-bottom:20px;line-height:1.5;text-align:center" id="confirm-msg">Are you sure?</div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-confirm')">Cancel</button>
+      <button class="btn btn-danger" id="confirm-ok-btn" onclick="doConfirmOk()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- HR Termination Modal -->
+<div class="modal-backdrop" id="modal-hr-terminate">
+  <div class="modal" style="max-width:480px;padding:0;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#1a0000,#3b0000);padding:20px 24px 16px;position:relative">
+      <button class="modal-close" onclick="closeModal('modal-hr-terminate')" style="position:absolute;top:14px;right:16px;color:rgba(255,255,255,.5);font-size:20px;background:none;border:none;cursor:pointer">×</button>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="hr-term-avatar" style="width:44px;height:44px;border-radius:50%;background:rgba(239,68,68,.3);border:2px solid rgba(239,68,68,.4);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fca5a5;flex-shrink:0"></div>
+        <div>
+          <div id="hr-term-name" style="font-size:14px;font-weight:700;color:#fff"></div>
+          <div id="hr-term-role" style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px"></div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:20px 24px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+        <div class="form-row" style="margin:0">
+          <label>Type</label>
+          <select class="input" id="hr-term-type">
+            <option value="terminated">Terminated</option>
+            <option value="resignation">Resignation</option>
+            <option value="end-of-contract">End of Contract</option>
+            <option value="retirement">Retirement</option>
+          </select>
+        </div>
+        <div class="form-row" style="margin:0">
+          <label>Effective Date</label>
+          <input type="date" class="input" id="hr-term-date">
+        </div>
+        <div class="form-row" style="margin:0">
+          <label>Last Working Day</label>
+          <input type="date" class="input" id="hr-term-last-day">
+        </div>
+        <div class="form-row" style="margin:0">
+          <label>Notice Period</label>
+          <input class="input" id="hr-term-notice" placeholder="e.g. 30 days">
+        </div>
+      </div>
+      <div class="form-row" style="margin:0 0 14px">
+        <label>Reason <span style="font-size:10px;color:var(--text-2);font-weight:400">(required)</span></label>
+        <textarea class="input" id="hr-term-reason" rows="3" placeholder="Describe the reason for separation…"></textarea>
+      </div>
+      <div class="form-row" style="margin:0 0 16px;display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="hr-term-rehire" checked style="width:15px;height:15px;accent-color:var(--primary)">
+        <label for="hr-term-rehire" style="font-size:12px;color:var(--text-2);cursor:pointer;margin:0">Eligible for rehire</label>
+      </div>
+      <div class="modal-actions" style="padding:0">
+        <button class="btn" onclick="closeModal('modal-hr-terminate')">Cancel</button>
+        <button class="btn" onclick="saveTermination()" style="background:var(--danger);color:#fff;border-color:var(--danger);font-weight:600">Confirm Termination</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HR Portal Invite Modal -->
+<div class="modal-backdrop" id="modal-hr-portal-invite">
+  <div class="modal" style="max-width:420px;padding:0;overflow:hidden">
+    <!-- Gradient header -->
+    <div style="background:linear-gradient(135deg,#0f3460,#16213e);padding:24px 24px 20px;position:relative">
+      <button class="modal-close" onclick="closeModal('modal-hr-portal-invite')" style="position:absolute;top:14px;right:16px;color:rgba(255,255,255,.6);font-size:20px;background:none;border:none;cursor:pointer;line-height:1">×</button>
+      <div style="display:flex;align-items:center;gap:14px">
+        <div id="hr-invite-avatar" style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#14b8a6,#0ea5e9);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;flex-shrink:0;box-shadow:0 0 0 3px rgba(255,255,255,.15)"></div>
+        <div>
+          <div id="hr-invite-name" style="font-size:15px;font-weight:700;color:#fff"></div>
+          <div id="hr-invite-role" style="font-size:11px;color:rgba(255,255,255,.6);margin-top:2px"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Body -->
+    <div style="padding:22px 24px">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">Send Employee Portal Invite</div>
+      <div style="font-size:12px;color:var(--text-2);line-height:1.6;margin-bottom:16px">An email will be sent to <strong id="hr-invite-email" style="color:var(--primary)"></strong> with a secure link to access their personal employee portal where they can view company policy, request time off, and submit requests.</div>
+      <!-- What they get -->
+      <div style="background:var(--surface-2);border-radius:10px;padding:14px;margin-bottom:18px;display:flex;flex-direction:column;gap:8px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin-bottom:2px">Employee portal includes</div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)"><span style="color:#16A34A;font-size:14px">✓</span> Company policy & handbook</div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)"><span style="color:#16A34A;font-size:14px">✓</span> Time off requests (Mon–Fri auto-calculated)</div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)"><span style="color:#16A34A;font-size:14px">✓</span> General request submission</div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-2)"><span style="color:#16A34A;font-size:14px">✓</span> Secure password-protected access</div>
+      </div>
+      <div class="modal-actions" style="padding:0">
+        <button class="btn" onclick="closeModal('modal-hr-portal-invite')">Cancel</button>
+        <button class="btn btn-primary" id="hr-invite-send-btn" onclick="confirmSendPortalInvite()" style="background:linear-gradient(135deg,#0ea5e9,#14b8a6);border:none;font-weight:600">✉ Send Invite</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Subscription Add/Edit Modal -->
+<div class="modal-backdrop" id="modal-sub">
+  <div class="modal modal-lg" style="padding:0;overflow:hidden">
+    <div style="background:linear-gradient(135deg,#1a1035,#2d1a6e);padding:22px 26px 18px;position:relative">
+      <button class="modal-close" onclick="closeModal('modal-sub')" style="position:absolute;top:14px;right:16px;color:rgba(255,255,255,.5);font-size:20px;background:none;border:none;cursor:pointer;line-height:1">×</button>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.45);margin-bottom:4px">Enterprise SaaS</div>
+      <div style="font-size:18px;font-weight:800;color:#fff" id="sub-modal-title">New Subscription</div>
+    </div>
+    <div style="padding:22px 26px;display:grid;grid-template-columns:1fr 1fr;gap:12px 16px" id="sub-modal-body">
+      <div class="form-row" style="margin:0"><label>Client Name *</label><input type="text" id="sub-clientName" placeholder="Company name"></div>
+      <div class="form-row" style="margin:0"><label>Billing Cycle *</label>
+        <select id="sub-billing">
+          <option value="monthly">Monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="yearly" selected>Yearly</option>
+        </select>
+      </div>
+      <div class="form-row" style="margin:0"><label>Amount (per cycle, USD) *</label><input type="number" id="sub-amount" placeholder="0" min="0"></div>
+      <div class="form-row" style="margin:0"><label>Seats / Licenses</label><input type="number" id="sub-seats" placeholder="—" min="1"></div>
+      <div class="form-row" style="margin:0"><label>Start Date</label><input type="date" id="sub-startDate"></div>
+      <div class="form-row" style="margin:0"><label>Renewal Date</label><input type="date" id="sub-renewalDate"></div>
+      <div class="form-row" style="margin:0"><label>Status</label>
+        <select id="sub-status">
+          <option value="active">Active</option>
+          <option value="trial">Trial</option>
+          <option value="paused">Paused</option>
+          <option value="churned">Churned</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+      <div class="form-row" style="margin:0" id="sub-lostReason-row"><label>Lost Reason</label><input type="text" id="sub-lostReason" placeholder="e.g. Price, Competitor, Budget…"></div>
+      <div class="form-row" style="margin:0;grid-column:1/-1"><label>Notes</label><textarea id="sub-notes" rows="2" placeholder="Any additional context…" style="resize:vertical"></textarea></div>
+    </div>
+    <div class="modal-actions" style="padding:0 26px 20px">
+      <button class="btn" onclick="closeModal('modal-sub')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSub()" style="background:linear-gradient(135deg,#5B21B6,#7C3AED);border:none;font-weight:600">Save Subscription</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generic prompt modal -->
+<div class="modal-backdrop" id="modal-prompt">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="prompt-title">Enter value</div><button class="modal-close" onclick="closeModal('modal-prompt');if(window._promptReject)window._promptReject()">×</button></div>
+    <div class="form-row"><input type="text" id="prompt-input" placeholder="" onkeydown="if(event.key==='Enter'){window._promptResolve&&window._promptResolve(this.value);closeModal('modal-prompt');}else if(event.key==='Escape'){closeModal('modal-prompt');if(window._promptReject)window._promptReject();}"></div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal('modal-prompt');if(window._promptReject)window._promptReject()">Cancel</button><button class="btn btn-primary" id="prompt-ok-btn" onclick="window._promptResolve&&window._promptResolve(document.getElementById('prompt-input').value);closeModal('modal-prompt')">OK</button></div>
+  </div>
+</div>
+
+<!-- Add Liability Category modal -->
+<div class="modal-backdrop" id="modal-liab-cat">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Add Liability Category</div><button class="modal-close" onclick="closeModal('modal-liab-cat')">×</button></div>
+    <div class="form-row"><label>Category Name</label><input type="text" id="liab-cat-name" placeholder="e.g. Payroll, VAT Payable..."></div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal('modal-liab-cat')">Cancel</button><button class="btn btn-primary" onclick="saveLiabCategory()">Add Category</button></div>
+  </div>
+</div>
+
+<!-- Commission modal -->
+<div class="modal-backdrop" id="modal-commission">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="comm-modal-title">Add Commission</div><button class="modal-close" onclick="closeModal('modal-commission')">×</button></div>
+    <datalist id="dl-pipeline-deals"></datalist>
+    <div class="form-row"><label>Deal / Invoice Name</label><input type="text" id="comm-deal" list="dl-pipeline-deals" placeholder="e.g. AlShifa SaaS License" autocomplete="off" oninput="autoFillCommFromDeal(this.value)"></div>
+    <div class="form-row"><label>Sales Rep</label><input type="text" id="comm-rep" placeholder="Rep name"></div>
+    <div class="form-row"><label>Client</label><input type="text" id="comm-client" list="dl-ar-clients" placeholder="Client name" autocomplete="off"></div>
+    <div class="form-row"><label>Deal Value ($)</label><input type="number" id="comm-value" placeholder="250000" oninput="calcCommAmt()"></div>
+    <div class="form-row"><label>Commission Rate (%)</label><input type="number" id="comm-rate" value="5" min="0" max="100" step=".5" oninput="calcCommAmt()"></div>
+    <div class="form-row"><label>Commission Amount ($) <span class="badge-auto">auto</span></label><input type="number" id="comm-amount" placeholder="12500"></div>
+    <div class="form-row"><label>Status</label>
+      <select id="comm-status" onchange="handleSelectOther(this); if(this.value!=='__other__') togglePartialPaid()">
+        <option value="pending">Pending</option>
+        <option value="approved">Approved</option>
+        <option value="partial">Partial Payment</option>
+        <option value="paid">Paid (Full)</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
+    <div class="form-row" id="partial-paid-row" style="display:none"><label>Amount Paid So Far ($)</label><input type="number" id="comm-partial-paid" placeholder="0" oninput="calcCommRemaining()"><span id="comm-remaining-label" style="font-size:11px;color:var(--text-2);margin-top:4px;display:block"></span></div>
+    <div class="form-row"><label>Date</label><input type="date" id="comm-date"></div>
+    <div class="form-row"><label>Notes</label><textarea id="comm-notes" placeholder="Optional notes..."></textarea></div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal('modal-commission')">Cancel</button><button class="btn btn-primary" onclick="saveCommission()">Save</button></div>
+  </div>
+</div>
+
+<!-- Project modal -->
+<div class="modal-backdrop" id="modal-project">
+  <div class="modal modal-lg">
+    <div class="modal-header"><div class="modal-title" id="proj-modal-title">Add Project</div><button class="modal-close" onclick="closeModal('modal-project')">×</button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row" style="margin:0"><label>Project Name <span style="font-size:9px;color:var(--text-3);font-weight:400">from pipeline</span></label><select id="proj-name" onchange="onProjNameChange(this)"></select></div>
+      <div class="form-row" style="margin:0"><label>Client <span style="font-size:9px;color:var(--text-3);font-weight:400">from client list</span></label><select id="proj-client"></select></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+      <div class="form-row" style="margin:0"><label>Status</label>
+        <select id="proj-status" onchange="handleSelectOther(this)">
+          <option value="preparing">Preparing</option>
+          <option value="under process">Under Process</option>
+          <option value="active">Active</option>
+          <option value="on hold">On Hold</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="pending approval">Pending Approval</option>
+          <option value="__other__">+ Add other...</option>
+        </select>
+      </div>
+      <div class="form-row" style="margin:0"><label>Stage / Phase</label>
+        <select id="proj-stage" onchange="handleSelectOther(this)">
+          <option value="">Select stage…</option>
+          <option value="Planning">Planning</option>
+          <option value="Design">Design</option>
+          <option value="Pre-Show Logistics">Pre-Show Logistics</option>
+          <option value="Booth Build">Booth Build</option>
+          <option value="Show Days">Show Days</option>
+          <option value="Breakdown">Breakdown</option>
+          <option value="Post-Show Review">Post-Show Review</option>
+          <option value="Completed">Completed</option>
+          <option value="__other__">+ Add other…</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:12px;padding:12px 14px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <label style="margin:0;font-size:11px;font-weight:600;color:var(--text-2)">Completion</label>
+        <span style="font-size:13px;font-weight:700;color:var(--primary)" id="proj-completion-val">0%</span>
+      </div>
+      <input type="range" id="proj-completion" min="0" max="100" step="5" value="0" oninput="document.getElementById('proj-completion-val').textContent=this.value+'%'" style="width:100%;accent-color:var(--primary)">
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-3);margin-top:2px"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+      <div class="form-row" style="margin:0"><label>Start Date</label><input type="date" id="proj-start"></div>
+      <div class="form-row" style="margin:0"><label>End Date</label><input type="date" id="proj-end"></div>
+      <div class="form-row" style="margin:0">
+        <label>Budget (USD) <span style="font-size:9px;color:var(--text-3);font-weight:400">auto-updated by breakdown</span></label>
+        <input type="number" id="proj-budget" placeholder="85000">
+      </div>
+      <div class="form-row" style="margin:0"><label>Linked Revenue ($)</label><input type="number" id="proj-revenue" placeholder="142000"></div>
+    </div>
+    <div class="form-row" style="margin-top:10px"><label>Project Manager</label><input type="text" id="proj-manager" placeholder="Manager name"></div>
+    <div class="form-row" style="margin-top:10px"><label>Description</label><textarea id="proj-desc" placeholder="Project scope and objectives..." rows="2"></textarea></div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal('modal-project')">Cancel</button><button class="btn btn-primary" onclick="saveProject()">Save Project</button></div>
+  </div>
+</div>
+
+<!-- Project Budget Breakdown modal -->
+<div class="modal-backdrop" id="modal-proj-budget">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div><div class="modal-title" id="proj-bud-title">Budget Breakdown</div><div style="font-size:11px;color:var(--text-2);margin-top:2px">Line items total auto-updates the project budget in USD</div></div>
+      <button class="modal-close" onclick="closeModal('modal-proj-budget')">×</button>
+    </div>
+    <div id="proj-bud-content"></div>
+    <!-- Add item row -->
+    <div style="padding:12px 20px;border-top:1px solid var(--border);background:var(--surface-2);border-radius:0 0 12px 12px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Add Budget Item</div>
+      <div style="display:grid;grid-template-columns:1fr 1.5fr 120px;gap:6px;margin-bottom:6px;align-items:end">
+        <div><label style="font-size:10px;color:var(--text-2)">Category</label><input class="input" id="bud-cat" placeholder="e.g. Development" style="font-size:12px;margin-top:3px;width:100%;box-sizing:border-box"></div>
+        <div><label style="font-size:10px;color:var(--text-2)">Description</label><input class="input" id="bud-desc" placeholder="Detail…" style="font-size:12px;margin-top:3px;width:100%;box-sizing:border-box"></div>
+        <div><label style="font-size:10px;color:var(--text-2)">Currency</label>
+          <div style="position:relative;margin-top:3px"><select class="input" id="bud-currency" onchange="fetchExchangeRate()" style="font-size:12px;-webkit-appearance:none;appearance:none;padding-right:18px;width:100%;box-sizing:border-box"><option value="USD">USD</option><option value="AED">AED</option><option value="SAR">SAR</option><option value="EUR">EUR</option><option value="GBP">GBP</option><option value="KWD">KWD</option><option value="BHD">BHD</option><option value="QAR">QAR</option><option value="EGP">EGP</option></select><span style="position:absolute;right:5px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:9px;color:var(--text-2)">▾</span></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 100px;gap:6px;align-items:end">
+        <div><label style="font-size:10px;color:var(--text-2)">Amount (local)</label><input class="input" type="number" id="bud-amt-local" placeholder="0" oninput="calcBudUsd()" style="font-size:12px;margin-top:3px;width:100%;box-sizing:border-box"></div>
+        <div><label style="font-size:10px;color:var(--text-2)">Rate to USD <button onclick="fetchExchangeRate()" style="background:none;border:none;cursor:pointer;font-size:9px;color:var(--primary);padding:0;margin-left:2px" title="Fetch live rate">↻</button></label><input class="input" type="number" id="bud-rate" placeholder="1" step="0.0001" oninput="calcBudUsd()" value="1" style="font-size:12px;margin-top:3px;width:100%;box-sizing:border-box"></div>
+        <div><label style="font-size:10px;color:var(--text-2)">USD</label><input class="input" type="number" id="bud-amt-usd" placeholder="0" style="font-size:12px;margin-top:3px;background:var(--surface-2);width:100%;box-sizing:border-box" readonly></div>
+      </div>
+      <div style="margin-top:6px">
+        <label style="font-size:10px;color:var(--text-2)">Maps to Financial Category <span style="font-size:9px;color:var(--text-3)">(reflects in Financials → Budget)</span></label>
+        <input class="input" id="bud-fin-cat" list="bud-fin-cats" placeholder="e.g. Events, Marketing, Booth Costs…" style="font-size:12px;margin-top:3px;width:100%;box-sizing:border-box">
+        <datalist id="bud-fin-cats"></datalist>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="addBudgetItem()" style="margin-top:8px">+ Add Item</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-proj-budget')">Close</button>
+      <button class="btn btn-primary" onclick="saveBudgetBreakdown()">💾 Save & Update Budget</button>
+    </div>
+  </div>
+</div>
+
+<!-- Project Expenses modal -->
+<div class="modal-backdrop" id="modal-proj-expenses">
+  <div class="modal modal-lg">
+    <div class="modal-header"><div class="modal-title" id="proj-exp-title">Project Expenses</div><button class="modal-close" onclick="closeModal('modal-proj-expenses')">×</button></div>
+    <div id="proj-exp-content"></div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);background:var(--surface-2);border-radius:0 0 12px 12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em" id="exp-form-label">Add Expense</div>
+        <button class="btn btn-sm" id="exp-cancel-edit" style="display:none;font-size:10px;color:var(--text-2)" onclick="cancelEditExpense()">✕ Cancel</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:8px;margin-bottom:8px">
+        <div><label style="font-size:10px;color:var(--text-2)">Description / From</label><input class="input" id="exp-from" placeholder="e.g. AWS, Payroll" style="font-size:12px;margin-top:3px;width:100%"></div>
+        <div><label style="font-size:10px;color:var(--text-2)">Spent By</label><input class="input" id="exp-who" placeholder="Person name" style="font-size:12px;margin-top:3px;width:100%"></div>
+        <div><label style="font-size:10px;color:var(--text-2)">Payment Method</label><div style="position:relative;margin-top:3px"><select class="input" id="exp-method" style="font-size:12px;width:100%;padding-right:24px;-webkit-appearance:none;appearance:none"><option value="petty_cash">Petty Cash</option><option value="credit_card">Credit Card</option><option value="personal_funds">Personal Funds</option></select><span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:10px;color:var(--text-2)">▾</span></div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 90px;gap:8px;align-items:end">
+        <div><label style="font-size:10px;color:var(--text-2)">Amount ($)</label><input class="input" type="number" id="exp-amount" placeholder="0" style="font-size:12px;margin-top:3px;width:100%"></div>
+        <button class="btn btn-primary btn-sm" id="exp-submit-btn" onclick="addProjExpense()" style="margin-top:auto">+ Add</button>
+      </div>
+    </div>
+    <div id="proj-report-status" style="font-size:11px;color:var(--text-2);padding:0 20px 4px"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-proj-expenses')">Close</button>
+      <button class="btn btn-sm" onclick="previewProjReport()">👁 Preview</button>
+      <button class="btn btn-primary btn-sm" onclick="sendProjReport()">📧 Send Report</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cash Flow Column Mapper modal -->
+<div class="modal-backdrop" id="modal-cf-col-map">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Import Excel — Map Columns</div>
+        <div style="font-size:11px;color:var(--text-2);margin-top:2px">Tell the system which column is which, then click Import</div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-cf-col-map')">×</button>
+    </div>
+    <!-- Sheet selector -->
+    <div style="padding:14px 20px 0;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:160px">
+        <label style="font-size:11px;font-weight:600;color:var(--text-2);white-space:nowrap">Sheet</label>
+        <div style="position:relative;flex:1"><select class="input" id="cf-map-sheet" onchange="cfMapSheetChanged()" style="font-size:12px;padding-right:22px;-webkit-appearance:none;appearance:none;width:100%"></select><span style="position:absolute;right:7px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:10px;color:var(--text-2)">▾</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:140px">
+        <label style="font-size:11px;font-weight:600;color:var(--text-2);white-space:nowrap">Month</label>
+        <div style="position:relative;flex:1"><select class="input" id="cf-map-month" style="font-size:12px;padding-right:22px;-webkit-appearance:none;appearance:none;width:100%"></select><span style="position:absolute;right:7px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:10px;color:var(--text-2)">▾</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:140px">
+        <label style="font-size:11px;font-weight:600;color:var(--text-2);white-space:nowrap">Type</label>
+        <div style="position:relative;flex:1"><select class="input" id="cf-map-type" style="font-size:12px;padding-right:22px;-webkit-appearance:none;appearance:none;width:100%"><option value="__none__">— none —</option></select><span style="position:absolute;right:7px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:10px;color:var(--text-2)">▾</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:140px">
+        <label style="font-size:11px;font-weight:600;color:var(--text-2);white-space:nowrap">Description</label>
+        <div style="position:relative;flex:1"><select class="input" id="cf-map-desc" style="font-size:12px;padding-right:22px;-webkit-appearance:none;appearance:none;width:100%"><option value="__none__">— none —</option></select><span style="position:absolute;right:7px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:10px;color:var(--text-2)">▾</span></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:140px">
+        <label style="font-size:11px;font-weight:600;color:var(--text-2);white-space:nowrap">Amount</label>
+        <div style="position:relative;flex:1"><select class="input" id="cf-map-amt" style="font-size:12px;padding-right:22px;-webkit-appearance:none;appearance:none;width:100%"></select><span style="position:absolute;right:7px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:10px;color:var(--text-2)">▾</span></div>
+      </div>
+    </div>
+    <!-- Preview table -->
+    <div style="padding:12px 20px;overflow-x:auto;max-height:280px;overflow-y:auto">
+      <div style="font-size:10px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Preview (first 6 rows)</div>
+      <div id="cf-map-preview"></div>
+    </div>
+    <div id="cf-map-status" style="font-size:11px;color:var(--danger);padding:0 20px 8px;display:none"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-cf-col-map')">Cancel</button>
+      <button class="btn btn-primary" id="cf-map-import-btn" onclick="confirmCfImport()">⬆ Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- Liability modal -->
+<div class="modal-backdrop" id="modal-liability">
+  <div class="modal modal-lg">
+    <div class="modal-header"><div class="modal-title" id="liab-modal-title">Liability Details</div><button class="modal-close" onclick="closeModal('modal-liability')">×</button></div>
+    <div id="liab-modal-content"></div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal('modal-liability')">Close</button></div>
+  </div>
+</div>
+
+<!-- AR modal -->
+<div class="modal-backdrop" id="modal-ar">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title" id="ar-modal-title">Add AR Entry</div><button class="modal-close" onclick="closeModal('modal-ar')">×</button></div>
+    <datalist id="dl-ar-clients"></datalist>
+    <div class="form-row"><label>Client Name</label><input type="text" id="ar-client" list="dl-ar-clients" placeholder="e.g. Informa Markets" autocomplete="off"></div>
+    <div class="form-row"><label>Invoice #</label><input type="text" id="ar-invoice" placeholder="INV-2026-001"></div>
+    <div class="form-row"><label>Issued Date</label><input type="date" id="ar-issued"></div>
+    <div class="form-row"><label>Due Date</label><input type="date" id="ar-due"></div>
+    <div class="form-row"><label>Amount ($)</label><input type="number" id="ar-amount" placeholder="85000"></div>
+    <div class="form-row"><label>Status</label>
+      <select id="ar-status" onchange="handleSelectOther(this)">
+        <option value="pending">Pending (Draft)</option>
+        <option value="sent">Sent — Awaiting Payment</option>
+        <option value="overdue">Overdue</option>
+        <option value="paid">Paid</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Revenue Channel</label>
+      <select id="ar-rev-type" onchange="handleSelectOther(this); if(this.value!=='__other__') document.getElementById('ar-plan-row').style.display=this.value==='Enterprise'?'block':'none'">
+        <option value="">— Select —</option>
+        <option value="Enterprise">Enterprise</option>
+        <option value="Government">Government</option>
+        <option value="Tradeshow">Tradeshow</option>
+        <option value="Services">Services</option>
+        <option value="Partnership">Partnership</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
+    <div class="form-row" id="ar-plan-row" style="display:none"><label>Enterprise Plan Type</label>
+      <select id="ar-plan-type" onchange="handleSelectOther(this)">
+        <option value="">— Select —</option>
+        <option value="SaaS Plan">SaaS Plan</option>
+        <option value="Professional">Professional</option>
+        <option value="Enterprise Plus">Enterprise Plus</option>
+        <option value="Implementation">Implementation</option>
+        <option value="Support">Support</option>
+        <option value="Custom">Custom</option>
+        <option value="__other__">+ Add other...</option>
+      </select>
+    </div>
+    <div id="ar-client-warn" style="display:none;margin:0 0 8px"></div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal('modal-ar')">Cancel</button><button class="btn btn-primary" onclick="saveAR()">Save Invoice</button></div>
+  </div>
+</div>
+
+<!-- Request View + Compose modal (unified) -->
+<div class="modal-backdrop" id="modal-req-view">
+  <div class="modal" style="max-width:820px;padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);background:var(--surface)">
+      <div class="modal-title" id="req-view-title">Request Details</div>
+      <button class="modal-close" onclick="closeModal('modal-req-view')">×</button>
+    </div>
+    <div id="req-view-body" style="overflow-y:auto;max-height:82vh"></div>
+  </div>
+</div>
+
+<!-- Dashboard Customize modal -->
+<div class="modal-backdrop" id="modal-dash-customize">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">⚙ Customize Dashboard</div>
+      <button class="modal-close" onclick="closeModal('modal-dash-customize')">×</button>
+    </div>
+    <p style="font-size:12px;color:var(--text-2);margin-bottom:14px">Toggle sections on or off. Changes apply immediately and persist across sessions.</p>
+    <div id="dash-customize-list"></div>
+    <div class="modal-actions" style="margin-top:10px">
+      <button class="btn btn-sm" style="color:var(--text-2)" onclick="setDashHidden({});setDashOrder([...DASH_ORDER_IDS]);renderDashboard(document.getElementById('main-content'));closeModal('modal-dash-customize')">Reset to Default</button>
+      <button class="btn btn-primary" onclick="closeModal('modal-dash-customize')">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- Request Adjust modal -->
+<div class="modal-backdrop" id="modal-req-adjust">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header"><div class="modal-title">Propose Adjustment</div><button class="modal-close" onclick="closeModal('modal-req-adjust')">×</button></div>
+    <p style="font-size:12px;color:var(--text-2);margin-bottom:16px">Edit the request details and add a note. The requester will receive an email with a link to accept or decline your proposal.</p>
+    <div class="form-row"><label>Subject</label><input type="text" id="req-adj-subject" placeholder="Revised request title"></div>
+    <div class="form-row"><label>Details <span style="font-weight:400;text-transform:none;font-size:10px;color:var(--text-2)">(optional)</span></label><textarea id="req-adj-details" rows="3" placeholder="Updated description…"></textarea></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div class="form-row" style="margin-bottom:0"><label>Due Date</label><input type="date" id="req-adj-duedate"></div>
+      <div class="form-row" style="margin-bottom:0"><label>Priority</label>
+        <select id="req-adj-priority">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row"><label>Note to Requester <span style="font-weight:400;text-transform:none;font-size:10px;color:var(--text-2)">(optional)</span></label><textarea id="req-adj-note" rows="2" placeholder="Explain the proposed changes…"></textarea></div>
+    <div id="req-adj-email-hint" style="font-size:11px;color:var(--text-2);margin-bottom:10px;padding:8px 10px;background:var(--surface-2);border-radius:7px;border:1px solid var(--border)"></div>
+    <div id="req-adj-status" style="font-size:11px;margin-bottom:8px"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-req-adjust')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmAdjustReq()">✎ Send Proposal</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Request Form Settings modal -->
+<div class="modal-backdrop" id="modal-req-settings">
+  <div class="modal">
+    <div class="modal-header"><div class="modal-title">Form Settings</div><button class="modal-close" onclick="closeModal('modal-req-settings')">×</button></div>
+    <div class="form-row"><label>Form Title</label><input type="text" id="req-cfg-title" placeholder="Submit a Request" maxlength="100"></div>
+    <div class="form-row"><label>Form Description</label><textarea id="req-cfg-desc" placeholder="Instructions shown to the person filling out the form..."></textarea></div>
+    <div class="form-row" style="align-items:center;gap:10px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
+        <input type="checkbox" id="req-cfg-corp-email" style="width:16px;height:16px">
+        Require corporate email (block Gmail, Yahoo, Hotmail etc.)
+      </label>
+    </div>
+    <div style="font-size:11px;color:var(--text-3);margin:-8px 0 8px">Personal/inappropriate keywords are always blocked automatically.</div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-req-settings')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveReqSettings()">Save Settings</button>
+    </div>
+  </div>
+</div>
+
 <!-- AI Chat Panel -->
 <div class="ai-chat-panel" id="ai-chat-panel">
   <div class="ai-chat-box">
     <div class="ai-chat-head">
-      <div style="display:flex;align-items:center;gap:8px">
-        <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--primary),#fb923c);display:flex;align-items:center;justify-content:center;font-size:12px">🤖</div>
-        <div><div style="font-size:12px;font-weight:600">AI Finance Agent</div><div style="font-size:10px;color:var(--text-2)">Ask anything about your finances</div></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--primary),#FF8800);display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 3px 8px rgba(255,102,0,0.3)">🤖</div>
+        <div><div style="font-family:'Montserrat',sans-serif;font-size:13px;font-weight:700">Ayla — CFO AI Agent</div><div style="font-size:10px;color:var(--text-2)">Your financial intelligence assistant</div></div>
       </div>
       <button class="modal-close" onclick="closeAI()">×</button>
     </div>
     <div class="ai-chat-msgs" id="ai-msgs">
-      <div class="ai-msg bot">Hello! I'm your AI Finance Agent. I can help you analyze cash flow, interpret budget variances, assess pipeline health, or explain any financial metric. What would you like to know?</div>
+      <div class="ai-msg bot">Hi, I'm <strong>Ayla</strong> — your CFO AI agent. I can analyze cash, ratios, liabilities, AR, pipeline, or suggest your next financial move. What do you need to know?</div>
     </div>
     <div class="ai-chat-input">
-      <input type="text" id="ai-input" placeholder="Ask about cash flow, budget, pipeline..." onkeydown="if(event.key==='Enter')sendAIMsg()">
+      <input type="text" id="ai-input" placeholder="Ask Ayla — ratios, cash, AR, pipeline, suggestions..." onkeydown="if(event.key==='Enter')sendAIMsg()">
       <button class="btn btn-primary btn-sm" onclick="sendAIMsg()">Send</button>
     </div>
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div id="loading-lottie"></div>
+  <div id="loading-text">Loading...</div>
+  <div id="loading-progress"><div id="loading-progress-bar"></div></div>
+</div>
 
+<!-- Alert popup modal -->
+<div class="modal-backdrop" id="modal-alert">
+  <div class="modal">
+    <button class="modal-close-x" onclick="LottieUI.closeAlert()">×</button>
+    <div id="alert-lottie"></div>
+    <div id="alert-title">Done</div>
+    <div id="alert-body"></div>
+    <div class="modal-actions" style="justify-content:center">
+      <button class="btn btn-primary alert-ok-btn" id="alert-ok-btn" onclick="LottieUI.closeAlert()">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI Proactive popup -->
+<div class="ai-popup" id="ai-popup">
+  <div class="ai-popup-title">🤖 Ayla says</div>
+  <div class="ai-popup-body" id="ai-popup-body"></div>
+  <div class="ai-popup-actions">
+    <button class="btn btn-primary btn-sm" onclick="openAI(state.section)">Ask Ayla</button>
+    <button class="btn btn-sm" onclick="dismissAIPopup()">Dismiss</button>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <div class="toast-icon" id="toast-icon"></div>
+  <div class="toast-msg" id="toast-msg"></div>
+</div>
+
+<!-- Floating Ayla cyberpunk avatar button -->
+<button class="ayla-float" onclick="openAI(state.section)">
+  <img src="/media/pic.JPEG" style="width:76px;height:76px;border-radius:50%;object-fit:cover;object-position:center;display:block;">
+  <span class="ayla-tip">Ask Ayla ✦</span>
+</button>
+
+<script src="/js/lottie-ui.js"></script>
 <script src="/js/app.js"></script>
 </body>
 </html>

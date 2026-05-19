@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Submit a Request</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#FF681A;--bg:#0F1B2D;--surface:#1A2740;--surface-2:#223050;
+  --border:rgba(255,255,255,.1);--text:#F1F5F9;--text-2:#94A3B8;
+  --success:#16A34A;--danger:#DC2626;
+}
+body{font-family:'Barlow',sans-serif;background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:var(--surface);border-radius:20px;width:100%;max-width:540px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.card-head{background:linear-gradient(135deg,#FF681A 0%,#FF8C4A 60%,#FFB347 100%);padding:36px 40px 32px}
+.brand{font-size:10px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.15em;margin-bottom:14px;font-weight:600}
+.logo-row{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.logo-icon{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;color:#fff;font-size:18px;backdrop-filter:blur(8px)}
+.logo-name{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:800;color:#fff}
+h1{font-family:'Montserrat',sans-serif;font-size:22px;font-weight:800;color:#fff;margin-bottom:6px}
+.head-desc{font-size:13px;color:rgba(255,255,255,.8);line-height:1.55}
+.card-body{padding:32px 40px 36px}
+.form-row{margin-bottom:18px}
+label{display:block;font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+input,textarea,select{width:100%;background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;font-size:13px;color:var(--text);font-family:'Barlow',sans-serif;outline:none;transition:border .15s;-webkit-appearance:none}
+input::placeholder,textarea::placeholder{color:var(--text-2);opacity:.6}
+input:focus,textarea:focus,select:focus{border-color:var(--primary)}
+select option{background:#1A2740;color:#F1F5F9}
+textarea{height:90px;resize:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.opt-label{font-size:10px;color:var(--text-2);font-weight:400;margin-left:4px;font-style:italic}
+.btn-submit{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:'Montserrat',sans-serif;letter-spacing:.02em;transition:opacity .15s,transform .1s;box-shadow:0 6px 20px rgba(255,104,26,.35);margin-top:6px}
+.btn-submit:hover{opacity:.92;transform:translateY(-1px)}
+.btn-submit:active{transform:translateY(0)}
+.btn-submit:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.success-state{text-align:center;padding:20px 0}
+.success-icon{width:64px;height:64px;border-radius:50%;background:rgba(22,163,74,.15);border:2px solid rgba(22,163,74,.3);display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 20px}
+.success-title{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;color:var(--text);margin-bottom:8px}
+.success-desc{font-size:13px;color:var(--text-2);line-height:1.6}
+.error-msg{font-size:12px;color:#FCA5A5;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.25);border-radius:8px;padding:10px 14px;margin-bottom:16px;display:none}
+.error-msg.show{display:block}
+.priority-row{display:flex;gap:8px}
+.prio-btn{flex:1;padding:10px 8px;border:1.5px solid var(--border);border-radius:9px;background:var(--surface-2);color:var(--text-2);font-size:12px;font-weight:600;cursor:pointer;text-align:center;transition:all .15s;font-family:'Barlow',sans-serif}
+.prio-btn.active-low{border-color:#16A34A;background:rgba(22,163,74,.12);color:#4ADE80}
+.prio-btn.active-medium{border-color:#D97706;background:rgba(217,119,6,.12);color:#FCD34D}
+.prio-btn.active-high{border-color:#DC2626;background:rgba(220,38,38,.12);color:#FCA5A5}
+.footer{font-size:10px;color:var(--text-2);text-align:center;margin-top:20px;opacity:.6}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="card-head">
+    <div class="brand">Aladdin Finance · Request Portal</div>
+    <div class="logo-row">
+      <div class="logo-icon">A</div>
+      <div class="logo-name">Aladdin Finance</div>
+    </div>
+    <h1 id="form-title">Submit a Request</h1>
+    <p class="head-desc" id="form-desc">Fill in the details below and our team will review your request promptly.</p>
+  </div>
+  <div class="card-body">
+    <div class="error-msg" id="err-msg"></div>
+
+    <div id="form-content">
+      <div class="form-row">
+        <label>Subject <span style="color:var(--primary)">*</span></label>
+        <input type="text" id="f-subject" placeholder="Brief description of your request..." maxlength="200">
+      </div>
+      <div class="form-row">
+        <label>Details <span class="opt-label">optional</span></label>
+        <textarea id="f-details" placeholder="Provide any relevant context, background, or specifics..."></textarea>
+      </div>
+      <div class="grid2">
+        <div class="form-row">
+          <label>Due Date <span class="opt-label">optional</span></label>
+          <input type="date" id="f-due">
+        </div>
+        <div class="form-row">
+          <label>Your Email <span class="opt-label">for updates</span></label>
+          <input type="email" id="f-email" placeholder="you@example.com">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Priority</label>
+        <div class="priority-row">
+          <button class="prio-btn" onclick="setPrio('low',this)">Low</button>
+          <button class="prio-btn active-medium" id="prio-medium" onclick="setPrio('medium',this)">Medium</button>
+          <button class="prio-btn" onclick="setPrio('high',this)">High</button>
+        </div>
+        <input type="hidden" id="f-priority" value="medium">
+      </div>
+      <button class="btn-submit" id="submit-btn" onclick="submitForm()">Submit Request</button>
+    </div>
+
+    <div id="success-state" class="success-state" style="display:none">
+      <div class="success-icon">✓</div>
+      <div class="success-title">Request Submitted!</div>
+      <div class="success-desc">Thank you — our team has received your request and will review it shortly. If you provided your email, we'll notify you of any updates.</div>
+    </div>
+
+    <div class="footer">Powered by Aladdin Finance · CFO Command Center</div>
+  </div>
+</div>
+
+<script>
+const token = location.pathname.split('/').pop();
+let _prio = 'medium';
+
+async function loadConfig() {
+  try {
+    const r = await fetch(`/api/requests/form/${token}`);
+    if (!r.ok) { showErr('This request link is invalid or has expired.'); return; }
+    const d = await r.json();
+    if (d.title) document.getElementById('form-title').textContent = d.title;
+    if (d.desc)  document.getElementById('form-desc').textContent  = d.desc;
+    document.title = d.title || 'Submit a Request';
+  } catch(e) { showErr('Unable to load the form. Please try again.'); }
+}
+
+function setPrio(val, btn) {
+  _prio = val;
+  document.getElementById('f-priority').value = val;
+  document.querySelectorAll('.prio-btn').forEach(b => {
+    b.className = 'prio-btn';
+  });
+  btn.classList.add(`active-${val}`);
+}
+
+async function submitForm() {
+  const subject = document.getElementById('f-subject').value.trim();
+  if (!subject) { showErr('Please enter a subject for your request.'); return; }
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  hideErr();
+  try {
+    const r = await fetch(`/api/requests/submit/${token}`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        subject,
+        details:  document.getElementById('f-details').value.trim(),
+        dueDate:  document.getElementById('f-due').value,
+        email:    document.getElementById('f-email').value.trim(),
+        priority: _prio
+      })
+    });
+    const d = await r.json();
+    if (!r.ok) { showErr(d.error || 'Submission failed.'); btn.disabled=false; btn.textContent='Submit Request'; return; }
+    document.getElementById('form-content').style.display = 'none';
+    document.getElementById('success-state').style.display = 'block';
+  } catch(e) {
+    showErr('Network error. Please try again.');
+    btn.disabled=false; btn.textContent='Submit Request';
+  }
+}
+
+function showErr(msg) {
+  const el = document.getElementById('err-msg');
+  el.textContent = msg; el.classList.add('show');
+}
+function hideErr() { document.getElementById('err-msg').classList.remove('show'); }
+
+loadConfig();
+</script>
+</body>
+</html>

@@ -1,13 +1,14 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
 const { load, save } = require('../data/store');
 const { seed } = require('../data/seed');
+const { requireRole } = require('../middleware/roles');
 
 router.get('/', (req, res) => {
   res.json(load('reserves.json', seed().reserves));
 });
 
-router.post('/', (req, res) => {
+router.post('/', requireRole('finance'), (req, res) => {
   const { bank, name, amount } = req.body;
   if (!bank || !name || !amount) {
     return res.status(400).json({ error: 'bank, name and amount required' });
@@ -19,7 +20,7 @@ router.post('/', (req, res) => {
   res.json({ success: true, id });
 });
 
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireRole('finance'), (req, res) => {
   const id = Number(req.params.id);
   let reserves = load('reserves.json', seed().reserves);
   reserves = reserves.filter(r => r.id !== id);
@@ -28,3 +29,4 @@ router.delete('/:id', (req, res) => {
 });
 
 module.exports = router;
+

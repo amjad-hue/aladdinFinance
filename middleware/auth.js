@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'aladdin-finance-secret-2026';
+const { JWT_SECRET } = require('../config');
 
 module.exports = (req, res, next) => {
   const auth = req.headers.authorization;

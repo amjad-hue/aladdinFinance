@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Review Request Adjustment</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --primary:#FF681A;--bg:#0F1B2D;--surface:#1A2740;--surface-2:#223050;
+  --border:rgba(255,255,255,.1);--text:#F1F5F9;--text-2:#94A3B8;
+  --success:#16A34A;--danger:#DC2626;--info:#2563EB;
+}
+body{font-family:'Barlow',sans-serif;background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.card{background:var(--surface);border-radius:20px;width:100%;max-width:560px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.card-head{background:linear-gradient(135deg,#1E3A8A 0%,#2563EB 100%);padding:36px 40px 32px}
+.brand{font-size:10px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.15em;margin-bottom:14px;font-weight:600}
+.logo-row{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.logo-icon{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-weight:800;color:#fff;font-size:18px}
+.logo-name{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:800;color:#fff}
+h1{font-family:'Montserrat',sans-serif;font-size:22px;font-weight:800;color:#fff;margin-bottom:6px}
+.head-desc{font-size:13px;color:rgba(255,255,255,.8);line-height:1.55}
+.card-body{padding:32px 40px 36px}
+.section-label{font-size:10px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+.box{background:var(--surface-2);border:1.5px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.box.original{border-color:rgba(37,99,235,.3);background:rgba(37,99,235,.07)}
+.box.adjusted{border-color:rgba(249,115,22,.3);background:rgba(249,115,22,.07)}
+.box.note{border-color:rgba(255,255,255,.1)}
+.box-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px}
+.box-detail{font-size:13px;color:var(--text-2);line-height:1.55;margin-top:6px}
+.change-row{font-size:12px;color:rgba(249,115,22,.9);margin-bottom:5px;display:flex;align-items:flex-start;gap:6px}
+.change-row:before{content:"→";flex-shrink:0;margin-top:1px}
+.btn-row{display:flex;gap:12px;margin-top:24px}
+.btn{flex:1;padding:14px;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;font-family:'Montserrat',sans-serif;letter-spacing:.02em;transition:opacity .15s}
+.btn:hover{opacity:.88}
+.btn-accept{background:#16A34A;color:#fff;box-shadow:0 4px 14px rgba(22,163,74,.35)}
+.btn-decline{background:rgba(220,38,38,.2);color:#FCA5A5;border:1.5px solid rgba(220,38,38,.3)}
+.status-box{text-align:center;padding:28px 20px}
+.status-icon{font-size:48px;margin-bottom:14px}
+.status-title{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;color:var(--text);margin-bottom:8px}
+.status-sub{font-size:13px;color:var(--text-2);line-height:1.55}
+#loading{text-align:center;padding:48px 20px;color:var(--text-2)}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="card-head">
+    <div class="brand">Aladdin Finance · Request Management</div>
+    <div class="logo-row">
+      <div class="logo-icon">A</div>
+      <div class="logo-name">Aladdin Finance</div>
+    </div>
+    <h1>Adjustment Proposal</h1>
+    <div class="head-desc">Please review the proposed changes to your request and let us know if you accept.</div>
+  </div>
+  <div class="card-body">
+    <div id="loading">Loading…</div>
+    <div id="content" style="display:none"></div>
+  </div>
+</div>
+<script>
+(async () => {
+  const token = location.pathname.split('/').pop();
+  const contentEl = document.getElementById('content');
+  const loadingEl = document.getElementById('loading');
+
+  function show(html) {
+    loadingEl.style.display = 'none';
+    contentEl.style.display = 'block';
+    contentEl.innerHTML = html;
+  }
+
+  function alreadyRespondedHTML(decision) {
+    const accepted = decision === 'accept';
+    return `<div class="status-box">
+      <div class="status-icon">${accepted ? '✅' : '❌'}</div>
+      <div class="status-title">${accepted ? 'Adjustment Accepted' : 'Adjustment Declined'}</div>
+      <div class="status-sub">You have already responded to this proposal. No further action is needed.</div>
+    </div>`;
+  }
+
+  let data;
+  try {
+    const res = await fetch(`/api/requests/respond/${token}`);
+    if (!res.ok) { show('<div class="status-box"><div class="status-icon">🔗</div><div class="status-title">Link Not Found</div><div class="status-sub">This link is invalid or has expired.</div></div>'); return; }
+    data = await res.json();
+  } catch(e) {
+    show('<div class="status-box"><div class="status-icon">⚠️</div><div class="status-title">Error</div><div class="status-sub">Could not load the request. Please try again.</div></div>');
+    return;
+  }
+
+  if (data.status === 'adjustment_accepted' || data.status === 'adjustment_declined') {
+    show(alreadyRespondedHTML(data.status === 'adjustment_accepted' ? 'accept' : 'decline'));
+    return;
+  }
+
+  const changes = [];
+  if (data.adjustedSubject  && data.adjustedSubject  !== data.subject)  changes.push(`Subject: <strong>${data.adjustedSubject}</strong>`);
+  if (data.adjustedDetails  && data.adjustedDetails  !== data.details)  changes.push(`Details updated`);
+  if (data.adjustedDueDate  && data.adjustedDueDate  !== data.dueDate)  changes.push(`Due date: <strong>${data.adjustedDueDate}</strong>`);
+  if (data.adjustedPriority && data.adjustedPriority !== data.priority) changes.push(`Priority: <strong>${data.adjustedPriority}</strong>`);
+
+  show(`
+    <div class="section-label">Original Request</div>
+    <div class="box original">
+      <div class="box-title">${data.subject || '—'}</div>
+      ${data.details ? `<div class="box-detail">${data.details}</div>` : ''}
+    </div>
+    ${changes.length ? `
+    <div class="section-label">Proposed Changes</div>
+    <div class="box adjusted">
+      ${changes.map(c => `<div class="change-row">${c}</div>`).join('')}
+    </div>` : ''}
+    ${data.adjustNote ? `
+    <div class="section-label">Note from our team</div>
+    <div class="box note">
+      <div style="font-size:13px;color:var(--text);line-height:1.6">${data.adjustNote}</div>
+    </div>` : ''}
+    <div class="btn-row">
+      <button class="btn btn-accept" id="btn-accept" onclick="respond('accept')">✓ Accept Adjustment</button>
+      <button class="btn btn-decline" id="btn-decline" onclick="respond('decline')">✕ Decline</button>
+    </div>
+    <div id="resp-status" style="margin-top:14px;font-size:12px;text-align:center;color:var(--text-2)"></div>
+  `);
+
+  window.respond = async (decision) => {
+    const statusEl = document.getElementById('resp-status');
+    document.getElementById('btn-accept').disabled = true;
+    document.getElementById('btn-decline').disabled = true;
+    statusEl.textContent = 'Submitting…';
+    try {
+      const res = await fetch(`/api/requests/respond/${token}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed');
+      show(alreadyRespondedHTML(decision));
+    } catch(e) {
+      statusEl.textContent = 'Error: ' + e.message;
+      document.getElementById('btn-accept').disabled = false;
+      document.getElementById('btn-decline').disabled = false;
+    }
+  };
+})();
+</script>
+</body>
+</html>
