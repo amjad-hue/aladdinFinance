@@ -702,45 +702,7 @@ router.get('/stale-alert-preview', (req, res) => {
     (!d.lastUpdated || new Date(d.lastUpdated) < staleDate)
   );
   const dateStr = today.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric',timeZone:'Asia/Dubai'});
-  const byOwner = {};
-  stale.forEach(d => {
-    const owner = d.owner || 'Unassigned';
-    (byOwner[owner] = byOwner[owner]||[]).push(d);
-  });
-  const ownerRows = Object.entries(byOwner).map(([owner, ownerDeals]) => `
-    <div style=”margin-bottom:18px”>
-      <div style=”font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#97A0AF;margin-bottom:8px”>${owner}</div>
-      ${ownerDeals.map(d=>`
-        <div style=”border:1px solid #FCA5A5;border-radius:8px;padding:12px 16px;margin-bottom:8px;background:#FFFAFA”>
-          <div style=”font-size:13px;font-weight:700;color:#24292E”>${d.name}</div>
-          <div style=”font-size:11px;color:#5E6C84;margin-top:4px”>${d.stage} &middot; ${fmt(d.value)} &middot; ${d.probability}% probability</div>
-          <div style=”font-size:10px;color:#DC2626;margin-top:4px”>Last updated: ${d.lastUpdated||'never'}</div>
-          ${d.followUpDate?`<div style=”font-size:10px;color:#D97706;margin-top:2px”>Follow-up was due: ${d.followUpDate}</div>`:''}
-        </div>`).join('')}
-    </div>`).join('');
-
-  const html = `<!DOCTYPE html><html><head><meta charset=”UTF-8”><title>Stale Deal Alert Preview</title></head>
-<body style=”margin:0;padding:30px;background:#EDF0F5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif”>
-<div style=”max-width:600px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10)”>
-  <div style=”background:linear-gradient(135deg,#DC2626 0%,#EF4444 100%);padding:28px 32px”>
-    <div style=”font-size:11px;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px”>${dateStr}</div>
-    <div style=”font-size:24px;font-weight:800;color:#fff”>Stale Deal Alert</div>
-    <div style=”font-size:13px;color:rgba(255,255,255,.85);margin-top:6px”>${stale.length} deal${stale.length!==1?'s':''} with no update in ${staleAfter}+ days</div>
-  </div>
-  <div style=”padding:24px 32px”>
-    ${!stale.length
-      ? '<div style=”text-align:center;padding:24px;color:#16A34A;font-weight:600”>No stale deals &mdash; all deals are active!</div>'
-      : `<div style=”margin-bottom:16px;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:14px 18px”>
-          <div style=”font-size:12px;font-weight:700;color:#7F1D1D”>These deals need immediate attention from their owners.</div>
-          <div style=”font-size:11px;color:#DC2626;margin-top:4px”>No activity recorded in the last ${staleAfter} days. Please update deal status in CFO Genie.</div>
-        </div>
-        ${ownerRows}`}
-  </div>
-  <div style=”background:#F4F6FA;padding:14px 32px;text-align:center”>
-    <div style=”font-size:10px;color:#97A0AF”>CFO Genie &middot; Stale Deal Alert &middot; Preview Mode</div>
-  </div>
-</div>
-</body></html>`;
+  const html = buildStaleAlertHTML(stale, staleAfter, dateStr, true);
   res.set('Content-Type','text/html').send(html);
 });
 
@@ -762,22 +724,12 @@ router.post('/send-stale-alerts', async (req, res) => {
   const byOwnerEmail = {};
   stale.forEach(d => { (byOwnerEmail[d.ownerEmail] = byOwnerEmail[d.ownerEmail]||[]).push(d); });
 
+  const dateStr = dubaiNow().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric',timeZone:'Asia/Dubai'});
   try {
     let sent = 0;
     for (const [email, ownerDeals] of Object.entries(byOwnerEmail)) {
-      const html = `<!DOCTYPE html><html><body style="font-family:-apple-system,sans-serif;background:#EDF0F5;padding:24px">
-      <div style="max-width:500px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.08)">
-        <div style="background:linear-gradient(135deg,#FF681A,#FF8C4A);padding:20px 24px">
-          <div style="font-size:12px;color:rgba(255,255,255,.8)">CFO Genie · Deal Reminder</div>
-          <div style="font-size:18px;font-weight:800;color:#fff;margin-top:4px">Your deals need attention</div>
-        </div>
-        <div style="padding:20px 24px">
-          <p style="color:#5E6C84;font-size:13px">The following deals haven't been updated in ${staleAfter}+ days:</p>
-          ${ownerDeals.map(d=>`<div style="border:1px solid #E4E7EC;border-radius:8px;padding:12px 16px;margin-bottom:10px"><div style="font-size:14px;font-weight:700;color:#24292E">${d.name}</div><div style="font-size:12px;color:#5E6C84;margin-top:4px">${d.stage} · ${fmt(d.value)} · ${d.probability}% prob</div>${d.followUpDate?`<div style="font-size:11px;color:#DC2626;margin-top:4px">! Follow-up was: ${d.followUpDate}</div>`:''}</div>`).join('')}
-          <p style="font-size:12px;color:#97A0AF;margin-top:16px">Please log in to CFO Genie and update the deal status.</p>
-        </div>
-      </div></body></html>`;
-      await mailer.sendMail({ to: email, subject: `[CFO Genie] ${ownerDeals.length} deal${ownerDeals.length>1?'s':''} need your attention`, html });
+      const html = buildStaleAlertHTML(ownerDeals, staleAfter, dateStr, false);
+      await mailer.sendMail({ to: email, subject: `⚠ ${ownerDeals.length} deal${ownerDeals.length>1?'s':''} need your attention — CFO Genie`, html });
       sent++;
     }
     res.json({ ok: true, sent, message: `Alerts sent to ${sent} deal owner${sent>1?'s':''}` });
@@ -1750,6 +1702,85 @@ async function sendDailyBriefingEmail(toList, baseUrl) {
   return { sent: toList.length, message: `Daily briefing sent to ${toList.join(', ')}` };
 }
 
+function buildStaleAlertHTML(staleDeals, staleAfter, dateStr, isPreview) {
+  const fmtAmt = n => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(Number(n)||0);
+  const daysSince = d => {
+    if (!d.lastUpdated) return null;
+    return Math.floor((Date.now() - new Date(d.lastUpdated)) / 86400000);
+  };
+  const urgencyColor = d => {
+    const days = daysSince(d);
+    if (days === null || days > 30) return '#DC2626';
+    if (days > 21) return '#D97706';
+    return '#2563EB';
+  };
+  const stageColors = { 'Lead':'#6366F1','Qualified':'#3B82F6','Proposal Sent':'#8B5CF6','Negotiation':'#F59E0B','Closed Won':'#16A34A','Closed Lost':'#EF4444' };
+  const dealRows = staleDeals.map(d => {
+    const days = daysSince(d);
+    const urg = urgencyColor(d);
+    const sc = stageColors[d.stage] || '#64748B';
+    return `
+    <tr>
+      <td style="padding:0 0 12px 0">
+        <div style="border-radius:10px;border:1px solid ${urg}33;background:${urg}06;padding:14px 16px">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px">
+            <div style="font-size:14px;font-weight:700;color:#1E293B;line-height:1.3">${d.name}</div>
+            <span style="flex-shrink:0;font-size:10px;font-weight:700;padding:3px 8px;border-radius:5px;background:${urg}18;color:${urg};white-space:nowrap">${days===null?'Never updated':days+'d stale'}</span>
+          </div>
+          <table style="width:100%;border-collapse:collapse">
+            <tr>
+              <td style="padding:0;width:33%"><div style="font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:.06em">Stage</div><div style="font-size:11px;font-weight:600;color:${sc};margin-top:2px">${d.stage}</div></td>
+              <td style="padding:0;width:33%"><div style="font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:.06em">Value</div><div style="font-size:11px;font-weight:600;color:#1E293B;margin-top:2px">${fmtAmt(d.value)}</div></td>
+              <td style="padding:0;width:33%"><div style="font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:.06em">Probability</div><div style="font-size:11px;font-weight:600;color:#1E293B;margin-top:2px">${d.probability||0}%</div></td>
+            </tr>
+          </table>
+          ${d.followUpDate ? `<div style="margin-top:8px;font-size:10px;color:#D97706;background:#FFFBEB;border-radius:5px;padding:4px 8px;display:inline-block">⚠ Follow-up was due: ${d.followUpDate}</div>` : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:28px 16px;background:#F1F5F9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+<div style="max-width:580px;margin:0 auto">
+  <div style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.09)">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#991B1B 0%,#DC2626 50%,#EF4444 100%);padding:28px 32px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <div style="width:40px;height:40px;background:rgba(255,255,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px">⚠</div>
+        <div>
+          <div style="font-size:10px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.1em">CFO Genie · Pipeline Alert</div>
+          <div style="font-size:20px;font-weight:800;color:#fff;line-height:1.2">Stale Deal Alert</div>
+        </div>
+      </div>
+      <div style="background:rgba(0,0,0,.15);border-radius:8px;padding:10px 14px;display:inline-block">
+        <div style="font-size:12px;color:rgba(255,255,255,.9)">${staleDeals.length} deal${staleDeals.length!==1?'s':''} with no activity for ${staleAfter}+ days</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:2px">${dateStr}${isPreview?' · Preview Mode':''}</div>
+      </div>
+    </div>
+    <!-- Body -->
+    <div style="padding:24px 32px">
+      ${!staleDeals.length
+        ? `<div style="text-align:center;padding:32px 0">
+             <div style="font-size:36px;margin-bottom:12px">✅</div>
+             <div style="font-size:15px;font-weight:700;color:#16A34A">All deals are active!</div>
+             <div style="font-size:12px;color:#94A3B8;margin-top:4px">No deals have gone stale. Keep up the momentum.</div>
+           </div>`
+        : `<div style="margin-bottom:16px;background:#FEF2F2;border-left:3px solid #DC2626;border-radius:0 8px 8px 0;padding:12px 16px">
+             <div style="font-size:12px;font-weight:700;color:#7F1D1D">Immediate action required</div>
+             <div style="font-size:11px;color:#B91C1C;margin-top:3px">The deals below have had no recorded activity in ${staleAfter}+ days. Each deal owner should update status or log a follow-up.</div>
+           </div>
+           <table style="width:100%;border-collapse:collapse">${dealRows}</table>`}
+    </div>
+    <!-- Footer -->
+    <div style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:14px 32px;text-align:center">
+      <div style="font-size:10px;color:#94A3B8">CFO Genie · Automated Stale Deal Alert · ${isPreview?'Preview':'Sent'} ${dateStr}</div>
+    </div>
+  </div>
+</div>
+</body></html>`;
+}
+
 async function sendStaleAlertEmail(baseUrl, appSettings) {
   if (!mailer.isConfigured()) throw new Error('Email not configured');
   const staleAfter = appSettings.pipelineStaleAfterDays || 14;
@@ -1762,21 +1793,11 @@ async function sendStaleAlertEmail(baseUrl, appSettings) {
   if (!stale.length) return { sent: 0, message: 'No stale deals with owner emails' };
   const byOwnerEmail = {};
   stale.forEach(d => { (byOwnerEmail[d.ownerEmail] = byOwnerEmail[d.ownerEmail]||[]).push(d); });
+  const dateStr = dubaiNow().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric',timeZone:'Asia/Dubai'});
   let sent = 0;
   for (const [email, ownerDeals] of Object.entries(byOwnerEmail)) {
-    const html = `<!DOCTYPE html><html><body style="font-family:-apple-system,sans-serif;background:#EDF0F5;padding:24px">
-    <div style="max-width:500px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.08)">
-      <div style="background:linear-gradient(135deg,#DC2626,#EF4444);padding:20px 24px">
-        <div style="font-size:12px;color:rgba(255,255,255,.8)">CFO Genie &middot; Stale Deal Alert</div>
-        <div style="font-size:18px;font-weight:800;color:#fff;margin-top:4px">Your deals need attention</div>
-      </div>
-      <div style="padding:20px 24px">
-        <p style="color:#5E6C84;font-size:13px">The following deals have not been updated in ${staleAfter}+ days:</p>
-        ${ownerDeals.map(d=>`<div style="border:1px solid #FCA5A5;border-radius:8px;padding:12px 16px;margin-bottom:10px"><div style="font-size:14px;font-weight:700;color:#24292E">${d.name}</div><div style="font-size:12px;color:#5E6C84;margin-top:4px">${d.stage} &middot; ${fmt(d.value)} &middot; ${d.probability}% probability</div><div style="font-size:10px;color:#DC2626;margin-top:4px">Last updated: ${d.lastUpdated||'never'}</div>${d.followUpDate?`<div style="font-size:11px;color:#D97706;margin-top:2px">Follow-up was due: ${d.followUpDate}</div>`:''}</div>`).join('')}
-        <p style="font-size:12px;color:#97A0AF;margin-top:16px">Please log in to CFO Genie and update the deal status.</p>
-      </div>
-    </div></body></html>`;
-    await mailer.sendMail({ to: email, subject: `[CFO Genie] ${ownerDeals.length} deal${ownerDeals.length>1?'s':''} need your attention`, html });
+    const html = buildStaleAlertHTML(ownerDeals, staleAfter, dateStr, false);
+    await mailer.sendMail({ to: email, subject: `⚠ ${ownerDeals.length} deal${ownerDeals.length>1?'s':''} need your attention — CFO Genie`, html });
     sent++;
   }
   return { sent, message: `Alerts sent to ${sent} deal owner${sent>1?'s':''}` };

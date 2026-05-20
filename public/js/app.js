@@ -3081,7 +3081,8 @@ function renderPipeline(c) {
   const closedWonDeals=state.pipeline.filter(d=>d.stage==='Closed Won');
   const closedWonVal=closedWonDeals.reduce((a,d)=>a+d.value,0);
   const _kpiNow=new Date();
-  const _kpiMonths6=Array.from({length:6},(_,i)=>{ const d=new Date(_kpiNow.getFullYear(),_kpiNow.getMonth()-5+i,1); return {y:d.getFullYear(),m:d.getMonth(),label:d.toLocaleString('en',{month:'short'})}; });
+  if (!state._pipeMonthsWon) state._pipeMonthsWon = 12;
+  const _kpiMonths6=Array.from({length:state._pipeMonthsWon},(_,i)=>{ const d=new Date(_kpiNow.getFullYear(),_kpiNow.getMonth()-(state._pipeMonthsWon-1)+i,1); return {y:d.getFullYear(),m:d.getMonth(),label:d.toLocaleString('en',{month:'short'})}; });
   const _kpiMonthlyWon=_kpiMonths6.map(mo=>closedWonDeals.filter(d=>{ const cd=new Date(d.closeDate); return cd.getFullYear()===mo.y&&cd.getMonth()===mo.m; }).reduce((a,d)=>a+d.value,0));
   c.innerHTML=`
   <div style="display:flex;flex-direction:column;gap:14px">
@@ -3148,7 +3149,9 @@ function renderPipeline(c) {
         const maxFunnel = funnelCounts[0]?.count || 1;
         // Monthly closed won (last 6 months)
         const now = new Date();
-        const months6 = Array.from({length:6},(_,i)=>{ const d=new Date(now.getFullYear(),now.getMonth()-5+i,1); return {y:d.getFullYear(),m:d.getMonth(),label:d.toLocaleString('en',{month:'short'})}; });
+        if (!state._pipeMonthsWon) state._pipeMonthsWon = 12;
+        const _nMo = state._pipeMonthsWon;
+        const months6 = Array.from({length:_nMo},(_,i)=>{ const d=new Date(now.getFullYear(),now.getMonth()-(_nMo-1)+i,1); return {y:d.getFullYear(),m:d.getMonth(),label:d.toLocaleString('en',{month:'short',year:_nMo>12?'2-digit':undefined})}; });
         const monthlyWon = months6.map(mo => won.filter(d=>{ const cd=new Date(d.closeDate); return cd.getFullYear()===mo.y&&cd.getMonth()===mo.m; }).reduce((a,d)=>a+d.value,0));
         const REP_COLS = ['#FF6600','#2563EB','#16A34A','#7C3AED','#D97706'];
         return `
@@ -3207,7 +3210,12 @@ function renderPipeline(c) {
             </div>
           </div>
           <div class="card">
-            <div class="card-header"><div class="card-title">Monthly Closed Won</div></div>
+            <div class="card-header">
+              <div class="card-title">Monthly Closed Won</div>
+              <div style="display:flex;gap:4px">
+                ${[6,12,24].map(n=>`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;${state._pipeMonthsWon===n?'background:var(--primary);color:#fff;border-color:var(--primary)':''}" onclick="state._pipeMonthsWon=${n};renderPipeline(document.getElementById('main-content'))">${n}mo</button>`).join('')}
+              </div>
+            </div>
             <div class="chart-wrap chart-wrap-sm"><canvas id="kpi-monthly-won"></canvas></div>
           </div>
         </div>
@@ -3253,23 +3261,24 @@ function renderPipeline(c) {
       <div class="card">
         <div class="card-header"><div><div class="card-title">Sales Pipeline — All Deals</div><div class="card-desc">${state.appSettings?.hubspotConnected?'HubSpot connected · manual override enabled':'Manual entry — connect HubSpot in Settings to sync'}</div></div><div style="display:flex;gap:6px">${state.appSettings?.hubspotConnected?`<button class="btn btn-sm" onclick="syncSource('/pipeline/sync','HubSpot')">↻ HubSpot</button>`:''}<button class="btn btn-primary btn-sm" onclick="openAddDeal()">+ Add Deal</button></div></div>
         <!-- Pipeline Filters -->
-        <div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 0 14px;border-bottom:1px solid var(--border);margin-bottom:12px">
-          <input class="input" style="width:180px;font-size:12px" placeholder="Search name, client…" value="${state._pipeFilter.q}" oninput="state._pipeFilter.q=this.value;state._pages.pipeline=0;renderPipeline(document.getElementById('main-content'))">
-          <select class="input" style="width:150px;font-size:12px" onchange="state._pipeFilter.stage=this.value;state._pages.pipeline=0;renderPipeline(document.getElementById('main-content'))">
+        <div class="filter-bar">
+          <input class="filter-search" placeholder="Search name, client…" value="${state._pipeFilter.q}" oninput="state._pipeFilter.q=this.value;state._pages.pipeline=0;renderPipeline(document.getElementById('main-content'))">
+          <div class="filter-sep"></div>
+          <select class="filter-select" onchange="state._pipeFilter.stage=this.value;state._pages.pipeline=0;renderPipeline(document.getElementById('main-content'))">
             <option value="">All Stages</option>
             ${[...new Set(state.pipeline.map(d=>d.stage).filter(Boolean))].map(s=>`<option value="${s}"${state._pipeFilter.stage===s?' selected':''}>${s}</option>`).join('')}
           </select>
-          <select class="input" style="width:150px;font-size:12px" onchange="state._pipeFilter.owner=this.value;state._pages.pipeline=0;renderPipeline(document.getElementById('main-content'))">
+          <select class="filter-select" onchange="state._pipeFilter.owner=this.value;state._pages.pipeline=0;renderPipeline(document.getElementById('main-content'))">
             <option value="">All Owners</option>
             ${[...new Set(state.pipeline.map(d=>d.owner).filter(Boolean))].map(o=>`<option value="${o}"${state._pipeFilter.owner===o?' selected':''}>${o}</option>`).join('')}
           </select>
-          <select class="input" style="width:140px;font-size:12px" onchange="state._pipeFilter.sortBy=this.value;renderPipeline(document.getElementById('main-content'))">
+          <select class="filter-select" onchange="state._pipeFilter.sortBy=this.value;renderPipeline(document.getElementById('main-content'))">
             <option value="">Sort: Default</option>
-            <option value="value"${state._pipeFilter.sortBy==='value'?' selected':''}>Sort: Value ↓</option>
-            <option value="closeDate"${state._pipeFilter.sortBy==='closeDate'?' selected':''}>Sort: Close Date</option>
-            <option value="probability"${state._pipeFilter.sortBy==='probability'?' selected':''}>Sort: Probability</option>
+            <option value="value"${state._pipeFilter.sortBy==='value'?' selected':''}>↓ Value</option>
+            <option value="closeDate"${state._pipeFilter.sortBy==='closeDate'?' selected':''}>↑ Close Date</option>
+            <option value="probability"${state._pipeFilter.sortBy==='probability'?' selected':''}>↓ Probability</option>
           </select>
-          ${(state._pipeFilter.q||state._pipeFilter.stage||state._pipeFilter.owner||state._pipeFilter.sortBy)?`<button class="btn btn-sm" style="font-size:11px" onclick="state._pipeFilter={stage:'',owner:'',q:'',sortBy:'',sortDir:'asc'};renderPipeline(document.getElementById('main-content'))">✕ Clear</button>`:''}
+          ${(state._pipeFilter.q||state._pipeFilter.stage||state._pipeFilter.owner||state._pipeFilter.sortBy)?`<button class="btn btn-sm" style="font-size:11px;padding:3px 8px" onclick="state._pipeFilter={stage:'',owner:'',q:'',sortBy:'',sortDir:'asc'};renderPipeline(document.getElementById('main-content'))">✕ Clear</button>`:''}
         </div>
         ${(()=>{
           let pl = [...state.pipeline];
@@ -3749,12 +3758,11 @@ function renderAR(c) {
           ${isViewerRole()?'':`<button class="btn btn-primary btn-sm" onclick="openAddAR()">+ Add AR</button>`}
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;padding:0 0 12px;flex-wrap:wrap">
-        <div style="display:flex;gap:4px">
-          ${[{v:'',l:'All'},{v:'pending',l:'Pending'},{v:'overdue',l:'Overdue'},{v:'paid',l:'Paid'},{v:'sent',l:'Sent'}].map(({v,l})=>`<button onclick="setArFilter('status','${v}')" style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid ${state._arFilter.status===v?'var(--primary)':'var(--border)'};background:${state._arFilter.status===v?'var(--primary-bg)':'var(--surface-2)'};color:${state._arFilter.status===v?'var(--primary)':'var(--text-2)'};cursor:pointer;font-weight:${state._arFilter.status===v?'700':'400'};transition:all .15s">${l}</button>`).join('')}
-        </div>
-        <input type="text" placeholder="Search client or invoice…" value="${state._arFilter.q||''}" oninput="setArFilter('q',this.value)" style="font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text);outline:none;min-width:180px;flex:1;max-width:280px">
-        ${(state._arFilter.status||state._arFilter.q)?`<button onclick="clearArFilter()" style="font-size:11px;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text-2);cursor:pointer">✕ Clear</button>`:''}
+      <div class="filter-bar">
+        <input class="filter-search" type="text" placeholder="Search client or invoice…" value="${state._arFilter.q||''}" oninput="setArFilter('q',this.value)">
+        <div class="filter-sep"></div>
+        ${[{v:'',l:'All'},{v:'pending',l:'Pending'},{v:'overdue',l:'Overdue'},{v:'paid',l:'Paid'},{v:'sent',l:'Sent'}].map(({v,l})=>`<button onclick="setArFilter('status','${v}')" style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid ${state._arFilter.status===v?'var(--primary)':'var(--border)'};background:${state._arFilter.status===v?'var(--primary-bg)':'transparent'};color:${state._arFilter.status===v?'var(--primary)':'var(--text-2)'};cursor:pointer;font-weight:${state._arFilter.status===v?'700':'400'};transition:all .12s">${l}</button>`).join('')}
+        ${(state._arFilter.status||state._arFilter.q)?`<button onclick="clearArFilter()" class="btn btn-sm" style="font-size:11px;padding:3px 8px;margin-left:auto">✕ Clear</button>`:''}
       </div>
       <div style="overflow-x:auto">
         ${(()=>{
@@ -4714,35 +4722,70 @@ function renderEventsList() {
   }).join('') : emptyState('No upcoming events', ef.type ? 'Try clearing the filter' : 'Add an event or task to see it here'));
 }
 
+const EVT_MEETING_TYPES = new Set(['meeting','board meeting','client call','planning','review','training']);
+const EVT_FINANCIAL_TYPES = new Set(['deadline','tax']);
+
+function _populateTimeSelect(selId, selectedVal) {
+  const sel = document.getElementById(selId); if (!sel) return;
+  const isEnd = selId === 'evt-end-time';
+  let html = isEnd ? '<option value="">— No end time —</option>' : '<option value="">— No time —</option>';
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const hh = h % 12 || 12, mm = m === 0 ? '00' : '30', ampm = h < 12 ? 'AM' : 'PM';
+      const val = `${String(h).padStart(2,'0')}:${mm}`;
+      const label = `${hh}:${mm} ${ampm}`;
+      html += `<option value="${val}"${val===selectedVal?' selected':''}>${label}</option>`;
+    }
+  }
+  sel.innerHTML = html;
+}
+
+function updateEventModalFields() {
+  const type = document.getElementById('evt-type')?.value || '';
+  const isMeeting = EVT_MEETING_TYPES.has(type);
+  const isFinancial = EVT_FINANCIAL_TYPES.has(type);
+  const show = (id, vis) => { const el=document.getElementById(id); if(el) el.style.display=vis?'':'none'; };
+  show('evt-endtime-row', isMeeting);
+  show('evt-zoom-section', isMeeting);
+  show('evt-invitees-row', isMeeting);
+  show('evt-amount-row', isFinancial);
+  const lbl = document.getElementById('evt-note-label');
+  if (lbl) lbl.textContent = isMeeting ? 'Agenda' : 'Notes';
+}
+
 function openAddEvent() {
-  ['evt-title','evt-note','evt-amount','evt-time'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  _populateTimeSelect('evt-time', '');
+  _populateTimeSelect('evt-end-time', '');
+  ['evt-title','evt-note','evt-amount','evt-invitees'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('evt-date').value=TODAY.toISOString().split('T')[0];
   document.getElementById('evt-type').value='meeting';
   document.getElementById('evt-recur').value='none';
   document.getElementById('evt-modal-title').textContent='Add Calendar Event';
   document.getElementById('evt-save-btn').textContent='Save Event';
-  const zlRow=document.getElementById('evt-zoom-link-row'); if(zlRow) zlRow.style.display='none';
   const zlInp=document.getElementById('evt-zoom-link'); if(zlInp) zlInp.value='';
   delete document.getElementById('modal-event').dataset.editId;
+  updateEventModalFields();
   openModal('modal-event');
 }
 
 function openEditEvent(id) {
   const e=state.events.find(x=>x.id===id); if(!e) return;
+  _populateTimeSelect('evt-time', e.time||'');
+  _populateTimeSelect('evt-end-time', e.endTime||'');
   document.getElementById('evt-modal-title').textContent='Edit Event';
   document.getElementById('evt-title').value=e.title||'';
   document.getElementById('evt-date').value=e.date||'';
-  const timeEl=document.getElementById('evt-time'); if(timeEl) timeEl.value=e.time||'';
   setSelectValue(document.getElementById('evt-type'), e.type||'meeting');
   setSelectValue(document.getElementById('evt-recur'), e.recur||'none');
   document.getElementById('evt-amount').value=e.amount||'';
   document.getElementById('evt-note').value=e.note||'';
-  const zlRow=document.getElementById('evt-zoom-link-row');
   const zlInp=document.getElementById('evt-zoom-link');
   if(zlInp) zlInp.value=e.zoomLink||'';
-  if(zlRow) zlRow.style.display=e.zoomLink?'block':'none';
+  const invEl=document.getElementById('evt-invitees');
+  if(invEl) invEl.value=(e.invitees||[]).join(', ');
   document.getElementById('evt-save-btn').textContent='Save Changes';
   document.getElementById('modal-event').dataset.editId=id;
+  updateEventModalFields();
   openModal('modal-event');
 }
 
@@ -4750,8 +4793,19 @@ async function saveEvent() {
   const title=document.getElementById('evt-title').value.trim(), date=document.getElementById('evt-date').value;
   if (!title||!date){toast('Title and date required');return;}
   const time=document.getElementById('evt-time')?.value||'';
+  const endTime=document.getElementById('evt-end-time')?.value||'';
   const zoomLink=document.getElementById('evt-zoom-link')?.value||null;
-  const payload={type:document.getElementById('evt-type').value,title,date,time,note:document.getElementById('evt-note').value,amount:document.getElementById('evt-amount').value||null,recur:document.getElementById('evt-recur').value,zoomLink};
+  const invRaw=document.getElementById('evt-invitees')?.value||'';
+  const invitees=invRaw.split(/[,;\s]+/).map(s=>s.trim()).filter(s=>s.includes('@'));
+  const payload={
+    type:document.getElementById('evt-type').value,
+    title,date,time,endTime,
+    note:document.getElementById('evt-note').value,
+    amount:document.getElementById('evt-amount').value||null,
+    recur:document.getElementById('evt-recur').value,
+    zoomLink,
+    invitees,
+  };
   const editId=document.getElementById('modal-event').dataset.editId;
   try {
     if(editId){
@@ -4821,20 +4875,21 @@ function renderTasks(c) {
   <div style="display:flex;flex-direction:column;gap:14px">
     <div class="card">
       <div class="card-header"><div class="card-title">Tasks</div><div style="display:flex;gap:6px"><button class="btn btn-sm" onclick="toggleDone()">${state.showDone?'Hide done':'Show done'}</button><button class="btn btn-sm" onclick="previewEmail('/reports/task-reminder-preview')">Preview Reminder Email</button><button class="btn btn-sm" style="color:var(--primary);border-color:var(--primary-bg)" onclick="openAI('tasks')">✦ Ask Ayla</button><button class="btn btn-primary btn-sm" onclick="openAddTask()">+ Task</button></div></div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--text-2)">${open.length} open · ${done.length} completed</span>
-        <select class="input" style="font-size:11px;max-width:130px;margin-left:auto" onchange="state._taskFilter.priority=this.value;renderTasksList()">
+      <div class="filter-bar">
+        <span class="filter-count">${open.length} open · ${done.length} done</span>
+        <div class="filter-sep"></div>
+        <select class="filter-select" onchange="state._taskFilter.priority=this.value;renderTasksList()">
           <option value=""${!state._taskFilter?.priority?' selected':''}>All Priorities</option>
           <option value="high"${state._taskFilter?.priority==='high'?' selected':''}>High</option>
           <option value="medium"${state._taskFilter?.priority==='medium'?' selected':''}>Medium</option>
           <option value="low"${state._taskFilter?.priority==='low'?' selected':''}>Low</option>
         </select>
-        <select class="input" style="font-size:11px;max-width:140px" onchange="state._taskFilter.sort=this.value;renderTasksList()">
+        <select class="filter-select" onchange="state._taskFilter.sort=this.value;renderTasksList()">
           <option value="default"${(state._taskFilter?.sort||'default')==='default'?' selected':''}>Default order</option>
           <option value="deadline"${state._taskFilter?.sort==='deadline'?' selected':''}>By deadline</option>
           <option value="priority"${state._taskFilter?.sort==='priority'?' selected':''}>By priority</option>
         </select>
-        ${state._taskFilter?.priority||state._taskFilter?.sort!=='default'?`<button class="btn btn-sm" style="font-size:10px" onclick="state._taskFilter={priority:'',sort:'default'};renderTasksList()">✕ Clear</button>`:''}
+        ${state._taskFilter?.priority||state._taskFilter?.sort!=='default'?`<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;margin-left:auto" onclick="state._taskFilter={priority:'',sort:'default'};renderTasksList()">✕ Clear</button>`:''}
       </div>
       <div id="tasks-list"></div>
     </div>
@@ -5179,11 +5234,10 @@ function renderFiles(c) {
           <input type="file" id="file-upload-inp" style="display:none" onchange="uploadFile(this)">
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-        <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1">
-          ${FILE_CATS.map(f=>`<button class="btn btn-sm${state.fileFilter===f?' btn-primary':''}" onclick="setFileFilter('${f}')">${f==='all'?'All':f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('')}
-        </div>
-        <input class="input" id="file-search" placeholder="Search files…" style="width:180px;font-size:11px" oninput="renderFilesList()">
+      <div class="filter-bar">
+        <input class="filter-search" id="file-search" placeholder="Search files…" oninput="renderFilesList()">
+        <div class="filter-sep"></div>
+        ${FILE_CATS.map(f=>`<button class="btn btn-sm${state.fileFilter===f?' btn-primary':''}" style="font-size:11px;padding:3px 10px" onclick="setFileFilter('${f}')">${f==='all'?'All':f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('')}
       </div>
       <div id="files-list"></div>
     </div>
@@ -5651,21 +5705,23 @@ function renderCommissions(c) {
       <div class="card">
         <div class="card-header" style="flex-wrap:wrap;gap:8px">
           <div class="card-title">Commission Ledger</div>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto">
-            <input class="input" id="comm-search" placeholder="Search deal / rep…" style="width:160px;font-size:11px" oninput="renderCommissionsTable()">
-            <select class="input" id="comm-filter-status" style="font-size:11px;width:110px" onchange="renderCommissionsTable()">
-              <option value="">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="paid">Paid</option>
-              <option value="partial">Partial</option>
-            </select>
-            <select class="input" id="comm-filter-rep" style="font-size:11px;width:120px" onchange="renderCommissionsTable()">
-              <option value="">All Reps</option>
-              ${[...new Set(state.commissions.map(x=>x.repName))].map(r=>`<option value="${escHtml(r)}">${escHtml(r)}</option>`).join('')}
-            </select>
-            <button class="btn btn-primary btn-sm" onclick="openAddCommission()">+ Add</button>
-          </div>
+          <button class="btn btn-primary btn-sm" onclick="openAddCommission()">+ Add</button>
+        </div>
+        <div class="filter-bar">
+          <input class="filter-search" id="comm-search" placeholder="Search deal / rep…" oninput="renderCommissionsTable()">
+          <div class="filter-sep"></div>
+          <select class="filter-select" id="comm-filter-status" onchange="renderCommissionsTable()">
+            <option value="">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="paid">Paid</option>
+            <option value="partial">Partial</option>
+          </select>
+          <select class="filter-select" id="comm-filter-rep" onchange="renderCommissionsTable()">
+            <option value="">All Reps</option>
+            ${[...new Set(state.commissions.map(x=>x.repName))].map(r=>`<option value="${escHtml(r)}">${escHtml(r)}</option>`).join('')}
+          </select>
+          <div class="filter-count">${state.commissions.length} commissions</div>
         </div>
         <div id="comm-table-wrap" style="overflow-x:auto"></div>
       </div>
@@ -5720,10 +5776,6 @@ function renderCommissions(c) {
             </div>`:''}
           </div>`;
         }).join('')}
-      </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Sales Closed vs Target</div><div class="card-desc">Sales volume closed compared to yearly targets — set targets in Settings &amp; Targets tab</div></div>
-        <div class="chart-wrap chart-wrap-lg"><canvas id="chart-comm-rep"></canvas></div>
       </div>
     </div>
 
@@ -5817,18 +5869,6 @@ function renderCommissions(c) {
   </div>`;
 
   renderCommissionsTable();
-
-  setTimeout(()=>{
-    const repLabels = Object.keys(byRep);
-    const earnedData = repLabels.map(r => byRep[r].totalSales);
-    const targetData = repLabels.map(r => targets[r]?.yearly || 0);
-    const hasTargets = targetData.some(v => v > 0);
-    const datasets = [
-      { label: 'Sales Closed', data: earnedData, backgroundColor: REP_COLS.slice(0, repLabels.length), borderRadius: 6 }
-    ];
-    if (hasTargets) datasets.push({ label: 'Target', data: targetData, backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 6, borderDash: [] });
-    mkChart('chart-comm-rep', 'bar', { labels: repLabels, datasets });
-  }, 50);
 }
 
 function openAddCommission() {
@@ -6004,6 +6044,73 @@ function renameRep(oldName) {
 }
 
 async function archiveRep(repName, archive) {
+  if (archive) {
+    const activeDeals = state.pipeline.filter(d =>
+      d.owner === repName && d.stage !== 'Closed Lost' && d.stage !== 'Closed Won'
+    );
+    const wonDeals = state.pipeline.filter(d =>
+      d.owner === repName && d.stage === 'Closed Won'
+    );
+    if (activeDeals.length > 0 || wonDeals.length > 0) {
+      // Build an inline warning modal with reassignment option
+      const allReps = [...new Set([
+        ...Object.keys(state.commissions.reduce((m,c)=>{m[c.repName]=1;return m;},{})),
+        ...(state.commSettings?.customReps||[])
+      ])].filter(r=>r!==repName&&!(state.commSettings?.archivedReps||[]).includes(r));
+
+      const modalEl = document.createElement('div');
+      modalEl.className = 'modal-backdrop';
+      modalEl.style.cssText = 'z-index:9999';
+      modalEl.innerHTML = `<div class="modal" style="max-width:520px">
+        <div class="modal-header">
+          <div class="modal-title" style="color:var(--warning)">⚠ Archive ${escHtml(repName)}</div>
+          <button class="modal-close" onclick="this.closest('.modal-backdrop').remove()">×</button>
+        </div>
+        ${activeDeals.length?`<div style="background:var(--danger-bg);border-radius:8px;padding:12px 14px;margin-bottom:12px;border:1px solid rgba(239,68,68,.2)">
+          <div style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:8px">${activeDeals.length} Active Deal${activeDeals.length>1?'s':''} — must be reassigned</div>
+          ${activeDeals.map(d=>`<div style="font-size:11px;padding:4px 0;border-bottom:.5px solid rgba(239,68,68,.15)"><strong>${escHtml(d.name)}</strong> · ${d.stage} · ${fmt(d.value)}</div>`).join('')}
+        </div>`:''}
+        ${wonDeals.length?`<div style="background:var(--warning-bg);border-radius:8px;padding:12px 14px;margin-bottom:12px;border:1px solid rgba(217,119,6,.2)">
+          <div style="font-size:12px;font-weight:700;color:var(--warning-text);margin-bottom:8px">${wonDeals.length} Closed Won Deal${wonDeals.length>1?'s':''} — client may need account manager for renewals</div>
+          ${wonDeals.slice(0,5).map(d=>`<div style="font-size:11px;padding:3px 0;color:var(--text-2)">${escHtml(d.name)} · ${fmt(d.value)}</div>`).join('')}
+          ${wonDeals.length>5?`<div style="font-size:10px;color:var(--text-3);margin-top:4px">+ ${wonDeals.length-5} more</div>`:''}
+        </div>`:''}
+        ${allReps.length&&activeDeals.length?`<div class="form-row" style="margin-bottom:12px"><label>Reassign all active deals to</label>
+          <select class="input" id="archive-reassign-rep">
+            <option value="">— Leave unassigned —</option>
+            ${allReps.map(r=>`<option value="${escHtml(r)}">${escHtml(r)}</option>`).join('')}
+          </select>
+        </div>`:''}
+        <div class="modal-actions">
+          <button class="btn" onclick="this.closest('.modal-backdrop').remove()">Cancel</button>
+          <button class="btn btn-primary" style="background:var(--warning);border-color:var(--warning)" onclick="_confirmArchiveRep('${repName.replace(/'/g,"\\'")}',this.closest('.modal-backdrop'))">Archive Anyway</button>
+        </div>
+      </div>`;
+      document.body.appendChild(modalEl);
+      return;
+    }
+  }
+  await _doArchiveRep(repName, archive, null);
+}
+
+async function _confirmArchiveRep(repName, modalEl) {
+  const reassignTo = document.getElementById('archive-reassign-rep')?.value || null;
+  modalEl.remove();
+  if (reassignTo) {
+    // Reassign active deals
+    const activeDeals = state.pipeline.filter(d=>d.owner===repName&&d.stage!=='Closed Lost'&&d.stage!=='Closed Won');
+    for (const d of activeDeals) {
+      try {
+        await apiCall(`/pipeline/${d.id}`,{method:'PUT',body:JSON.stringify({...d,owner:reassignTo})});
+        d.owner = reassignTo;
+      } catch {}
+    }
+    toast(`${activeDeals.length} deal${activeDeals.length!==1?'s':''} reassigned to ${reassignTo}`);
+  }
+  await _doArchiveRep(repName, true, null);
+}
+
+async function _doArchiveRep(repName, archive, _ignored) {
   const cur = state.commSettings || {};
   const archivedReps = [...(cur.archivedReps || [])];
   if (archive) { if (!archivedReps.includes(repName)) archivedReps.push(repName); }
@@ -7600,21 +7707,31 @@ async function renderSettings(c) {
               </div>
             </div>
             <div id="intg-detail-${intg.id}" style="display:none;border-top:1px solid var(--border);padding:16px 18px;background:var(--bg)">
+              ${(intg.id==='gcal'||intg.id==='gdrive') && intg._gcalConnected ? `
+              <div style="display:flex;flex-direction:column;gap:12px">
+                <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:rgba(34,197,94,.06);border-radius:10px;border:1px solid rgba(34,197,94,.2)">
+                  <span style="font-size:22px">✓</span>
+                  <div>
+                    <div style="font-size:13px;font-weight:700;color:#16A34A">Connected</div>
+                    <div style="font-size:11px;color:var(--text-2);margin-top:2px">${intg._gcalEmail||'Google Account'}</div>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-2);margin-bottom:8px">Syncing</div>
+                  ${intg.syncs.map(s=>`<div style="font-size:12px;color:var(--text);padding:3px 0">✓ ${s}</div>`).join('')}
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;padding-top:4px">
+                  <a href="/api/events/gcal/auth?switch=1" class="btn btn-sm" style="text-decoration:none;display:inline-block;font-size:11px">⇄ Switch Account</a>
+                  <button class="btn btn-sm" style="font-size:11px;color:#ef4444;border-color:rgba(239,68,68,.4)" onclick="disconnectGcal()">✕ Disconnect</button>
+                </div>
+              </div>` : `
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
                 <div>
                   <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-2);margin-bottom:8px">What it syncs</div>
                   ${intg.syncs.map(s=>`<div style="font-size:12px;color:var(--text);padding:3px 0">✓ ${s}</div>`).join('')}
-                  ${(intg.id==='gcal'||intg.id==='gdrive') ? `
-                <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px">
-                  ${intg._gcalEmail?`<div style="font-size:11px;color:var(--text-2);padding:6px 10px;background:var(--surface);border-radius:6px;border:0.5px solid var(--border)">Connected as <strong style="color:var(--text)">${intg._gcalEmail}</strong></div>`:''}
-                  ${intg._gcalConnected
-                    ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
-                        <a href="/api/events/gcal/auth?switch=1" class="btn btn-sm" style="text-decoration:none;display:inline-block;font-size:11px">⇄ Switch Account</a>
-                        <button class="btn btn-sm" style="font-size:11px;color:#ef4444;border-color:rgba(239,68,68,.4)" onclick="disconnectGcal()">✕ Disconnect</button>
-                       </div>`
-                    : `<a href="/api/events/gcal/auth" class="btn btn-primary btn-sm" style="text-decoration:none;display:inline-block">Connect Google →</a>`
-                  }
-                </div>` : intg.oauthUrl?`<div style="margin-top:12px"><a href="${intg.oauthUrl}" class="btn btn-primary btn-sm" style="text-decoration:none;display:inline-block">Connect ${intg.name} →</a></div>`:''}
+                  ${(intg.id==='gcal'||intg.id==='gdrive')
+                    ? `<div style="margin-top:12px"><a href="/api/events/gcal/auth" class="btn btn-primary btn-sm" style="text-decoration:none;display:inline-block">Connect Google →</a></div>`
+                    : intg.oauthUrl ? `<div style="margin-top:12px"><a href="${intg.oauthUrl}" class="btn btn-primary btn-sm" style="text-decoration:none;display:inline-block">Connect ${intg.name} →</a></div>` : ''}
                 </div>
                 <div>
                   <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-2);margin-bottom:8px">Environment Variables</div>
@@ -7627,7 +7744,8 @@ async function renderSettings(c) {
                     </div>
                   </div>`).join('')}
                 </div>
-              </div>
+              </div>`}
+              ${!((intg.id==='gcal'||intg.id==='gdrive') && intg._gcalConnected) ? `
               <div style="margin-top:14px;background:var(--surface);border-radius:8px;padding:12px 14px">
                 <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px">Setup Guide</div>
                 ${intg.setupSteps.map(s=>`<div style="font-size:11px;color:var(--text-2);padding:2px 0">${s}</div>`).join('')}
@@ -7642,7 +7760,7 @@ async function renderSettings(c) {
                 <button class="btn btn-sm btn-primary" onclick="testEmailReport()">📧 Send Test Report</button>
                 <button class="btn btn-sm" onclick="triggerCeoReminders()">Send CEO Reminders Now</button>
               </div>
-              <div id="smtp-test-result" style="margin-top:8px;font-size:11px"></div>`:''}
+              <div id="smtp-test-result" style="margin-top:8px;font-size:11px"></div>`:''}` : ''}
             </div>
           </div>`;
         }).join('')}
@@ -9244,22 +9362,23 @@ function renderRequests(c) {
     </div>
 
     <!-- Filter bar -->
-    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-      <input class="input" style="font-size:11px;max-width:220px" placeholder="Search subject, details, email…" value="${(rf.q||'').replace(/"/g,'&quot;')}" oninput="state._reqFilter.q=this.value;renderRequests(document.getElementById('main-content'))">
-      <select class="input" style="font-size:11px;max-width:130px" onchange="state._reqFilter.status=this.value;renderRequests(document.getElementById('main-content'))">
+    <div class="filter-bar">
+      <input class="filter-search" placeholder="Search subject, details, email…" value="${(rf.q||'').replace(/"/g,'&quot;')}" oninput="state._reqFilter.q=this.value;renderRequests(document.getElementById('main-content'))">
+      <div class="filter-sep"></div>
+      <select class="filter-select" onchange="state._reqFilter.status=this.value;renderRequests(document.getElementById('main-content'))">
         <option value=""${!rf.status?' selected':''}>All Statuses</option>
         <option value="pending"${rf.status==='pending'?' selected':''}>Pending</option>
         <option value="accepted"${rf.status==='accepted'?' selected':''}>Accepted</option>
         <option value="rejected"${rf.status==='rejected'?' selected':''}>Rejected</option>
       </select>
-      <select class="input" style="font-size:11px;max-width:130px" onchange="state._reqFilter.priority=this.value;renderRequests(document.getElementById('main-content'))">
+      <select class="filter-select" onchange="state._reqFilter.priority=this.value;renderRequests(document.getElementById('main-content'))">
         <option value=""${!rf.priority?' selected':''}>All Priorities</option>
         <option value="high"${rf.priority==='high'?' selected':''}>High</option>
         <option value="medium"${rf.priority==='medium'?' selected':''}>Medium</option>
         <option value="low"${rf.priority==='low'?' selected':''}>Low</option>
       </select>
-      ${rf.q||rf.status||rf.priority?`<button class="btn btn-sm" style="font-size:10px" onclick="state._reqFilter={q:'',status:'',priority:''};renderRequests(document.getElementById('main-content'))">✕ Clear</button>`:''}
-      <span style="font-size:11px;color:var(--text-3);margin-left:auto">${filtered.length} of ${items.length} requests</span>
+      ${rf.q||rf.status||rf.priority?`<button class="btn btn-sm" style="font-size:11px;padding:3px 8px" onclick="state._reqFilter={q:'',status:'',priority:''};renderRequests(document.getElementById('main-content'))">✕ Clear</button>`:''}
+      <span class="filter-count">${filtered.length} of ${items.length}</span>
     </div>
 
     <!-- Pending -->
@@ -11532,7 +11651,7 @@ function _renderSubList(el) {
     <div style="overflow-x:auto">
       <table class="table">
         <thead><tr>
-          <th>Client</th><th>Billing</th><th>Amount</th><th>MRR</th><th>Seats</th>
+          <th>Client</th><th>Plan</th><th>Billing</th><th>Amount</th><th>MRR</th><th>Seats</th>
           <th>Status</th><th>Start</th><th>Renewal</th><th></th>
         </tr></thead>
         <tbody>
@@ -11540,8 +11659,11 @@ function _renderSubList(el) {
             const mrr   = subToMRR(s);
             const d     = s.renewalDate ? daysUntil(s.renewalDate) : null;
             const renCol= d!==null&&s.status==='active' ? (d<=7?'var(--danger)':d<=30?'var(--warning)':'var(--text-2)') : 'var(--text-2)';
+            const PLAN_C = {Free:'#64748B',Pro:'#2563EB',Premium:'#7C3AED',Enterprise:'#FF6600',Custom:'#16A34A'};
+            const pc = PLAN_C[s.plan]||'var(--text-3)';
             return `<tr style="border-top:1px solid var(--border)">
               <td style="padding:10px 12px;font-weight:600">${s.clientName}</td>
+              <td style="padding:10px 12px">${s.plan?`<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;background:${pc}18;color:${pc};white-space:nowrap">${s.plan}</span>`:'<span style="font-size:10px;color:var(--text-3)">—</span>'}</td>
               <td style="padding:10px 12px;font-size:11px;color:var(--text-2);text-transform:capitalize">${s.billing||'—'}</td>
               <td style="padding:10px 12px;font-weight:600">${fmt(s.amount)}</td>
               <td style="padding:10px 12px;font-size:11px;color:var(--text-2)">${fmt(Math.round(mrr))}/mo</td>
@@ -11551,8 +11673,8 @@ function _renderSubList(el) {
               <td style="padding:10px 12px;font-size:11px;color:${renCol};font-weight:${d!==null&&d<=30?'700':'400'}">${s.renewalDate?fmtD(s.renewalDate):'—'}${d!==null&&s.status==='active'&&d<=30?` <span style="font-size:10px">(${d}d)</span>`:''}</td>
               <td style="padding:10px 12px">
                 <div style="display:flex;gap:5px">
-                  <button class="btn btn-sm" style="font-size:10px" onclick="openEditSub(${s.id})">✏ Edit</button>
-                  <button class="btn btn-sm" style="font-size:10px;color:var(--danger);border-color:rgba(220,38,38,.2)" onclick="deleteSub(${s.id})">🗑</button>
+                  <button class="btn btn-sm" style="font-size:10px" onclick="openEditSub(${s.id})">Edit</button>
+                  <button class="del-btn" onclick="deleteSub(${s.id})">×</button>
                 </div>
               </td>
             </tr>`;

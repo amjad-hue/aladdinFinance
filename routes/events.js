@@ -87,12 +87,39 @@ router.post('/zoom/create', async (req, res) => {
 });
 
 function toGCalEvent(ev) {
+  const colorId = ev.type === 'tax' ? '11' : ev.type === 'meeting' ? '9' : ev.type === 'deadline' ? '6' : '1';
+  const descParts = [ev.note, ev.amount ? `Amount: ${ev.amount}` : '', ev.zoomLink ? `Video: ${ev.zoomLink}` : ''].filter(Boolean);
+
+  // If we have a time, use dateTime; otherwise use all-day date
+  if (ev.time) {
+    const tz = 'Asia/Dubai';
+    const startDt = `${ev.date}T${ev.time}:00`;
+    // End time: use endTime if set, otherwise default +1h
+    let endDt;
+    if (ev.endTime) {
+      endDt = `${ev.date}T${ev.endTime}:00`;
+    } else {
+      const [h, m] = ev.time.split(':').map(Number);
+      const endH = String(h + 1).padStart(2, '0');
+      endDt = `${ev.date}T${endH}:${String(m).padStart(2, '0')}:00`;
+    }
+    const attendees = (ev.invitees || []).filter(Boolean).map(email => ({ email }));
+    return {
+      summary: ev.title,
+      description: descParts.join('\n'),
+      start: { dateTime: startDt, timeZone: tz },
+      end:   { dateTime: endDt,   timeZone: tz },
+      colorId,
+      ...(attendees.length ? { attendees, guestsCanSeeOtherGuests: true } : {}),
+      ...(ev.zoomLink ? { location: ev.zoomLink } : {}),
+    };
+  }
   return {
     summary: ev.title,
-    description: [ev.note, ev.amount ? `Amount: ${ev.amount}` : ''].filter(Boolean).join('\n'),
+    description: descParts.join('\n'),
     start: { date: ev.date },
     end:   { date: ev.date },
-    colorId: ev.type === 'tax' ? '11' : ev.type === 'meeting' ? '9' : ev.type === 'deadline' ? '6' : '1'
+    colorId,
   };
 }
 
@@ -188,19 +215,23 @@ router.delete('/gcal/disconnect', (req, res) => {
 router.get('/', (req, res) => res.json(get()));
 
 router.post('/', async (req, res) => {
-  const { type, title, date, time, note, amount, recur, zoomLink } = req.body;
+  const { type, title, date, time, endTime, note, amount, recur, zoomLink, invitees } = req.body;
   if (!title || !date) return res.status(400).json({ error: 'title and date required' });
   const events = get();
   const event = {
     id: Date.now(), type: type || 'task', title, date,
-    time: time || '', note: note || '', amount: amount ? Number(amount) : null,
-    recur: recur || 'none', zoomLink: zoomLink || null, gcalId: null, createdAt: new Date().toISOString()
+    time: time || '', endTime: endTime || '', note: note || '',
+    amount: amount ? Number(amount) : null,
+    recur: recur || 'none', zoomLink: zoomLink || null,
+    invitees: Array.isArray(invitees) ? invitees : [],
+    gcalId: null, createdAt: new Date().toISOString()
   };
 
   const gcal = getCalendar();
   if (gcal) {
     try {
-      const r = await gcal.events.insert({ calendarId: GCAL_ID(), requestBody: toGCalEvent(event) });
+      const sendUpdates = (event.invitees || []).length ? 'all' : 'none';
+      const r = await gcal.events.insert({ calendarId: GCAL_ID(), requestBody: toGCalEvent(event), sendUpdates });
       event.gcalId = r.data.id;
     } catch (e) { console.warn('GCal insert failed:', e.message); }
   }
@@ -219,7 +250,8 @@ router.put('/:id', async (req, res) => {
   const gcal = getCalendar();
   if (gcal && events[i].gcalId) {
     try {
-      await gcal.events.update({ calendarId: GCAL_ID(), eventId: events[i].gcalId, requestBody: toGCalEvent(events[i]) });
+      const sendUpdates = (events[i].invitees || []).length ? 'all' : 'none';
+      await gcal.events.update({ calendarId: GCAL_ID(), eventId: events[i].gcalId, requestBody: toGCalEvent(events[i]), sendUpdates });
     } catch (e) { console.warn('GCal update failed:', e.message); }
   }
 

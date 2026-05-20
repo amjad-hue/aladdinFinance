@@ -423,6 +423,15 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
 .search-input{width:100%;font-size:12px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px;background:var(--surface);color:var(--text);font-family:'Barlow',sans-serif;outline:none}
 .search-input:focus{border-color:var(--primary)}
 
+/* ── Unified filter bar ── */
+.filter-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+.filter-bar .filter-search{flex:1;min-width:140px;max-width:280px;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;padding:6px 10px 6px 30px;font-size:12px;color:var(--text);font-family:'Barlow',sans-serif;outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%2397A0AF' stroke-width='2.5'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:9px 50%;transition:border .15s}
+.filter-bar .filter-search:focus{border-color:var(--primary)}
+.filter-bar .filter-select{background:var(--surface-2);border:1px solid var(--border);border-radius:7px;padding:5px 8px;font-size:11px;color:var(--text);font-family:'Barlow',sans-serif;outline:none;cursor:pointer;transition:border .15s}
+.filter-bar .filter-select:focus{border-color:var(--primary)}
+.filter-bar .filter-sep{width:1px;height:18px;background:var(--border);flex-shrink:0}
+.filter-bar .filter-count{font-size:11px;color:var(--text-3);white-space:nowrap;margin-left:auto}
+
 /* ── Editable select ── */
 .editable-select-wrap{position:relative;display:inline-block}
 .editable-select-wrap input{padding-right:22px}
@@ -1486,39 +1495,96 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
 
 <!-- Modals -->
 <div class="modal-backdrop" id="modal-event">
-  <div class="modal">
-    <div class="modal-header"><div class="modal-title" id="evt-modal-title">Add Calendar Event</div><button class="modal-close" onclick="closeModal('modal-event')">×</button></div>
-    <div class="form-row"><label>Type</label>
-      <select id="evt-type" onchange="handleSelectOther(this)">
-        <option value="meeting">Meeting</option>
-        <option value="deadline">Deadline</option>
-        <option value="tax">Tax Deadline</option>
-        <option value="task">Task</option>
-        <option value="planning">Planning</option>
-        <option value="review">Review</option>
-        <option value="board meeting">Board Meeting</option>
-        <option value="client call">Client Call</option>
-        <option value="training">Training</option>
-        <option value="__other__">+ Add other...</option>
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header"><div class="modal-title" id="evt-modal-title">Add Event</div><button class="modal-close" onclick="closeModal('modal-event')">×</button></div>
+
+    <!-- Row 1: Type + Recurring -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row" style="margin:0"><label>Type</label>
+        <select id="evt-type" onchange="handleSelectOther(this);updateEventModalFields()">
+          <option value="meeting">📅 Meeting</option>
+          <option value="board meeting">🏛 Board Meeting</option>
+          <option value="client call">📞 Client Call</option>
+          <option value="deadline">⏰ Deadline</option>
+          <option value="tax">🧾 Tax Deadline</option>
+          <option value="planning">📋 Planning</option>
+          <option value="review">🔍 Review</option>
+          <option value="training">🎓 Training</option>
+          <option value="task">✅ Task</option>
+          <option value="__other__">+ Add other...</option>
+        </select>
+      </div>
+      <div class="form-row" style="margin:0"><label>Recurring</label>
+        <select id="evt-recur" onchange="handleSelectOther(this)">
+          <option value="none">One-time</option>
+          <option value="weekly">Weekly</option>
+          <option value="biweekly">Bi-weekly</option>
+          <option value="monthly">Monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="annual">Annual</option>
+          <option value="__other__">+ Add other...</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Title -->
+    <div class="form-row"><label>Title *</label><input type="text" id="evt-title" placeholder="Event title"></div>
+
+    <!-- Row 2: Date + Time -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row" style="margin:0"><label>Date *</label><input type="date" id="evt-date"></div>
+      <div class="form-row" style="margin:0"><label>Start Time</label>
+        <select id="evt-time" style="font-size:12px">
+          <option value="">— No time —</option>
+          <!-- Generated by JS -->
+        </select>
+      </div>
+    </div>
+
+    <!-- Row 3: End Time (for meetings) -->
+    <div class="form-row" id="evt-endtime-row" style="display:none">
+      <label>End Time</label>
+      <select id="evt-end-time" style="font-size:12px">
+        <option value="">— No end time —</option>
       </select>
     </div>
-    <div class="form-row"><label>Title</label><input type="text" id="evt-title" placeholder="Event title"></div>
-    <div class="form-row"><label>Date</label><input type="date" id="evt-date"></div>
-    <div class="form-row"><label>Time (optional)</label><input type="time" id="evt-time"></div>
-    <div class="form-row" id="evt-zoom-link-row" style="display:none"><label>Zoom Meeting Link</label><div style="display:flex;gap:6px"><input type="text" id="evt-zoom-link" readonly style="flex:1;background:var(--surface-2);color:var(--info);font-size:11px;font-family:monospace" placeholder="Generate a Zoom link..."><button type="button" class="btn btn-sm" onclick="copyZoomLink()" style="flex-shrink:0" title="Copy link">📋</button></div></div>
-    <div class="form-row"><button type="button" id="evt-zoom-btn" class="btn btn-sm" style="width:100%;justify-content:center;background:rgba(45,140,255,0.08);border:1px solid rgba(45,140,255,0.25);color:#2D8CFF" onclick="createZoomMeeting()">🎥 Generate Zoom Meeting</button></div>
-    <div class="form-row"><label>Recurring</label>
-      <select id="evt-recur" onchange="handleSelectOther(this)">
-        <option value="none">One-time</option>
-        <option value="monthly">Monthly</option>
-        <option value="quarterly">Quarterly</option>
-        <option value="annual">Annual</option>
-        <option value="__other__">+ Add other...</option>
-      </select>
+
+    <!-- Zoom (for meeting types) -->
+    <div id="evt-zoom-section" style="display:none">
+      <div class="form-row">
+        <label>Zoom / Video Link</label>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="evt-zoom-link" style="flex:1;font-size:11px;font-family:monospace;background:var(--surface-2);color:var(--info)" placeholder="Paste Zoom / Teams / Meet link, or generate below…">
+          <button type="button" class="btn btn-sm" onclick="copyZoomLink()" title="Copy link" style="flex-shrink:0">Copy</button>
+        </div>
+      </div>
+      <div class="form-row" id="evt-zoom-btn-row">
+        <button type="button" id="evt-zoom-btn" class="btn btn-sm" style="width:100%;justify-content:center;background:rgba(45,140,255,0.08);border:1px solid rgba(45,140,255,0.25);color:#2D8CFF" onclick="createZoomMeeting()">🎥 Generate Zoom Meeting</button>
+      </div>
     </div>
-    <div class="form-row"><label>Amount (optional)</label><input type="number" id="evt-amount" placeholder="e.g. 42000"></div>
-    <div class="form-row"><label>Note</label><textarea id="evt-note" placeholder="Additional context..."></textarea></div>
-    <div class="modal-actions"><button class="btn" onclick="closeModal('modal-event')">Cancel</button><button class="btn btn-primary" id="evt-save-btn" onclick="saveEvent()">Save Event</button></div>
+
+    <!-- Invitees (for meeting types) -->
+    <div class="form-row" id="evt-invitees-row" style="display:none">
+      <label>Invitees</label>
+      <input type="text" id="evt-invitees" placeholder="email1@co.com, email2@co.com — send invitations on save">
+    </div>
+
+    <!-- Agenda / Notes (label changes by type) -->
+    <div class="form-row">
+      <label id="evt-note-label">Notes</label>
+      <textarea id="evt-note" placeholder="Add notes or agenda items…" style="min-height:72px"></textarea>
+    </div>
+
+    <!-- Amount (only for financial event types) -->
+    <div class="form-row" id="evt-amount-row" style="display:none">
+      <label>Amount (optional)</label>
+      <input type="number" id="evt-amount" placeholder="e.g. 42000">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('modal-event')">Cancel</button>
+      <button class="btn btn-primary" id="evt-save-btn" onclick="saveEvent()">Save Event</button>
+    </div>
   </div>
 </div>
 
