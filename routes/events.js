@@ -89,12 +89,13 @@ router.post('/zoom/create', async (req, res) => {
 function toGCalEvent(ev) {
   const colorId = ev.type === 'tax' ? '11' : ev.type === 'meeting' ? '9' : ev.type === 'deadline' ? '6' : '1';
   const descParts = [ev.note, ev.amount ? `Amount: ${ev.amount}` : '', ev.zoomLink ? `Video: ${ev.zoomLink}` : ''].filter(Boolean);
+  const attendees = (ev.invitees || []).filter(Boolean).map(email => ({ email }));
+  const attendeeFields = attendees.length ? { attendees, guestsCanSeeOtherGuests: true } : {};
+  const locationField = ev.zoomLink ? { location: ev.zoomLink } : {};
 
-  // If we have a time, use dateTime; otherwise use all-day date
   if (ev.time) {
     const tz = 'Asia/Dubai';
     const startDt = `${ev.date}T${ev.time}:00`;
-    // End time: use endTime if set, otherwise default +1h
     let endDt;
     if (ev.endTime) {
       endDt = `${ev.date}T${ev.endTime}:00`;
@@ -103,23 +104,27 @@ function toGCalEvent(ev) {
       const endH = String(h + 1).padStart(2, '0');
       endDt = `${ev.date}T${endH}:${String(m).padStart(2, '0')}:00`;
     }
-    const attendees = (ev.invitees || []).filter(Boolean).map(email => ({ email }));
     return {
       summary: ev.title,
       description: descParts.join('\n'),
       start: { dateTime: startDt, timeZone: tz },
       end:   { dateTime: endDt,   timeZone: tz },
       colorId,
-      ...(attendees.length ? { attendees, guestsCanSeeOtherGuests: true } : {}),
-      ...(ev.zoomLink ? { location: ev.zoomLink } : {}),
+      ...attendeeFields,
+      ...locationField,
     };
   }
+  // All-day event — attendees still supported by GCal
+  const tomorrow = new Date(ev.date + 'T00:00:00');
+  tomorrow.setDate(tomorrow.getDate() + 1);
   return {
     summary: ev.title,
     description: descParts.join('\n'),
     start: { date: ev.date },
-    end:   { date: ev.date },
+    end:   { date: tomorrow.toISOString().split('T')[0] },
     colorId,
+    ...attendeeFields,
+    ...locationField,
   };
 }
 
@@ -281,18 +286,20 @@ router.post('/', async (req, res) => {
   };
 
   let invitesSent = 0;
+  let gcalHandledInvites = false;
   const gcal = getCalendar();
   if (gcal) {
     try {
-      const sendUpdates = (event.invitees || []).length ? 'all' : 'none';
+      const hasInvitees = (event.invitees || []).length > 0;
+      const sendUpdates = hasInvitees ? 'all' : 'none';
       const r = await gcal.events.insert({ calendarId: GCAL_ID(), requestBody: toGCalEvent(event), sendUpdates });
       event.gcalId = r.data.id;
-      if (sendUpdates === 'all') invitesSent = event.invitees.length;
+      if (hasInvitees) { invitesSent = event.invitees.length; gcalHandledInvites = true; }
     } catch (e) { console.warn('GCal insert failed:', e.message); }
   }
 
-  // Fallback: send email invitations directly if GCal didn't handle it
-  if (!gcal && event.invitees.length) {
+  // Send direct email invites when GCal isn't connected or didn't handle them
+  if (!gcalHandledInvites && event.invitees.length) {
     const fb = await sendFallbackInvites(event);
     invitesSent = fb.sent;
   }
@@ -310,17 +317,24 @@ router.put('/:id', async (req, res) => {
   events[i] = { ...prev, ...req.body, id: prev.id };
 
   let invitesSent = 0;
+  let gcalHandledInvites = false;
   const gcal = getCalendar();
-  if (gcal && events[i].gcalId) {
+  if (gcal) {
     try {
-      const sendUpdates = (events[i].invitees || []).length ? 'all' : 'none';
-      await gcal.events.update({ calendarId: GCAL_ID(), eventId: events[i].gcalId, requestBody: toGCalEvent(events[i]), sendUpdates });
-      if (sendUpdates === 'all') invitesSent = (events[i].invitees || []).length;
+      const hasInvitees = (events[i].invitees || []).length > 0;
+      const sendUpdates = hasInvitees ? 'all' : 'none';
+      if (events[i].gcalId) {
+        await gcal.events.update({ calendarId: GCAL_ID(), eventId: events[i].gcalId, requestBody: toGCalEvent(events[i]), sendUpdates });
+      } else {
+        const r = await gcal.events.insert({ calendarId: GCAL_ID(), requestBody: toGCalEvent(events[i]), sendUpdates });
+        events[i].gcalId = r.data.id;
+      }
+      if (hasInvitees) { invitesSent = events[i].invitees.length; gcalHandledInvites = true; }
     } catch (e) { console.warn('GCal update failed:', e.message); }
   }
 
-  // Fallback invites on update — only for newly added invitees
-  if (!gcal && (events[i].invitees || []).length) {
+  // Fallback: email newly added invitees directly when GCal didn't handle it
+  if (!gcalHandledInvites && (events[i].invitees || []).length) {
     const prevInvitees = new Set(prev.invitees || []);
     const newInvitees = (events[i].invitees || []).filter(e => !prevInvitees.has(e));
     if (newInvitees.length) {

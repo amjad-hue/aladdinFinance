@@ -4748,16 +4748,22 @@ function _populateTimeSelect(selId, selectedVal) {
 }
 
 function updateEventModalFields() {
-  const type = document.getElementById('evt-type')?.value || '';
+  const typeEl = document.getElementById('evt-type');
+  const type = typeEl?.value || '';
   const isMeeting = EVT_MEETING_TYPES.has(type);
   const isFinancial = EVT_FINANCIAL_TYPES.has(type);
-  const show = (id, vis) => { const el=document.getElementById(id); if(el) el.style.display=vis?'':'none'; };
+  const show = (id, vis) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = vis ? 'block' : 'none';
+  };
   show('evt-endtime-row', isMeeting);
   show('evt-zoom-section', isMeeting);
   show('evt-invitees-row', isMeeting);
   show('evt-amount-row', isFinancial);
   const lbl = document.getElementById('evt-note-label');
   if (lbl) lbl.textContent = isMeeting ? 'Agenda' : 'Notes';
+  const placeholder = document.getElementById('evt-note');
+  if (placeholder) placeholder.placeholder = isMeeting ? 'Topics to discuss, meeting objectives…' : 'Add notes or details…';
 }
 
 function openAddEvent() {
@@ -4765,7 +4771,9 @@ function openAddEvent() {
   _populateTimeSelect('evt-end-time', '');
   ['evt-title','evt-note','evt-amount','evt-invitees'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   document.getElementById('evt-date').value=TODAY.toISOString().split('T')[0];
-  document.getElementById('evt-type').value='meeting';
+  // Set native select value directly before CustomSelect wraps it
+  const typeEl = document.getElementById('evt-type');
+  if (typeEl) { typeEl.value='meeting'; typeEl._customSelect?.refresh(); }
   document.getElementById('evt-recur').value='none';
   document.getElementById('evt-modal-title').textContent='Add Calendar Event';
   document.getElementById('evt-save-btn').textContent='Save Event';
@@ -4773,6 +4781,8 @@ function openAddEvent() {
   delete document.getElementById('modal-event').dataset.editId;
   updateEventModalFields();
   openModal('modal-event');
+  // Re-run after initCustomSelects to ensure field visibility is correct
+  setTimeout(updateEventModalFields, 10);
 }
 
 function openEditEvent(id) {
@@ -4783,6 +4793,7 @@ function openEditEvent(id) {
   document.getElementById('evt-title').value=e.title||'';
   document.getElementById('evt-date').value=e.date||'';
   setSelectValue(document.getElementById('evt-type'), e.type||'meeting');
+  document.getElementById('evt-type')._customSelect?.refresh();
   setSelectValue(document.getElementById('evt-recur'), e.recur||'none');
   document.getElementById('evt-amount').value=e.amount||'';
   document.getElementById('evt-note').value=e.note||'';
@@ -4794,6 +4805,8 @@ function openEditEvent(id) {
   document.getElementById('modal-event').dataset.editId=id;
   updateEventModalFields();
   openModal('modal-event');
+  // Re-run after initCustomSelects to ensure field visibility is correct
+  setTimeout(updateEventModalFields, 10);
 }
 
 async function saveEvent() {
