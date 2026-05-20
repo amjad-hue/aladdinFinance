@@ -57,9 +57,19 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
-const fmt  = v => new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(v);
+const CURRENCIES = [
+  {code:'USD',symbol:'$',label:'USD — US Dollar'},
+  {code:'AED',symbol:'AED ',label:'AED — UAE Dirham'},
+  {code:'EUR',symbol:'€',label:'EUR — Euro'},
+  {code:'GBP',symbol:'£',label:'GBP — British Pound'},
+  {code:'SAR',symbol:'SAR ',label:'SAR — Saudi Riyal'},
+  {code:'QAR',symbol:'QAR ',label:'QAR — Qatari Riyal'},
+  {code:'KWD',symbol:'KWD ',label:'KWD — Kuwaiti Dinar'},
+];
+const _getCur = () => (state?.appSettings?.currency) || localStorage.getItem('af_currency') || 'USD';
+const fmt  = v => new Intl.NumberFormat('en-US',{style:'currency',currency:_getCur(),maximumFractionDigits:0}).format(v);
 const _yq  = () => state.fiscalYear !== 2026 ? `?year=${state.fiscalYear}` : '';
-const fmtK = v => (v<0?'-':'')+'$'+Math.round(Math.abs(v)/1000)+'k';
+const fmtK = v => { const sym=(CURRENCIES.find(c=>c.code===_getCur())||CURRENCIES[0]).symbol; return (v<0?'-':'')+sym+Math.round(Math.abs(v)/1000)+'k'; };
 const tip  = (label, text) => `${label}<span class="minfo"><i class="minfo-icon">ⓘ</i><span class="minfo-tip">${text}</span></span>`;
 const daysTo = d => Math.ceil((new Date(d+'T00:00:00')-TODAY)/864e5);
 const fmtDate = d => { const x=new Date(d+'T00:00:00'); return x.getDate()+' '+MONTHS[x.getMonth()].slice(0,3); };
@@ -1153,6 +1163,30 @@ function renderDashboard(c) {
     if (issues > 0) alerts += _mkAlert('data-health','alert-a',`<span style="cursor:pointer" onclick="showSection('reports');setTimeout(()=>{const el=document.getElementById('health-check-section');if(el)el.scrollIntoView({behavior:'smooth'});},400)">🔗 <strong>${issues} data-linking issue${issues>1?'s':''}</strong> — unlinked invoices or commissions. <span style="text-decoration:underline;opacity:.7">Run Data Health Check →</span></span>`);
   }
 
+  // Trend deltas — compare current period to prior
+  const _trendDelta = (cur, prev) => {
+    if (!prev || prev === 0) return '';
+    const pct = Math.round(((cur - prev) / Math.abs(prev)) * 100);
+    const up = pct >= 0;
+    const col = up ? 'var(--success)' : 'var(--danger)';
+    return `<span style="font-size:10px;font-weight:700;color:${col};margin-left:4px">${up?'▲':'▼'}${Math.abs(pct)}%</span>`;
+  };
+  // Revenue delta: current month vs prior month
+  const _curMoIdx = TODAY.getMonth(); // 0-based
+  const _revByMo = {}; state.revenue.forEach(r=>{ _revByMo[r.month] = (_revByMo[r.month]||0) + r.revenue; });
+  const _revCurMo  = _revByMo[MO[_curMoIdx]] || 0;
+  const _revPrevMo = _revByMo[MO[_curMoIdx > 0 ? _curMoIdx-1 : 11]] || 0;
+  const revDelta = _trendDelta(_revCurMo, _revPrevMo);
+  // Cash delta: last two months of cashflow closing balance
+  const _cfRows = [...(state.cashflow||[])].filter(r=>r.closing!=null).slice(-2);
+  const cashDelta = _cfRows.length >= 2 ? _trendDelta(_cfRows[_cfRows.length-1].closing, _cfRows[_cfRows.length-2].closing) : '';
+  // Pipeline: active deal count delta (open deals this month vs prior month closed+active last month snapshot — approximated)
+  const _openDeals = state.pipeline.filter(d=>d.stage!=='Closed Won'&&d.stage!=='Closed Lost').length;
+  const _wonDeals  = state.pipeline.filter(d=>d.stage==='Closed Won').length;
+  // AR: overdue count vs total
+  const _arTotal   = state.ar.filter(x=>x.status!=='paid').length;
+  const _arOverdue = state.ar.filter(x=>x.status==='overdue').length;
+
   const H = getDashHidden();
   const DRAG_HANDLE = `<span class="dash-drag-handle" title="Drag to reorder">⠿</span>`;
 
@@ -1161,11 +1195,11 @@ function renderDashboard(c) {
     kpis: !H.kpis ? `<div class="dash-section" data-dash-id="kpis">
       ${DRAG_HANDLE}
       <div class="grid-5">
-        <div class="metric clickable anim-in" onclick="showSection('cash')"><div class="metric-label">${tip('Total Cash','Sum of all bank account balances')}</div><div class="metric-value">${fmt(totalCash)}</div><div class="metric-sub" style="display:flex;flex-direction:column;gap:2px;align-items:flex-start"><span><span class="dot" style="background:var(--success)"></span>${state.banks.length} accounts</span><span style="color:var(--success);font-weight:700;font-size:11px">Avail: ${fmt(available)}</span></div></div>
-        <div class="metric clickable anim-in-1" onclick="showSection('revenue')"><div class="metric-label">${tip('Revenue YTD','Total revenue recognized so far this fiscal year')}</div><div class="metric-value">${fmt(ytdRev)}</div><div class="metric-sub"><span class="dot" style="background:var(--success)"></span>${ytdTgt?((ytdRev/ytdTgt)*100).toFixed(0):0}% of target</div></div>
-        <div class="metric clickable anim-in-2" onclick="showSection('pipeline')"><div class="metric-label">${tip('Sales Pipeline','Probability-weighted sum of all active deals')}</div><div class="metric-value" style="color:var(--primary)">${fmt(pipeWtd)}</div><div class="metric-sub">weighted forecast</div></div>
+        <div class="metric clickable anim-in" onclick="showSection('cash')"><div class="metric-label">${tip('Total Cash','Sum of all bank account balances')}</div><div class="metric-value">${fmt(totalCash)}${cashDelta}</div><div class="metric-sub" style="display:flex;flex-direction:column;gap:2px;align-items:flex-start"><span><span class="dot" style="background:var(--success)"></span>${state.banks.length} accounts</span><span style="color:var(--success);font-weight:700;font-size:11px">Avail: ${fmt(available)}</span></div></div>
+        <div class="metric clickable anim-in-1" onclick="showSection('revenue')"><div class="metric-label">${tip('Revenue YTD','Total revenue recognized so far this fiscal year')}</div><div class="metric-value">${fmt(ytdRev)}${revDelta}</div><div class="metric-sub"><span class="dot" style="background:var(--success)"></span>${ytdTgt?((ytdRev/ytdTgt)*100).toFixed(0):0}% of target</div></div>
+        <div class="metric clickable anim-in-2" onclick="showSection('pipeline')"><div class="metric-label">${tip('Sales Pipeline','Probability-weighted sum of all active deals')}</div><div class="metric-value" style="color:var(--text)">${fmt(pipeWtd)}</div><div class="metric-sub">${_openDeals} open · ${_wonDeals} won</div></div>
         <div class="metric clickable anim-in-3" onclick="showSection('liabilities')"><div class="metric-label">${tip('Total Liabilities','Sum of all outstanding debts and obligations')}</div><div class="metric-value" style="color:var(--danger)">${fmt(totalLiab)}</div><div class="metric-sub">${state.liabilities.length} categories</div></div>
-        <div class="metric clickable anim-in-4" onclick="showSection('ar')"><div class="metric-label">${tip('Accounts Receivable','Unpaid invoices owed to you by clients')}</div><div class="metric-value" style="color:var(--info)">${fmt(totalAR)}</div><div class="metric-sub">${overdueAR>0?`<span style="color:var(--danger)">${fmt(overdueAR)} overdue</span>`:'All current'}</div></div>
+        <div class="metric clickable anim-in-4" onclick="showSection('ar')"><div class="metric-label">${tip('Accounts Receivable','Unpaid invoices owed to you by clients')}</div><div class="metric-value" style="color:var(--info)">${fmt(totalAR)}</div><div class="metric-sub">${overdueAR>0?`<span style="color:var(--danger)">${fmt(overdueAR)} overdue · ${_arOverdue}/${_arTotal}</span>`:'All current'}</div></div>
       </div>
     </div>` : '',
     ratios: !H.ratios ? `<div class="dash-section" data-dash-id="ratios">
@@ -1333,8 +1367,22 @@ function renderCash(c) {
     </div>
     <div class="view-panel active" id="cash-charts">
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:12px">
-        ${state.banks.map(b=>{ const bRes=state.reserves.filter(r=>r.bank===b.name).reduce((a,r)=>a+r.amount,0); const avail=b.total-bRes; const neg=avail<0;
-          return `<div class="metric${neg?' style="border-color:var(--danger)"':''}"><div class="metric-label">${b.name}${neg?' <span style="color:var(--danger);font-size:10px">⚠ Overreserved</span>':''}</div><div class="metric-value">${fmt(b.total)}</div><div class="metric-sub"><span style="color:${neg?'var(--danger)':'var(--success)'}">Avail ${fmt(avail)}</span> · ${b.type}</div></div>`; }).join('')}
+        ${state.banks.map(b=>{
+          const bRes=state.reserves.filter(r=>r.bank===b.name).reduce((a,r)=>a+r.amount,0);
+          const avail=b.total-bRes;
+          const ratio=b.total>0?avail/b.total:1;
+          // Status: Healthy ≥60% available, Watch 30-60%, Overreserved <0% (avail negative), Critical <10% but not negative
+          const status = avail<0 ? {lbl:'Overreserved',col:'var(--danger)',bg:'var(--danger-bg)',border:'rgba(239,68,68,.25)'}
+                       : ratio<0.10 ? {lbl:'Critical',col:'#DC2626',bg:'rgba(220,38,38,.08)',border:'rgba(220,38,38,.3)'}
+                       : ratio<0.30 ? {lbl:'Watch',col:'var(--warning)',bg:'var(--warning-bg)',border:'rgba(217,119,6,.2)'}
+                       : ratio<0.60 ? {lbl:'OK',col:'var(--text-2)',bg:'var(--surface-2)',border:'var(--border)'}
+                       : {lbl:'Healthy',col:'var(--success)',bg:'var(--success-bg)',border:'rgba(22,163,74,.2)'};
+          return `<div class="metric" style="border-color:${status.border}">
+            <div class="metric-label" style="display:flex;justify-content:space-between;align-items:center">${b.name}<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:${status.bg};color:${status.col}">${status.lbl}</span></div>
+            <div class="metric-value">${fmt(b.total)}</div>
+            <div class="metric-sub"><span style="color:${status.col}">Avail ${fmt(avail)}</span> · ${b.type}</div>
+          </div>`;
+        }).join('')}
       </div>
       <div class="card">
         <div class="card-header"><div class="card-title">Cash by Bank — Available vs Reserved</div><button class="btn btn-sm" onclick="syncSource('/cash/sync','QuickBooks cash')">↻ Sync</button></div>
@@ -1365,11 +1413,22 @@ function renderCash(c) {
 
 function renderReservesList() {
   const el=document.getElementById('reserves-list'); if(!el) return;
-  el.innerHTML=state.reserves.length ? state.reserves.map(r=>`
-    <div class="reserve-row">
-      <div style="display:flex;gap:10px;min-width:0"><strong style="color:var(--primary)">${r.bank}</strong><span style="color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</span></div>
+  el.innerHTML=state.reserves.length ? state.reserves.map(r=>{
+    const bank=state.banks.find(b=>b.name===r.bank);
+    const bankRes=state.reserves.filter(x=>x.bank===r.bank).reduce((a,x)=>a+x.amount,0);
+    const bankAvail=bank?(bank.total-bankRes):0;
+    const bankRatio=bank&&bank.total>0?bankAvail/bank.total:1;
+    const statusLbl = bankAvail<0?'Overreserved':bankRatio<0.10?'Critical':bankRatio<0.30?'Watch':bankRatio<0.60?'OK':'Healthy';
+    const statusCol = bankAvail<0||bankRatio<0.10?'var(--danger)':bankRatio<0.30?'var(--warning)':'var(--success)';
+    return `<div class="reserve-row">
+      <div style="display:flex;gap:10px;min-width:0;align-items:center">
+        <strong style="color:var(--text)">${r.bank}</strong>
+        <span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;background:${statusCol}18;color:${statusCol}">${statusLbl}</span>
+        <span style="color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.name}</span>
+      </div>
       <div style="display:flex;align-items:center;gap:10px"><strong style="color:var(--danger-text)">${fmt(r.amount)}</strong><button class="del-btn" onclick="deleteReserve(${r.id})">×</button></div>
-    </div>`).join('') : emptyState('No reserves added yet', 'Add a reserve to track earmarked funds');
+    </div>`;
+  }).join('') : emptyState('No reserves added yet', 'Add a reserve to track earmarked funds');
 }
 
 function openAddReserve() { ['rs-name','rs-amount'].forEach(id=>document.getElementById(id).value=''); openModal('modal-reserve'); }
@@ -3341,7 +3400,7 @@ function renderClients(c) {
       <input type="text" class="search-input" id="client-search" placeholder="Search clients..." oninput="filterClients(this.value)">
       <div id="clients-list"></div>
     </div>
-    <div id="client-detail-wrap"><div class="card" style="display:flex;align-items:center;justify-content:center;min-height:240px;color:var(--text-3);font-size:12px">Select a client to view details</div></div>
+    <div id="client-detail-wrap"><div class="card" style="padding:30px 20px">${emptyState('Select a client', 'Click a client from the list to view their details, revenue breakdown, and history')}</div></div>
   </div>`;
   renderClientsList();
   if (state.selectedClientId) showClient(state.selectedClientId);
@@ -4652,7 +4711,7 @@ function renderEventsList() {
     const col=EVT_COLORS[item.type]||'#94a3b8';
     const zoomBtn=item.zoomLink?`<a href="${item.zoomLink}" target="_blank" rel="noopener" class="btn btn-sm" style="font-size:10px;padding:2px 7px;background:rgba(45,140,255,0.10);color:#2D8CFF;border:1px solid rgba(45,140,255,0.25);text-decoration:none">🎥 Join</a>`:'';
     return `<div class="event-item"><div class="event-bar" style="background:${col}"></div><div style="flex:1;min-width:0"><div class="event-title">${item.title}</div><div class="event-meta"><span class="tag" style="background:${col}22;color:${col}">${EVT_TAGS[item.type]||item.type}</span><span>${fmtDate(item.date)}</span>${item.time?`<span style="font-size:10px;color:var(--text-3)">${item.time}</span>`:''} ${item.amount?`<strong>${fmt(item.amount)}</strong>`:''} ${cdBadge(item.date)}</div></div><div style="display:flex;gap:4px;flex-shrink:0">${zoomBtn}<button class="btn btn-sm" style="font-size:10px;padding:2px 7px" onclick="openEditEvent(${item.id})">Edit</button><button class="del-btn" onclick="deleteEvent(${item.id})">×</button></div></div>`;
-  }).join('') : `<div style="text-align:center;padding:24px;color:var(--text-2);font-size:12px">No upcoming events${ef.type?' matching this filter':''}.</div>`);
+  }).join('') : emptyState('No upcoming events', ef.type ? 'Try clearing the filter' : 'Add an event or task to see it here'));
 }
 
 function openAddEvent() {
@@ -5165,6 +5224,11 @@ async function syncFromDrive() {
 }
 
 const FILE_EXPIRY_REQUIRED = ['contract','license','nda','tax','compliance','insurance'];
+function _cleanFileName(name) {
+  // Strip numeric timestamp prefixes like "1778878569559-" from storage keys
+  return (name||'').replace(/^\d{10,}-/, '');
+}
+
 function renderFilesList() {
   const ICO={p:'fi-pdf',x:'fi-xls',d:'fi-doc'}, LBL={p:'PDF',x:'XLS',d:'DOC'};
   const q=(document.getElementById('file-search')?.value||'').toLowerCase();
@@ -5180,7 +5244,7 @@ function renderFilesList() {
     return `<div class="file-row" style="align-items:flex-start">
       <div class="file-icon ${ICO[f.cat]||'fi-doc'}" style="margin-top:2px">${LBL[f.cat]||'DOC'}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">${f.name||'—'} ${expBadge}${needsExpiry?'<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:var(--warning-bg);color:var(--warning-text);margin-left:3px" title="Expiry date required for this category">⚠ No expiry</span>':''}</div>
+        <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">${_cleanFileName(f.name)||'—'} ${expBadge}${needsExpiry?'<span style="font-size:9px;padding:2px 6px;border-radius:4px;background:var(--warning-bg);color:var(--warning-text);margin-left:3px" title="Expiry date required for this category">⚠ No expiry</span>':''}</div>
         <div style="font-size:10px;color:var(--text-2);margin-bottom:6px">${f.size} · ${f.date}${f.expiryDate?' · Exp: '+fmtDate(f.expiryDate):''}${f.drive?` · <span style="color:#34A853;font-weight:600">●</span> Drive`:''}</div>
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
           <select class="input" style="font-size:10px;padding:2px 6px;height:24px;width:120px;color:${CAT_COLOR[f.type]||'var(--text-2)'};" onchange="updateFileCategory(${f.id},this.value)">
@@ -5191,7 +5255,7 @@ function renderFilesList() {
       </div>
       <div style="display:flex;gap:5px;flex-shrink:0;margin-top:2px">
         ${f.webViewLink?`<a href="${f.webViewLink}" target="_blank" class="file-action" style="text-decoration:none;color:var(--info)">Open ↗</a>`:''}
-        ${(f.storedAs||f.driveId)?`<button class="file-action" onclick="downloadFile(${f.id},'${(f.name||'').replace(/'/g,'\\\'')}')" >Download</button>`:''}
+        ${(f.storedAs||f.driveId)?`<button class="file-action" onclick="downloadFile(${f.id},'${_cleanFileName(f.name||'').replace(/'/g,'\\\'')}')" >Download</button>`:''}
         <button class="file-action" style="color:var(--danger-text)" onclick="deleteFile(${f.id})">Delete</button>
       </div>
     </div>`;}).join('') : emptyState('No files in this category', 'Upload a file using the button above');
@@ -5280,12 +5344,18 @@ async function renderGmail(c) {
 }
 
 async function gmailLoadInbox(container, q) {
-  container.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-3)">Loading emails…</div>`;
+  container.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;padding:6px 0">
+    ${Array.from({length:6},()=>`<div style="display:flex;gap:10px;padding:10px 14px;border-radius:8px;background:var(--surface)">
+      <div style="width:8px;height:8px;border-radius:50%;background:var(--surface-2);flex-shrink:0;margin-top:5px"></div>
+      <div style="flex:1"><div class="skeleton-line" style="width:40%;margin-bottom:5px"></div><div class="skeleton-line" style="width:70%"></div><div class="skeleton-line xs" style="width:80%"></div></div>
+      <div class="skeleton-line xs" style="width:40px;flex-shrink:0"></div>
+    </div>`).join('')}
+  </div>`;
   try {
     const data = await apiCall(`/gmail/messages?max=25${q?'&q='+encodeURIComponent(q):''}`);
     const msgs = data.messages || [];
     if (!msgs.length) {
-      container.innerHTML = `<div class="card" style="text-align:center;padding:30px;color:var(--text-3)">No emails found</div>`;
+      container.innerHTML = `<div style="padding:10px 0">${emptyState('No emails found', q ? 'Try a different search term' : 'Your inbox is empty')}</div>`;
       return;
     }
     container.innerHTML = `<div style="display:flex;flex-direction:column;gap:4px" id="gmail-list">
@@ -5298,7 +5368,7 @@ async function gmailLoadInbox(container, q) {
               <div style="font-size:10px;color:var(--text-3);flex-shrink:0">${formatGmailDate(m.date)}</div>
             </div>
             <div style="font-size:12px;font-weight:${m.unread?'600':'400'};color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">${escHtml(m.subject)}</div>
-            <div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(m.snippet)}</div>
+            <div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(decodeHtmlEntities(m.snippet))}</div>
           </div>
         </div>`).join('')}
     </div>`;
@@ -5391,10 +5461,20 @@ function formatGmailDate(dateStr) {
     const d = new Date(dateStr);
     const now = new Date();
     const diff = now - d;
-    if (diff < 864e5) return d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
-    if (diff < 6048e5) return d.toLocaleDateString('en-US',{weekday:'short'});
+    const isToday    = d.toDateString() === now.toDateString();
+    const yesterday  = new Date(now); yesterday.setDate(now.getDate()-1);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+    const timeStr    = d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+    if (isToday)     return 'Today ' + timeStr;
+    if (isYesterday) return 'Yesterday ' + timeStr;
+    if (diff < 6048e5) return d.toLocaleDateString('en-US',{weekday:'short'}) + ' ' + timeStr;
     return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
   } catch { return dateStr; }
+}
+
+function decodeHtmlEntities(s) {
+  return String(s||'').replace(/&#(\d+);/g,(_,n)=>String.fromCharCode(n))
+    .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&apos;/g,"'");
 }
 
 function escHtml(s) {
@@ -5402,6 +5482,113 @@ function escHtml(s) {
 }
 
 // ── Commissions ───────────────────────────────────────────────────────────────
+function renderCommissionsTable() {
+  const wrap = document.getElementById('comm-table-wrap'); if (!wrap) return;
+  const q     = (document.getElementById('comm-search')?.value||'').toLowerCase();
+  const fStat = document.getElementById('comm-filter-status')?.value||'';
+  const fRep  = document.getElementById('comm-filter-rep')?.value||'';
+  const sortKey = wrap.dataset.sortKey || 'date';
+  const sortDir = wrap.dataset.sortDir || 'desc';
+
+  const statusBadge = s => ({
+    paid:'<span style="background:var(--info-bg);color:var(--info);font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600">Paid</span>',
+    approved:'<span style="background:var(--success-bg);color:var(--success);font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600">Approved</span>',
+    pending:'<span style="background:var(--warning-bg);color:var(--warning-text);font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600">Pending</span>',
+    partial:'<span style="background:#FFF7ED;color:#C2410C;font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600">Partial</span>'
+  }[s]||s);
+
+  let rows = state.commissions.filter(x=>{
+    if (fStat && x.status !== fStat) return false;
+    if (fRep  && x.repName !== fRep)  return false;
+    if (q && !((x.dealName||'').toLowerCase().includes(q)||(x.repName||'').toLowerCase().includes(q)||(x.client||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+  rows = [...rows].sort((a,b)=>{
+    let av=a[sortKey]||0, bv=b[sortKey]||0;
+    if (typeof av==='string') av=av.toLowerCase(), bv=bv.toLowerCase();
+    if (av<bv) return sortDir==='asc'?-1:1;
+    if (av>bv) return sortDir==='asc'?1:-1;
+    return 0;
+  });
+
+  const totComm    = rows.reduce((a,x)=>a+x.amount,0);
+  const totDeal    = rows.reduce((a,x)=>a+x.dealValue,0);
+  const totPaid    = rows.filter(x=>x.status==='paid').reduce((a,x)=>a+x.amount,0);
+  const totPartial = rows.filter(x=>x.status==='partial').reduce((a,x)=>a+(x.partialPaid||0),0);
+
+  const th = (key, label, align='') => {
+    const active = sortKey===key;
+    const nextDir = active && sortDir==='asc' ? 'desc' : 'asc';
+    return `<th style="${align?'text-align:'+align+';':''}" class="sortable-th" onclick="(el=>{el.dataset.sortKey='${key}';el.dataset.sortDir='${nextDir}';renderCommissionsTable();})(document.getElementById('comm-table-wrap'))">${label}${active?(sortDir==='asc'?' ↑':' ↓'):'<span style=\"opacity:.3\"> ⇅</span>'}</th>`;
+  };
+
+  const {slice, ctrl} = _paginate(rows, 'commissions');
+  wrap.dataset.sortKey = sortKey;
+  wrap.dataset.sortDir = sortDir;
+
+  wrap.innerHTML = `<table class="table">
+    <thead><tr>
+      ${th('dealName','Deal / Invoice')}
+      ${th('repName','Rep')}
+      ${th('client','Client')}
+      ${th('dealValue','Deal Value','right')}
+      <th>Rate</th>
+      ${th('amount','Commission','right')}
+      ${th('status','Status')}
+      ${th('date','Date')}
+      <th style="min-width:160px">Actions</th>
+    </tr></thead>
+    <tbody>${slice.map(x=>{
+      const isPartial = x.status==='partial';
+      const paidPct = isPartial && x.amount ? Math.round(((x.partialPaid||0)/x.amount)*100) : 0;
+      const canApprove = x.status==='pending';
+      const canPay     = x.status==='approved';
+      const dealLink   = state.pipeline.find(d=>d.id===x.dealId||d.name===x.dealName);
+      return `<tr>
+        <td style="font-weight:600">${escHtml(x.dealName)}</td>
+        <td>${escHtml(x.repName)}</td>
+        <td style="color:var(--text-2)">${escHtml(x.client)}</td>
+        <td style="text-align:right">${fmt(x.dealValue)}</td>
+        <td style="color:var(--text-2)">${x.rate}%</td>
+        <td style="text-align:right">
+          <div style="font-weight:700">${fmt(x.amount)}</div>
+          ${isPartial?`<div style="font-size:10px;color:var(--text-2)">${fmt(x.partialPaid||0)} paid · ${fmt(x.amount-(x.partialPaid||0))} due</div>
+          <div style="height:3px;background:var(--surface-2);border-radius:2px;margin-top:3px;overflow:hidden"><div style="height:100%;background:var(--info);width:${paidPct}%"></div></div>`:''}
+        </td>
+        <td>${statusBadge(x.status)}</td>
+        <td style="color:var(--text-2);font-size:11px">${x.date||'—'}</td>
+        <td><div style="display:flex;gap:4px;flex-wrap:wrap">
+          ${canApprove?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--success-bg);color:var(--success);border:1px solid rgba(22,163,74,.2)" onclick="commissionAction(${x.id},'approve')" title="Approve for payment">Approve</button>`:''}
+          ${canPay?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--info-bg);color:var(--info);border:1px solid rgba(59,130,246,.2)" onclick="commissionAction(${x.id},'pay')" title="Mark as paid">Mark Paid</button>`:''}
+          ${dealLink?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="showSection('pipeline')" title="View deal in pipeline">View Deal</button>`:''}
+          <button class="btn btn-sm" style="font-size:10px;padding:2px 7px" onclick="openEditCommission(${x.id})">Edit</button>
+          <button class="del-btn" onclick="deleteCommission(${x.id})">×</button>
+        </div></td>
+      </tr>`;}).join('')}
+    </tbody>
+    <tfoot><tr style="font-weight:700;background:var(--surface-2)">
+      <td colspan="3" style="font-size:11px;color:var(--text-2)">${rows.length} record${rows.length!==1?'s':''}</td>
+      <td style="text-align:right">${fmt(totDeal)}</td>
+      <td></td>
+      <td style="text-align:right">${fmt(totComm)}</td>
+      <td style="font-size:10px;color:var(--text-2)">${fmt(totPaid+totPartial)} paid</td>
+      <td colspan="2"></td>
+    </tr></tfoot>
+  </table>` + ctrl;
+}
+
+async function commissionAction(id, action) {
+  const x = state.commissions.find(c=>c.id===id); if (!x) return;
+  const newStatus = action==='approve' ? 'approved' : action==='pay' ? 'paid' : x.status;
+  try {
+    await apiCall(`/commissions/${id}`,{method:'PUT',body:JSON.stringify({...x,status:newStatus})});
+    x.status = newStatus;
+    toast(`Commission ${action==='approve'?'approved':'marked as paid'}`);
+    renderCommissionsTable();
+    renderCommissions(document.getElementById('main-content'));
+  } catch(e){toast('Error: '+e.message);}
+}
+
 function renderCommissions(c) {
   const total=state.commissions.reduce((a,x)=>a+x.amount,0);
   const paid=state.commissions.filter(x=>x.status==='paid').reduce((a,x)=>a+x.amount,0);
@@ -5459,36 +5646,28 @@ function renderCommissions(c) {
         <div class="metric"><div class="metric-label">Total Commissions</div><div class="metric-value">${fmt(total)}</div></div>
         <div class="metric"><div class="metric-label">Paid Out</div><div class="metric-value" style="color:var(--info)">${fmt(paid+partial)}</div><div class="metric-sub">${partial>0?fmt(partial)+' partial':''}</div></div>
         <div class="metric"><div class="metric-label">Approved — Ready to Pay</div><div class="metric-value" style="color:var(--success)">${fmt(approved)}</div></div>
-        <div class="metric"><div class="metric-label">Pending</div><div class="metric-value" style="color:var(--warning)">${fmt(pending)}</div></div>
+        <div class="metric"><div class="metric-label">Pending Review</div><div class="metric-value" style="color:var(--warning)">${fmt(pending)}</div></div>
       </div>
       <div class="card">
-        <div class="card-header"><div class="card-title">Commission Ledger</div><button class="btn btn-primary btn-sm" onclick="openAddCommission()">+ Add</button></div>
-        <div style="overflow-x:auto">
-          <table class="table">
-            <thead><tr><th>Deal / Invoice</th><th>Rep</th><th>Client</th><th>Deal Value</th><th>Rate</th><th style="text-align:right">Commission</th><th>Status</th><th>Date</th><th></th></tr></thead>
-            ${(()=>{ const {slice:cmSlice, ctrl:cmCtrl} = _paginate(state.commissions, 'commissions'); return `<tbody>${cmSlice.map(x=>{
-              const isPartial = x.status==='partial';
-              const paidPct = isPartial && x.amount ? Math.round(((x.partialPaid||0)/x.amount)*100) : 0;
-              return `<tr>
-                <td style="font-weight:600">${x.dealName}</td>
-                <td>${x.repName}</td>
-                <td style="color:var(--text-2)">${x.client}</td>
-                <td>${fmt(x.dealValue)}</td>
-                <td style="color:var(--text-2)">${x.rate}%</td>
-                <td style="text-align:right">
-                  <div style="font-weight:700">${fmt(x.amount)}</div>
-                  ${isPartial?`<div style="font-size:10px;color:var(--text-2)">${fmt(x.partialPaid||0)} paid · ${fmt(x.amount-(x.partialPaid||0))} due</div>
-                  <div style="height:3px;background:var(--surface-2);border-radius:2px;margin-top:3px;overflow:hidden"><div style="height:100%;background:#FF6600;width:${paidPct}%"></div></div>`:''}
-                </td>
-                <td>${statusBadge(x.status)}</td>
-                <td style="color:var(--text-2);font-size:11px">${x.date||'—'}</td>
-                <td style="display:flex;gap:4px">
-                  <button class="btn btn-sm" style="font-size:10px;padding:2px 7px" onclick="openEditCommission(${x.id})">Edit</button>
-                  <button class="del-btn" onclick="deleteCommission(${x.id})">×</button>
-                </td>
-              </tr>`;}).join('')}</tbody>` + cmCtrl; })()}
-          </table>
+        <div class="card-header" style="flex-wrap:wrap;gap:8px">
+          <div class="card-title">Commission Ledger</div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto">
+            <input class="input" id="comm-search" placeholder="Search deal / rep…" style="width:160px;font-size:11px" oninput="renderCommissionsTable()">
+            <select class="input" id="comm-filter-status" style="font-size:11px;width:110px" onchange="renderCommissionsTable()">
+              <option value="">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="paid">Paid</option>
+              <option value="partial">Partial</option>
+            </select>
+            <select class="input" id="comm-filter-rep" style="font-size:11px;width:120px" onchange="renderCommissionsTable()">
+              <option value="">All Reps</option>
+              ${[...new Set(state.commissions.map(x=>x.repName))].map(r=>`<option value="${escHtml(r)}">${escHtml(r)}</option>`).join('')}
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="openAddCommission()">+ Add</button>
+          </div>
         </div>
+        <div id="comm-table-wrap" style="overflow-x:auto"></div>
       </div>
     </div>
 
@@ -5636,6 +5815,8 @@ function renderCommissions(c) {
       </div>
     </div>
   </div>`;
+
+  renderCommissionsTable();
 
   setTimeout(()=>{
     const repLabels = Object.keys(byRep);
@@ -7488,6 +7669,15 @@ async function renderSettings(c) {
     <div class="view-panel" id="set-account">
       <div style="display:flex;flex-direction:column;gap:12px;max-width:500px">
         <div class="card">
+          <div class="card-header"><div class="card-title">Currency &amp; Display</div></div>
+          <div class="form-row"><label>Currency</label>
+            <select class="input" id="currency-select">
+              ${CURRENCIES.map(c=>`<option value="${c.code}"${_getCur()===c.code?' selected':''}>${c.label}</option>`).join('')}
+            </select>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="saveCurrencySettings()">Save</button>
+        </div>
+        <div class="card">
           <div class="card-header"><div class="card-title">My Profile</div></div>
           <div style="font-size:12px;color:var(--text-2);margin-bottom:14px">Signed in as <strong style="color:var(--text)">${state.user?.email}</strong></div>
           <div class="form-row"><label>Display Name</label><input type="text" id="profile-name" class="input" value="${(state.user?.name||'').replace(/"/g,'&quot;')}" placeholder="Your full name"></div>
@@ -7526,6 +7716,17 @@ async function saveSaasTarget() {
     if(!state.appSettings) state.appSettings={};
     state.appSettings.saasRatioTarget = val;
     toast(val > 0 ? `SaaS target set: ${val}%` : 'SaaS target disabled');
+  } catch(e){toast('Error: '+e.message);}
+}
+
+async function saveCurrencySettings() {
+  const cur = document.getElementById('currency-select')?.value || 'USD';
+  try {
+    await apiCall('/app-settings',{method:'PUT',body:JSON.stringify({currency:cur})});
+    state.appSettings.currency = cur;
+    localStorage.setItem('af_currency', cur);
+    toast(`Currency set to ${cur}`);
+    render();
   } catch(e){toast('Error: '+e.message);}
 }
 
