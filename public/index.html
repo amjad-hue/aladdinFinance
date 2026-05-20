@@ -760,6 +760,45 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
 .ratio-value{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:700}
 .ratio-sub{font-size:10px;color:var(--text-3);margin-top:4px}
 
+/* ── Sidebar collapse ── */
+.sidebar-toggle{position:absolute;right:-13px;top:50%;transform:translateY(-50%);width:26px;height:26px;border-radius:50%;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;font-size:10px;color:var(--text-2);transition:all .15s}
+.sidebar-toggle:hover{border-color:var(--primary);color:var(--primary)}
+.sidebar{position:relative;transition:width .22s cubic-bezier(.4,0,.2,1)}
+.sidebar.collapsed{width:50px;padding:16px 7px}
+.sidebar.collapsed .logo-name,.sidebar.collapsed .logo-sub,.sidebar.collapsed .nav-group-items,
+.sidebar.collapsed .nav-sec,.sidebar.collapsed .user-info,.sidebar.collapsed .user-pill>svg,
+.sidebar.collapsed .logo>div{display:none}
+.sidebar.collapsed .logo{justify-content:center}
+.sidebar.collapsed .user-pill{justify-content:center;padding:7px}
+.sidebar.collapsed .sidebar-toggle{right:-13px}
+.sidebar.collapsed .nav-item{padding:8px;justify-content:center;gap:0}
+.sidebar.collapsed .nav-item span:not(.nav-icon){display:none}
+
+/* ── Breadcrumb ── */
+.breadcrumb{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-3)}
+.breadcrumb-sep{opacity:.5}
+.breadcrumb-section{font-size:15px;font-weight:700;color:var(--text);font-family:'Montserrat',sans-serif;margin-top:1px}
+.breadcrumb-group{font-size:11px;color:var(--text-2)}
+
+/* ── Data Health pill ── */
+.health-pill{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;cursor:pointer;white-space:nowrap;transition:all .12s;border:1px solid transparent}
+.health-pill.ok{background:var(--success-bg);color:var(--success-text);border-color:rgba(22,163,74,.2)}
+.health-pill.warn{background:var(--warning-bg);color:var(--warning-text);border-color:rgba(217,119,6,.2)}
+.health-pill:hover{opacity:.85}
+
+/* ── Skeleton loader ── */
+.skeleton-line{height:12px;border-radius:6px;background:linear-gradient(90deg,var(--surface-2) 25%,var(--border) 50%,var(--surface-2) 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;margin-bottom:6px}
+.skeleton-line.tall{height:20px}
+.skeleton-line.short{width:60%}
+.skeleton-line.xs{width:40%;height:9px}
+
+/* ── Notification group ── */
+.notif-group{padding:6px 15px 3px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text-3);display:flex;align-items:center;justify-content:space-between}
+.notif-group-count{background:var(--surface-2);border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;color:var(--text-2)}
+
+/* ── Ayla float — shift up to avoid overlapping last table row ── */
+.ayla-float{bottom:100px!important}
+
 @media(max-width:900px){.shell{flex-direction:column}.sidebar{display:none}.clients-grid{grid-template-columns:1fr}.grid-5{grid-template-columns:repeat(2,1fr)}.ratio-grid{grid-template-columns:repeat(2,1fr)}}
 
 /* ── Entrance Animations ── */
@@ -1336,7 +1375,8 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
 <!-- Main App -->
 <div id="app-screen">
   <div class="shell">
-    <aside class="sidebar">
+    <aside class="sidebar" id="main-sidebar">
+      <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
       <div class="logo">
         <img src="/media/pic.JPEG" style="width:36px;height:36px;border-radius:50%;object-fit:cover;object-position:center;flex-shrink:0;box-shadow:0 3px 12px rgba(255,102,0,.4)">
         <div><div class="logo-name">Aladdin Finance</div><div class="logo-sub">CFO Command Center</div></div>
@@ -1403,12 +1443,16 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
     <div class="main">
       <div class="topbar">
         <div>
-          <div class="topbar-title">CFO Genie</div>
-          <div class="topbar-sub" id="today-date">Loading...</div>
+          <div class="breadcrumb"><span class="breadcrumb-group" id="topbar-group">Financials</span><span class="breadcrumb-sep">›</span></div>
+          <div class="breadcrumb-section" id="topbar-title">Dashboard</div>
         </div>
         <div class="topbar-right">
           <div class="sync-status"><div class="sync-dot" id="sync-dot"></div><span id="sync-label">Connecting...</span></div>
           <span class="quarter-badge" id="quarter-badge">Q2 2026</span>
+          <span class="health-pill ok hidden" id="health-pill" onclick="showSection('reports')" title="Data health — click to view details">
+            <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 1v2M7 11v2M1 7h2M11 7h2M3.2 3.2l1.4 1.4M9.4 9.4l1.4 1.4M3.2 10.8l1.4-1.4M9.4 4.6l1.4-1.4"/></svg>
+            <span id="health-pill-text">Data OK</span>
+          </span>
           <button class="notif-btn" onclick="toggleNotifPanel()" title="Notifications">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
             <span class="notif-badge hidden" id="notif-badge"></span>
@@ -1428,7 +1472,10 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
 <div class="notif-panel" id="notif-panel">
   <div class="notif-panel-head">
     <div class="notif-panel-title">Notifications</div>
-    <button class="btn btn-sm" onclick="dismissAllNotifs()">Dismiss all</button>
+    <div style="display:flex;gap:5px">
+      <button class="btn btn-sm" onclick="notifMarkAllRead()" style="font-size:10px;padding:3px 8px">Mark read</button>
+      <button class="btn btn-sm" onclick="dismissAllNotifs()" style="font-size:10px;padding:3px 8px">Dismiss all</button>
+    </div>
   </div>
   <div class="notif-list" id="notif-list"></div>
 </div>

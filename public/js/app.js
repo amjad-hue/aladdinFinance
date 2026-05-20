@@ -282,10 +282,16 @@ async function showApp() {
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.add('visible');
   document.getElementById('quarter-badge').textContent = quarter();
-  document.getElementById('today-date').textContent = TODAY.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   updateUserUI();
   initEditableLists();
   initNavGroups();
+  // Restore sidebar collapsed state
+  if (localStorage.getItem('sidebarCollapsed') === '1') {
+    const sb = document.getElementById('main-sidebar');
+    const btn = document.getElementById('sidebar-toggle');
+    if (sb) sb.classList.add('collapsed');
+    if (btn) btn.textContent = '›';
+  }
   setupInactivityTimer();
   await loadAll();
   if (state.user?.role === 'sales') {
@@ -294,6 +300,7 @@ async function showApp() {
     const saved = localStorage.getItem('af_section');
     if (saved && saved !== 'undefined') state.section = saved;
   }
+  updateBreadcrumb(state.section);
   render();
   const mc = document.getElementById('main-content');
   if (mc) {
@@ -346,6 +353,7 @@ async function loadAll() {
     recalcCashflow();
     _autoMarkOverdue();
     buildNotifications();
+    updateHealthPill();
     apiCall('/reports/email-log').then(log => { state._emailLog = log; }).catch(()=>{});
     apiCall('/reports/validate/history').then(h => { state._validationHistory = h; }).catch(()=>{});
     apiCall('/reports/email-templates').then(t => { state._emailTemplates = t; }).catch(()=>{});
@@ -821,6 +829,48 @@ function previewEmail(endpoint) {
 const PIPELINE_ROLE_SECTIONS = ['pipeline','settings'];
 const FINANCE_ROLE_SECTIONS  = ['dashboard','cash','cashflow','liabilities','ar','budget','revenue','statements','commissions','reports','settings'];
 
+// Breadcrumb map: section → { group, label }
+const SECTION_META = {
+  dashboard:     { group:'Financials',  label:'Dashboard' },
+  cash:          { group:'Financials',  label:'Cash & Reserves' },
+  cashflow:      { group:'Financials',  label:'Cash Flow' },
+  budget:        { group:'Financials',  label:'Budget' },
+  revenue:       { group:'Financials',  label:'Revenue' },
+  ar:            { group:'Financials',  label:'Account Receivables' },
+  liabilities:   { group:'Financials',  label:'Liabilities' },
+  statements:    { group:'Financials',  label:'Financial Statements' },
+  pipeline:      { group:'Sales',       label:'Sales Pipeline' },
+  clients:       { group:'Sales',       label:'Clients' },
+  commissions:   { group:'Sales',       label:'Commissions' },
+  subscriptions: { group:'Sales',       label:'Subscriptions' },
+  hr:            { group:'People',      label:'HR' },
+  calendar:      { group:'Planning',    label:'Scheduler' },
+  tasks:         { group:'Planning',    label:'Tasks' },
+  requests:      { group:'Planning',    label:'Requests' },
+  projects:      { group:'Planning',    label:'Projects' },
+  files:         { group:'Reports',     label:'Legal Documents' },
+  gmail:         { group:'Reports',     label:'Gmail Inbox' },
+  reports:       { group:'Reports',     label:'Reports & Emails' },
+  settings:      { group:'System',      label:'Settings & Users' },
+};
+
+function updateBreadcrumb(name) {
+  const meta = SECTION_META[name] || { group:'', label:name };
+  const g = document.getElementById('topbar-group');
+  const t = document.getElementById('topbar-title');
+  if (g) g.textContent = meta.group;
+  if (t) t.textContent = meta.label;
+}
+
+function toggleSidebar() {
+  const sb = document.getElementById('main-sidebar');
+  const btn = document.getElementById('sidebar-toggle');
+  if (!sb) return;
+  const collapsed = sb.classList.toggle('collapsed');
+  if (btn) btn.textContent = collapsed ? '›' : '‹';
+  localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0');
+}
+
 function showSection(name) {
   const role = state.user?.role;
   if (role === 'sales'   && !PIPELINE_ROLE_SECTIONS.includes(name)) return;
@@ -830,6 +880,7 @@ function showSection(name) {
   if (name === 'budget') state.budgetTab = 'bud-charts';
   state.section = name;
   localStorage.setItem('af_section', name);
+  updateBreadcrumb(name);
   document.querySelectorAll('.nav-item').forEach(b => {
     b.classList.toggle('active', b.dataset.section === name);
     if (b.dataset.section === name) {
@@ -1307,7 +1358,7 @@ function renderCash(c) {
     state.reserves.forEach(r=>{resMap[r.bank]=(resMap[r.bank]||0)+r.amount;});
     mkChart('chart-cash','bar',{
       labels:state.banks.map(b=>b.name),
-      datasets:[{label:'Available',data:state.banks.map(b=>b.total-(resMap[b.name]||0)),backgroundColor:'#FF6600',borderRadius:5},{label:'Reserved',data:state.banks.map(b=>resMap[b.name]||0),backgroundColor:'rgba(255,102,0,0.25)',borderRadius:5}]
+      datasets:[{label:'Available',data:state.banks.map(b=>b.total-(resMap[b.name]||0)),backgroundColor:'#FF6600',borderRadius:5},{label:'Reserved',data:state.banks.map(b=>resMap[b.name]||0),backgroundColor:'#2563EB',borderRadius:5}]
     },{scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#5E6C84'}},y:{stacked:true,ticks:{callback:v=>fmt(v),color:'#5E6C84'},grid:{color:'rgba(0,0,0,0.05)'}}}});
   },50);
 }
@@ -1365,7 +1416,7 @@ function renderCashflow(c) {
         </div>
         <div style="margin-bottom:10px;display:flex;gap:14px;font-size:11px;color:var(--text-2)">
           <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:#f97316;border-radius:2px;display:inline-block"></span>Inflow</span>
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:rgba(255,255,255,0.2);border-radius:2px;display:inline-block"></span>Outflow</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:#94A3B8;border-radius:2px;display:inline-block"></span>Outflow</span>
           <span style="display:flex;align-items:center;gap:5px"><span style="width:22px;height:2px;background:#22c55e;display:inline-block"></span>Closing Balance</span>
         </div>
         <div class="chart-wrap chart-wrap-lg"><canvas id="chart-cf-detail"></canvas></div>
@@ -1469,7 +1520,7 @@ function renderCashflow(c) {
       labels:state.cashflow.map(d=>d.month.split(' ')[0]),
       datasets:[
         {label:'Inflow', type:'bar', data:state.cashflow.map(d=>d.inflow), backgroundColor:'#FF6600',borderRadius:4},
-        {label:'Outflow',type:'bar', data:state.cashflow.map(d=>d.outflow),backgroundColor:'rgba(0,0,0,0.08)',borderRadius:4},
+        {label:'Outflow',type:'bar', data:state.cashflow.map(d=>d.outflow),backgroundColor:'#94A3B8',borderRadius:4},
         {label:'Closing',type:'line',data:state.cashflow.map(d=>d.opening+d.inflow-d.outflow),borderColor:'#16A34A',backgroundColor:'transparent',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#16A34A',tension:.3}
       ]
     });
@@ -1625,7 +1676,7 @@ function renderPipelineForecast(c) {
           </div>
           <div style="margin-bottom:10px;display:flex;gap:14px;font-size:11px;color:var(--text-2)">
             <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:#f97316;border-radius:2px;display:inline-block"></span>Pipeline Inflow</span>
-            <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:rgba(255,255,255,0.2);border-radius:2px;display:inline-block"></span>Outflow</span>
+            <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:#94A3B8;border-radius:2px;display:inline-block"></span>Outflow</span>
             <span style="display:flex;align-items:center;gap:5px"><span style="width:22px;height:2px;background:#22c55e;display:inline-block"></span>Closing Balance</span>
           </div>
           <div class="chart-wrap chart-wrap-lg"><canvas id="chart-pf-cf"></canvas></div>
@@ -1781,7 +1832,7 @@ function renderPipelineForecast(c) {
         labels,
         datasets: [
           { label: 'Pipeline Inflow', type: 'bar',  data: rows.map(r => r.inflow),  backgroundColor: '#FF6600', borderRadius: 4 },
-          { label: 'Outflow',         type: 'bar',  data: rows.map(r => r.outflow), backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 4 },
+          { label: 'Outflow',         type: 'bar',  data: rows.map(r => r.outflow), backgroundColor: '#94A3B8', borderRadius: 4 },
           { label: 'Closing',         type: 'line', data: rows.map(r => r.closing), borderColor: '#16A34A', backgroundColor: 'transparent', borderWidth: 2.5, pointRadius: 3, pointBackgroundColor: '#16A34A', tension: 0.3 }
         ]
       });
@@ -2166,11 +2217,16 @@ function renderBudget(c) {
       <button class="view-tab ${state.budgetTab==='bud-edit'?'active':''}" onclick="state.budgetTab='bud-edit';switchView(this,'bud-edit')">Edit — Monthly Breakdown</button>
     </div>
     <div class="view-panel ${state.budgetTab!=='bud-edit'?'active':''}" id="bud-charts">
-      <div class="grid-3" style="margin-bottom:12px">
-        <div class="metric"><div class="metric-label">Annual Budget</div><div class="metric-value">${fmt(totalAnnual)}</div></div>
-        <div class="metric"><div class="metric-label">Actual ${curMo}</div><div class="metric-value" style="color:var(--primary)">${fmt(totalActual)}</div></div>
-        <div class="metric"><div class="metric-label">Monthly Target</div><div class="metric-value">${fmt(Math.round(totalAnnual/12))}</div></div>
-      </div>
+      ${(()=>{
+        const moTarget = Math.round(totalAnnual/12);
+        const overBudget = moTarget > 0 && totalActual > moTarget * 1.05;
+        const pctUsed = moTarget > 0 ? Math.round(totalActual/moTarget*100) : 0;
+        return `<div class="grid-3" style="margin-bottom:12px">
+          <div class="metric"><div class="metric-label">Annual Budget</div><div class="metric-value">${fmt(totalAnnual)}</div></div>
+          <div class="metric${overBudget?' ':' '}"><div class="metric-label">Actual ${curMo}</div><div class="metric-value" style="color:${overBudget?'var(--danger)':totalActual>0?'var(--text)':'var(--text-3)'}">${fmt(totalActual)}</div><div class="metric-sub">${pctUsed}% of monthly target${overBudget?' — <span style="color:var(--danger);font-weight:700">OVER</span>':''}</div></div>
+          <div class="metric"><div class="metric-label">Monthly Target</div><div class="metric-value">${fmt(moTarget)}</div><div class="metric-sub">${Math.round(totalAnnual/12)?Math.round(totalAnnual/12/totalAnnual*100)+'% of annual':'—'}</div></div>
+        </div>`;
+      })()}
       <div class="grid-2">
         <div class="card"><div class="card-header"><div class="card-title">Budget vs Actual — ${curMo}</div></div><div class="chart-wrap chart-wrap-lg"><canvas id="chart-bud-bar"></canvas></div></div>
         <div class="card"><div class="card-header"><div class="card-title">Expense Distribution</div></div><div class="chart-wrap chart-wrap-lg"><canvas id="chart-bud-donut"></canvas></div></div>
@@ -2602,7 +2658,7 @@ function renderRevenue(c) {
       <button class="view-tab" onclick="switchView(this,'rev-bytype')">By Channel</button>
       <button class="view-tab" onclick="switchView(this,'rev-bycountry')">By Country</button>
       <button class="view-tab" onclick="switchView(this,'rev-invoices')">Invoices</button>
-      <button class="view-tab" onclick="showSection('subscriptions');state.subTab='reports';renderSubscriptions(document.getElementById('main-content'))">SaaS KPIs →</button>
+      <button class="view-tab" onclick="showSection('subscriptions');state.subTab='reports';renderSubscriptions(document.getElementById('main-content'))">SaaS KPIs</button>
       <button class="view-tab" onclick="switchView(this,'rev-edit')">Edit — 12 Months</button>
     </div>
 
@@ -3189,7 +3245,9 @@ function renderPipeline(c) {
   setTimeout(()=>{
     const typeLabels=Object.keys(byType), typeData=Object.values(byType);
     mkDoughnut('pipe-type-chart',typeLabels,typeData,['#FF6600','#2563EB','#7C3AED']);
-    const stLabels=Object.keys(byStage), stData=Object.values(byStage);
+    const FUNNEL_ORDER=['Prospecting','Qualification','Proposal','Negotiation','On Hold','Closed Won','Closed Lost'];
+    const orderedStages=[...FUNNEL_ORDER.filter(s=>byStage[s]!==undefined),...Object.keys(byStage).filter(s=>!FUNNEL_ORDER.includes(s))];
+    const stLabels=orderedStages, stData=orderedStages.map(s=>byStage[s]);
     mkChart('pipe-stage-chart','bar',{labels:stLabels,datasets:[{data:stData,backgroundColor:stLabels.map(s=>STAGE_COLORS[s]||'#97A0AF'),borderRadius:4}]});
     mkChart('kpi-monthly-won','bar',{labels:_kpiMonths6.map(m=>m.label),datasets:[{label:'Closed Won',data:_kpiMonthlyWon,backgroundColor:'rgba(22,163,74,0.75)',borderRadius:4}]},{scales:{y:{ticks:{callback:v=>v>=1e6?'$'+(v/1e6).toFixed(1)+'M':v>=1e3?'$'+(v/1e3).toFixed(0)+'K':'$'+v}}}});
   },50);
@@ -3634,7 +3692,7 @@ function renderAR(c) {
       </div>
       <div style="display:flex;align-items:center;gap:8px;padding:0 0 12px;flex-wrap:wrap">
         <div style="display:flex;gap:4px">
-          ${['','pending','overdue','paid','sent'].map(s=>`<button onclick="setArFilter('status','${s}')" style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid ${state._arFilter.status===s?'var(--primary)':'var(--border)'};background:${state._arFilter.status===s?'var(--primary-bg)':'var(--surface-2)'};color:${state._arFilter.status===s?'var(--primary)':'var(--text-2)'};cursor:pointer;font-weight:${state._arFilter.status===s?'700':'400'};transition:all .15s">${s||'All'}</button>`).join('')}
+          ${[{v:'',l:'All'},{v:'pending',l:'Pending'},{v:'overdue',l:'Overdue'},{v:'paid',l:'Paid'},{v:'sent',l:'Sent'}].map(({v,l})=>`<button onclick="setArFilter('status','${v}')" style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid ${state._arFilter.status===v?'var(--primary)':'var(--border)'};background:${state._arFilter.status===v?'var(--primary-bg)':'var(--surface-2)'};color:${state._arFilter.status===v?'var(--primary)':'var(--text-2)'};cursor:pointer;font-weight:${state._arFilter.status===v?'700':'400'};transition:all .15s">${l}</button>`).join('')}
         </div>
         <input type="text" placeholder="Search client or invoice…" value="${state._arFilter.q||''}" oninput="setArFilter('q',this.value)" style="font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);color:var(--text);outline:none;min-width:180px;flex:1;max-width:280px">
         ${(state._arFilter.status||state._arFilter.q)?`<button onclick="clearArFilter()" style="font-size:11px;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--text-2);cursor:pointer">✕ Clear</button>`:''}
@@ -3949,6 +4007,7 @@ async function renderStatements(c) {
           </div>
           <div style="display:flex;align-items:center;gap:8px">
             <span id="pnl-dirty" style="display:none;font-size:11px;color:var(--warning-text);font-weight:600">⚠ Unsaved changes</span>
+            <button class="btn btn-sm" id="pnl-future-toggle" onclick="togglePnLFutureColumns()" title="Show/hide future months">Hide future</button>
             <button class="btn btn-primary btn-sm" id="pnl-save-btn" style="display:none" onclick="savePnL()">Save P&L</button>
             <button class="btn btn-sm" onclick="exportStatementPDF('pnl')" title="Export as PDF">⬇ PDF</button>
           </div>
@@ -4267,6 +4326,21 @@ function renderPnLRows(pnl) {
 }
 function computed_gross(m,revenue,cogs){return (revenue?.months[m]||0)-(cogs?.months[m]||0);}
 function computed_totopex(m,opexRows){return opexRows.reduce((a,r)=>a+(r.months[m]||0),0);} // commissions injected into opexRows by renderPnLRows
+function togglePnLFutureColumns() {
+  const curMoIdx = MO.indexOf(budgetCurrentMonth());
+  const table = document.querySelector('#stmt-pnl table');
+  if (!table) return;
+  const btn = document.getElementById('pnl-future-toggle');
+  const hiding = btn?.textContent === 'Hide future';
+  table.querySelectorAll('th, td').forEach(cell => {
+    const cellIdx = Array.from(cell.parentElement.children).indexOf(cell) - 1; // -1 for first sticky col
+    if (cellIdx > curMoIdx && cellIdx < MO.length) {
+      cell.style.display = hiding ? 'none' : '';
+    }
+  });
+  if (btn) btn.textContent = hiding ? 'Show future' : 'Hide future';
+}
+
 function pnlCellFocus(el, raw) {
   el.value = raw;
   el.type = 'number';
@@ -5857,8 +5931,18 @@ function renderProjects(c) {
             </div>
             <div style="margin-top:10px;display:grid;grid-template-columns:1fr${p.completionPct>=0&&p.completionPct!==undefined?' 1fr':''};gap:12px">
               <div>
-                <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-3);margin-bottom:3px"><span>Budget utilization</span><span style="${over?'color:var(--danger);font-weight:700':''}">${pct}%${over?' OVER BUDGET':''}</span></div>
-                <div style="height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden"><div style="height:100%;background:${over?'var(--danger)':pct>80?'var(--warning)':'var(--success)'};border-radius:3px;width:${pct}%;transition:width .4s ease"></div></div>
+                ${(()=>{
+                  const displayPct = over ? Math.min(pct, 100) : pct;
+                  const barColor = over?'var(--danger)':pct>80?'var(--warning)':'var(--success)';
+                  return `<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-3);margin-bottom:3px">
+                    <span>Budget utilization</span>
+                    <span style="${over?'color:var(--danger);font-weight:700':pct>80?'color:var(--warning-text);font-weight:600':''}">${pct}%${over?` — <strong>${pct-100}% OVER</strong>`:''}</span>
+                  </div>
+                  <div style="height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;position:relative">
+                    <div style="height:100%;background:${barColor};border-radius:3px;width:${displayPct}%;transition:width .4s ease"></div>
+                    ${over?`<div style="position:absolute;right:0;top:0;height:100%;width:3px;background:var(--danger);border-radius:1px;animation:pulse 1s infinite"></div>`:''}
+                  </div>`;
+                })()}
               </div>
               ${(p.completionPct!==undefined&&p.completionPct!==null)?`<div>
                 <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-3);margin-bottom:3px"><span>Completion</span><span style="color:var(--primary);font-weight:600">${p.completionPct}%</span></div>
@@ -7255,7 +7339,8 @@ async function renderSettings(c) {
       <button class="view-tab active" onclick="switchView(this,'set-team')">Team</button>
       <button class="view-tab" onclick="switchView(this,'set-pipeline')">Pipeline</button>
       <button class="view-tab" onclick="switchView(this,'set-integrations')">Integrations</button>
-      <button class="view-tab" onclick="switchView(this,'set-account')">Account</button>
+      <button class="view-tab" onclick="switchView(this,'set-thresholds')">Alerts</button>
+      <button class="view-tab" onclick="switchView(this,'set-account')">My Account</button>
     </div>
 
     <!-- Team -->
@@ -7313,7 +7398,7 @@ async function renderSettings(c) {
     <!-- Integrations -->
     <div class="view-panel" id="set-integrations">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div style="font-size:12px;color:var(--text-2)">Configure connections to external services. All credentials go in the <code style="background:var(--bg);padding:1px 5px;border-radius:4px">.env</code> file on the server, then restart.</div>
+        <div style="font-size:12px;color:var(--text-2)">Connect your financial and productivity tools. Status shows whether each integration is live. Contact your administrator to configure new connections.</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
         ${integrations.map(intg=>{
@@ -7367,16 +7452,9 @@ async function renderSettings(c) {
                 ${intg.setupSteps.map(s=>`<div style="font-size:11px;color:var(--text-2);padding:2px 0">${s}</div>`).join('')}
               </div>
               ${intg.id==='smtp'?`
-              <div style="margin-top:14px;background:var(--surface-2);border-radius:8px;padding:12px 14px">
-                <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:8px">.env Template — copy to your server</div>
-                <pre style="font-size:10px;color:var(--text);line-height:1.7;white-space:pre-wrap;user-select:all;background:var(--bg);padding:10px;border-radius:6px;border:1px solid var(--border)">SMTP_USER=cfo@yourcompany.com
-SMTP_PASS=xxxx-xxxx-xxxx-xxxx
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-CEO_EMAIL=ceo@yourcompany.com
-CPO_EMAIL=cpo@yourcompany.com
-REPORT_EMAIL=finance@yourcompany.com</pre>
-                <button class="btn btn-sm" style="margin-top:8px;font-size:10px" onclick="navigator.clipboard.writeText('SMTP_USER=cfo@yourcompany.com\\nSMTP_PASS=xxxx-xxxx-xxxx-xxxx\\nSMTP_HOST=smtp.gmail.com\\nSMTP_PORT=587\\nCEO_EMAIL=ceo@yourcompany.com\\nCPO_EMAIL=cpo@yourcompany.com\\nREPORT_EMAIL=finance@yourcompany.com').then(()=>toast('Copied to clipboard'))">📋 Copy Template</button>
+              <div style="margin-top:14px;background:var(--info-bg);border-radius:8px;padding:12px 14px;border:1px solid rgba(37,99,235,.15)">
+                <div style="font-size:11px;font-weight:700;color:var(--info-text);margin-bottom:4px">Email (SMTP) Configuration</div>
+                <div style="font-size:11px;color:var(--text-2)">Email sending is configured via your server environment. Contact your system administrator to update SMTP credentials. Once configured, use the test buttons below to verify delivery.</div>
               </div>
               <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
                 <button id="test-smtp-btn" class="btn btn-sm" onclick="testSmtpConnection()">🔌 Test SMTP Connection</button>
@@ -7390,37 +7468,43 @@ REPORT_EMAIL=finance@yourcompany.com</pre>
       </div>
     </div>
 
-    <!-- Account -->
+    <!-- Alerts & Thresholds (split from Account) -->
+    <div class="view-panel" id="set-thresholds">
+      <div style="display:flex;flex-direction:column;gap:12px;max-width:500px">
+        <div class="card">
+          <div class="card-header"><div><div class="card-title">Cash Alert Threshold</div><div class="card-desc">Dashboard alert when available cash drops below this amount</div></div></div>
+          <div class="form-row"><label>Minimum Cash Balance ($)</label><input type="number" id="cash-threshold" class="input" value="${state.appSettings?.cashAlertThreshold||0}" placeholder="e.g. 100000" min="0"></div>
+          <button class="btn btn-primary btn-sm" onclick="saveCashThreshold()">Save Threshold</button>
+        </div>
+        <div class="card">
+          <div class="card-header"><div><div class="card-title">SaaS Revenue Target</div><div class="card-desc">Alert when SaaS% of total revenue falls below this target (0 = disabled)</div></div></div>
+          <div class="form-row"><label>Target SaaS% of Revenue</label><input type="number" id="saas-target" class="input" value="${state.appSettings?.saasRatioTarget||0}" placeholder="e.g. 20" min="0" max="100"></div>
+          <button class="btn btn-primary btn-sm" onclick="saveSaasTarget()">Save Target</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- My Account -->
     <div class="view-panel" id="set-account">
       <div style="display:flex;flex-direction:column;gap:12px;max-width:500px">
         <div class="card">
-          <div class="card-title" style="margin-bottom:12px">Cash Alert Threshold</div>
-          <div style="font-size:11px;color:var(--text-2);margin-bottom:10px">Show a dashboard alert when available cash drops below this amount.</div>
-          <div class="form-row"><label>Minimum Cash Balance ($)</label><input type="number" id="cash-threshold" class="input" value="${state.appSettings?.cashAlertThreshold||0}" placeholder="e.g. 100000" min="0"></div>
-          <button class="btn btn-primary btn-sm" onclick="saveCashThreshold()">Save Threshold</button>
-          <div style="border-top:0.5px solid var(--border);margin-top:16px;padding-top:14px">
-            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">SaaS Revenue Target</div>
-            <div style="font-size:11px;color:var(--text-2);margin-bottom:10px">Alert when SaaS% of total revenue falls below this target (0 = disabled).</div>
-            <div class="form-row"><label>Target SaaS% (%)</label><input type="number" id="saas-target" class="input" value="${state.appSettings?.saasRatioTarget||0}" placeholder="e.g. 20" min="0" max="100"></div>
-            <button class="btn btn-primary btn-sm" onclick="saveSaasTarget()">Save SaaS Target</button>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-title" style="margin-bottom:12px">My Profile</div>
+          <div class="card-header"><div class="card-title">My Profile</div></div>
           <div style="font-size:12px;color:var(--text-2);margin-bottom:14px">Signed in as <strong style="color:var(--text)">${state.user?.email}</strong></div>
           <div class="form-row"><label>Display Name</label><input type="text" id="profile-name" class="input" value="${(state.user?.name||'').replace(/"/g,'&quot;')}" placeholder="Your full name"></div>
           <div class="form-row"><label>Title / Position</label><input type="text" id="profile-title" class="input" value="${(state.user?.title||'').replace(/"/g,'&quot;')}" placeholder="e.g. Chief Financial Officer"></div>
           <div id="profile-status" style="font-size:11px;margin-bottom:10px"></div>
-          <button class="btn btn-primary btn-sm" style="margin-bottom:18px" onclick="saveProfile()">Save Profile</button>
-          <div style="border-top:0.5px solid var(--border);padding-top:14px">
-            <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:12px">Change Password</div>
-            <div class="form-row"><label>Current Password</label><input type="password" id="cur-pass" placeholder="Current password" style="margin-bottom:6px"></div>
-            <div class="form-row"><label>New Password</label><input type="password" id="new-pass" placeholder="New password (min 8 chars)"></div>
-            <button class="btn btn-primary btn-sm" style="margin-bottom:20px" onclick="changePassword()">Update Password</button>
-          </div>
-          <div style="border-top:0.5px solid var(--border);padding-top:14px">
-            <button class="btn btn-danger btn-sm" onclick="logout()">Sign Out</button>
-          </div>
+          <button class="btn btn-primary btn-sm" onclick="saveProfile()">Save Profile</button>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Change Password</div></div>
+          <div class="form-row"><label>Current Password</label><input type="password" id="cur-pass" placeholder="Current password"></div>
+          <div class="form-row"><label>New Password</label><input type="password" id="new-pass" placeholder="New password (min 8 chars)"></div>
+          <button class="btn btn-primary btn-sm" onclick="changePassword()">Update Password</button>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Session</div></div>
+          <div style="font-size:12px;color:var(--text-2);margin-bottom:12px">Signing out will clear your session on this device.</div>
+          <button class="btn btn-danger btn-sm" onclick="logout()">Sign Out</button>
         </div>
       </div>
     </div>
@@ -8694,6 +8778,28 @@ function updateNotifBadge() {
   badge.classList.toggle('hidden',count===0);
 }
 
+function updateHealthPill() {
+  const pill  = document.getElementById('health-pill');
+  const label = document.getElementById('health-pill-text');
+  if (!pill) return;
+  const ls = state._linked?.stats;
+  if (!ls) { pill.classList.add('hidden'); return; }
+  const issues = (ls.arMissingClientId||0)+(ls.arMissingRevenueType||0)+(ls.commMissingDealId||0)+(ls.wonWithoutAR||0);
+  pill.classList.remove('hidden','ok','warn');
+  if (issues > 0) {
+    pill.classList.add('warn');
+    if (label) label.textContent = `${issues} data issue${issues>1?'s':''}`;
+  } else {
+    pill.classList.add('ok');
+    if (label) label.textContent = 'Data OK';
+  }
+}
+
+function notifMarkAllRead() {
+  // Visual: collapse all to a "read" state (same as dismiss for now)
+  dismissAllNotifs();
+}
+
 function toggleNotifPanel() {
   const panel=document.getElementById('notif-panel');
   if(!panel) return;
@@ -8704,14 +8810,50 @@ function toggleNotifPanel() {
 function renderNotifPanel() {
   const list=document.getElementById('notif-list'); if(!list) return;
   const notifs=state._notifications||[];
-  if(!notifs.length){list.innerHTML='<div style="padding:20px;text-align:center;font-size:12px;color:var(--text-3)">All caught up!</div>';return;}
+  if(!notifs.length){list.innerHTML='<div style="padding:20px;text-align:center;font-size:12px;color:var(--text-3)">All caught up — no pending alerts.</div>';return;}
   const COLOR={danger:'var(--danger-bg)',warning:'var(--warning-bg)',info:'var(--info-bg)'};
-  list.innerHTML=notifs.map(n=>`
-    <div class="notif-item">
-      <div class="notif-icon" style="background:${COLOR[n.type]||'var(--surface-2)'}">${n.icon}</div>
-      <div class="notif-body"><div class="notif-title">${n.title}</div><div class="notif-sub">${n.sub}</div></div>
-      <button class="notif-dismiss" onclick="dismissNotif('${n.id}')">×</button>
-    </div>`).join('');
+  // Group by title for identical entries (e.g. multiple "Overdue Invoice")
+  const groups = {};
+  notifs.forEach(n => {
+    const key = n.title;
+    if (!groups[key]) groups[key] = { type:n.type, icon:n.icon, items:[] };
+    groups[key].items.push(n);
+  });
+  let html = '';
+  for (const [title, g] of Object.entries(groups)) {
+    const count = g.items.length;
+    if (count > 1) {
+      // Collapsed group
+      const ids = g.items.map(n=>`'${n.id}'`).join(',');
+      html += `<div class="notif-group"><span>${g.icon} ${title}</span><span class="notif-group-count">${count}</span></div>`;
+      const preview = g.items.slice(0,2);
+      preview.forEach(n => {
+        html += `<div class="notif-item" style="padding-left:28px">
+          <div class="notif-body"><div class="notif-sub" style="font-size:11px;color:var(--text-2)">${n.sub}</div></div>
+          <button class="notif-dismiss" onclick="dismissNotif('${n.id}')">×</button>
+        </div>`;
+      });
+      if (count > 2) {
+        html += `<div style="padding:4px 15px 8px 28px;font-size:10px;color:var(--text-3)">+${count-2} more · <span style="cursor:pointer;color:var(--primary);text-decoration:underline" onclick="dismissNotifGroup([${ids}])">Dismiss all</span></div>`;
+      }
+    } else {
+      const n = g.items[0];
+      html += `<div class="notif-item">
+        <div class="notif-icon" style="background:${COLOR[n.type]||'var(--surface-2)'}">${n.icon}</div>
+        <div class="notif-body"><div class="notif-title">${n.title}</div><div class="notif-sub">${n.sub}</div></div>
+        <button class="notif-dismiss" onclick="dismissNotif('${n.id}')">×</button>
+      </div>`;
+    }
+  }
+  list.innerHTML = html;
+}
+
+function dismissNotifGroup(ids) {
+  ids.forEach(id => {
+    const dismissed=getDismissed(); if(!dismissed.includes(id)) dismissed.push(id); saveDismissed(dismissed);
+  });
+  state._notifications=(state._notifications||[]).filter(n=>!ids.includes(n.id));
+  renderNotifPanel(); updateNotifBadge();
 }
 
 function dismissNotif(id) {
@@ -8827,14 +8969,14 @@ function renderRequests(c) {
       <td style="padding:12px 14px;font-size:11px;color:var(--text-2);white-space:nowrap">${fmtDate(r.submittedAt)}</td>
       <td style="padding:12px 14px">
         <div style="display:flex;gap:5px;justify-content:flex-end">
-          <button class="btn btn-sm" style="font-size:11px;font-weight:600" onclick="showReqDetail(${r.id})">👁 View</button>
+          <button class="btn btn-sm" style="font-size:11px" onclick="showReqDetail(${r.id})" title="View request details">View</button>
           ${r.status==='pending'||r.status==='adjustment_declined' ? `
-            <button class="btn btn-sm" style="color:var(--success);border-color:rgba(22,163,74,.3);font-size:11px;font-weight:600" onclick="openReqCompose('accept',${r.id})">✓</button>
-            <button class="btn btn-sm" style="color:var(--danger);border-color:rgba(220,38,38,.3);font-size:11px;font-weight:600" onclick="openReqCompose('reject',${r.id})">✕</button>
+            <button class="btn btn-sm" style="color:var(--success);border-color:rgba(22,163,74,.3);font-size:11px;font-weight:600" onclick="openReqCompose('accept',${r.id})" title="Approve this request">Approve</button>
+            <button class="btn btn-sm" style="color:var(--danger);border-color:rgba(220,38,38,.3);font-size:11px;font-weight:600" onclick="openReqCompose('reject',${r.id})" title="Reject this request">Reject</button>
           ` : r.status==='adjusted' ? `
-            <button class="btn btn-sm" style="font-size:11px;color:var(--info)" onclick="openAdjustReq(${r.id})">✎ Re-adjust</button>
+            <button class="btn btn-sm" style="font-size:11px;color:var(--info)" onclick="openAdjustReq(${r.id})">Re-adjust</button>
           ` : ''}
-          <button class="btn btn-sm" style="font-size:11px;color:var(--danger-text)" onclick="deleteReq(${r.id})">🗑</button>
+          <button class="btn btn-sm btn-danger" style="font-size:11px" onclick="deleteReq(${r.id})" title="Permanently delete this request">Delete</button>
         </div>
       </td>
     </tr>`;
