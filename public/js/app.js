@@ -36,6 +36,13 @@ const state = {
 };
 const TODAY = new Date();
 const PAGE_SIZE = 30;
+
+// ── Debounce for search/filter inputs ────────────────────────────────────────
+const _dbt = {};
+function _db(key, fn, ms) {
+  clearTimeout(_dbt[key]);
+  _dbt[key] = setTimeout(fn, ms || 320);
+}
 function _page(key) { return state._pages[key] || 0; }
 function _setPage(key, p) { state._pages[key] = p; render(); }
 function _paginate(arr, key) {
@@ -3262,7 +3269,7 @@ function renderPipeline(c) {
         <div class="card-header"><div><div class="card-title">Sales Pipeline — All Deals</div><div class="card-desc">${state.appSettings?.hubspotConnected?'HubSpot connected · manual override enabled':'Manual entry — connect HubSpot in Settings to sync'}</div></div><div style="display:flex;gap:6px">${state.appSettings?.hubspotConnected?`<button class="btn btn-sm" onclick="syncSource('/pipeline/sync','HubSpot')">↻ HubSpot</button>`:''}<button class="btn btn-primary btn-sm" onclick="openAddDeal()">+ Add Deal</button></div></div>
         <!-- Pipeline Filters -->
         <div class="filter-bar">
-          <input class="filter-search" placeholder="Search name, client…" value="${state._pipeFilter.q}" oninput="state._pipeFilter.q=this.value;state._pages.pipeline=0;renderPipeline(document.getElementById('main-content'))">
+          <input class="filter-search" placeholder="Search name, client…" value="${state._pipeFilter.q}" oninput="state._pipeFilter.q=this.value;_db('pipe-q',()=>{state._pages.pipeline=0;renderPipeline(document.getElementById('main-content'));},320)">
           <div class="filter-sep"></div>
           <select class="filter-select" onchange="state._pipeFilter.stage=this.value;state._pages.pipeline=0;renderPipeline(document.getElementById('main-content'))">
             <option value="">All Stages</option>
@@ -3406,7 +3413,7 @@ function renderClients(c) {
         <div style="display:flex;gap:6px"><button class="btn btn-sm" style="flex:1" onclick="syncSource('/clients/sync','QuickBooks')">↻ Sync</button><button class="btn btn-primary btn-sm" onclick="openAddClient()">+ Add</button></div>
         <button class="btn btn-sm" id="archive-toggle-btn" style="font-size:10px;color:var(--text-2)" onclick="toggleArchivedClients()">${state.showArchivedClients?'Hide Archived':'Show Archived'} (${state.clients.filter(x=>x.archived).length})</button>
       </div>
-      <input type="text" class="search-input" id="client-search" placeholder="Search clients..." oninput="filterClients(this.value)">
+      <input type="text" class="search-input" id="client-search" placeholder="Search clients..." oninput="_db('cli-s',()=>filterClients(document.getElementById('client-search')?.value||''),280)">
       <div id="clients-list"></div>
     </div>
     <div id="client-detail-wrap"><div class="card" style="padding:30px 20px">${emptyState('Select a client', 'Click a client from the list to view their details, revenue breakdown, and history')}</div></div>
@@ -3759,7 +3766,7 @@ function renderAR(c) {
         </div>
       </div>
       <div class="filter-bar">
-        <input class="filter-search" type="text" placeholder="Search client or invoice…" value="${state._arFilter.q||''}" oninput="setArFilter('q',this.value)">
+        <input class="filter-search" type="text" placeholder="Search client or invoice…" value="${state._arFilter.q||''}" oninput="state._arFilter.q=this.value;_db('ar-q',()=>render(),320)">
         <div class="filter-sep"></div>
         ${[{v:'',l:'All'},{v:'pending',l:'Pending'},{v:'overdue',l:'Overdue'},{v:'paid',l:'Paid'},{v:'sent',l:'Sent'}].map(({v,l})=>`<button onclick="setArFilter('status','${v}')" style="font-size:11px;padding:3px 10px;border-radius:6px;border:1px solid ${state._arFilter.status===v?'var(--primary)':'var(--border)'};background:${state._arFilter.status===v?'var(--primary-bg)':'transparent'};color:${state._arFilter.status===v?'var(--primary)':'var(--text-2)'};cursor:pointer;font-weight:${state._arFilter.status===v?'700':'400'};transition:all .12s">${l}</button>`).join('')}
         ${(state._arFilter.status||state._arFilter.q)?`<button onclick="clearArFilter()" class="btn btn-sm" style="font-size:11px;padding:3px 8px;margin-left:auto">✕ Clear</button>`:''}
@@ -4812,10 +4819,13 @@ async function saveEvent() {
       const r=await apiCall(`/events/${editId}`,{method:'PUT',body:JSON.stringify(payload)});
       const i=state.events.findIndex(x=>x.id===Number(editId));
       if(i>-1) state.events[i]={...state.events[i],...payload};
-      closeModal('modal-event'); renderCalDays(); renderEventsList(); toast('Event updated');
+      closeModal('modal-event'); renderCalDays(); renderEventsList();
+      toast('Event updated' + (r.invitesSent ? ` · ${r.invitesSent} invitation${r.invitesSent>1?'s':''} sent` : ''));
     } else {
       const r=await apiCall('/events',{method:'POST',body:JSON.stringify(payload)});
-      state.events.push(r.event); closeModal('modal-event'); renderCalDays(); renderEventsList(); toast('Event saved');
+      state.events.push(r.event); closeModal('modal-event'); renderCalDays(); renderEventsList();
+      const invMsg = r.invitesSent ? ` · ${r.invitesSent} invitation${r.invitesSent>1?'s':''} sent` : (payload.invitees?.length ? ' · Invites sent via Google Calendar' : '');
+      toast('Event saved' + invMsg);
     }
   } catch(e){toast(e.message);}
 }
@@ -5235,7 +5245,7 @@ function renderFiles(c) {
         </div>
       </div>
       <div class="filter-bar">
-        <input class="filter-search" id="file-search" placeholder="Search files…" oninput="renderFilesList()">
+        <input class="filter-search" id="file-search" placeholder="Search files…" oninput="_db('file-s',renderFilesList,280)">
         <div class="filter-sep"></div>
         ${FILE_CATS.map(f=>`<button class="btn btn-sm${state.fileFilter===f?' btn-primary':''}" style="font-size:11px;padding:3px 10px" onclick="setFileFilter('${f}')">${f==='all'?'All':f.charAt(0).toUpperCase()+f.slice(1)}</button>`).join('')}
       </div>
@@ -5708,7 +5718,7 @@ function renderCommissions(c) {
           <button class="btn btn-primary btn-sm" onclick="openAddCommission()">+ Add</button>
         </div>
         <div class="filter-bar">
-          <input class="filter-search" id="comm-search" placeholder="Search deal / rep…" oninput="renderCommissionsTable()">
+          <input class="filter-search" id="comm-search" placeholder="Search deal / rep…" oninput="_db('comm-s',renderCommissionsTable,280)">
           <div class="filter-sep"></div>
           <select class="filter-select" id="comm-filter-status" onchange="renderCommissionsTable()">
             <option value="">All Status</option>
@@ -6173,7 +6183,7 @@ function renderProjects(c) {
         <button class="view-tab${state.projTab==='active'?' active':''}" onclick="state.projTab='active';renderProjects(document.getElementById('main-content'))">Active <span style="background:var(--surface-2);border-radius:10px;padding:1px 7px;font-size:10px">${active.length}</span></button>
         <button class="view-tab${state.projTab==='history'?' active':''}" onclick="state.projTab='history';renderProjects(document.getElementById('main-content'))">History <span style="background:var(--surface-2);border-radius:10px;padding:1px 7px;font-size:10px">${history.length}</span></button>
       </div>
-      ${state.projTab==='history'?`<input class="input" style="width:220px;font-size:12px" placeholder="Search history…" value="${state._projSearch||''}" oninput="state._projSearch=this.value;renderProjects(document.getElementById('main-content'))">`:``}
+      ${state.projTab==='history'?`<input class="input" style="width:220px;font-size:12px" placeholder="Search history…" value="${state._projSearch||''}" oninput="state._projSearch=this.value;_db('proj-s',()=>renderProjects(document.getElementById('main-content')),320)">`:``}
       <button class="btn btn-sm" style="color:var(--primary);border-color:var(--primary-bg);margin-left:auto" onclick="openAI('projects')">✦ Ask Ayla</button>
       ${state.projTab==='active'?`<button class="btn btn-primary btn-sm" onclick="openAddProject()">+ New Project</button>`:''}
     </div>
@@ -9363,7 +9373,7 @@ function renderRequests(c) {
 
     <!-- Filter bar -->
     <div class="filter-bar">
-      <input class="filter-search" placeholder="Search subject, details, email…" value="${(rf.q||'').replace(/"/g,'&quot;')}" oninput="state._reqFilter.q=this.value;renderRequests(document.getElementById('main-content'))">
+      <input class="filter-search" placeholder="Search subject, details, email…" value="${(rf.q||'').replace(/"/g,'&quot;')}" oninput="state._reqFilter.q=this.value;_db('req-q',()=>renderRequests(document.getElementById('main-content')),320)">
       <div class="filter-sep"></div>
       <select class="filter-select" onchange="state._reqFilter.status=this.value;renderRequests(document.getElementById('main-content'))">
         <option value=""${!rf.status?' selected':''}>All Statuses</option>
@@ -9865,7 +9875,7 @@ function _renderHRDirectory() {
   el.innerHTML = `
   <div class="card">
     <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-      <input class="input" style="max-width:200px;font-size:12px" placeholder="Search name, email, position…" value="${(state._hrEmpSearch||'').replace(/"/g,'&quot;')}" oninput="state._hrEmpSearch=this.value;_renderHRDirectory()">
+      <input class="input" style="max-width:200px;font-size:12px" placeholder="Search name, email, position…" value="${(state._hrEmpSearch||'').replace(/"/g,'&quot;')}" oninput="state._hrEmpSearch=this.value;_db('hr-dir',_renderHRDirectory,280)">
       <select class="input" style="max-width:160px;font-size:12px" onchange="state._hrEmpDept=this.value;_renderHRDirectory()">
         <option value="">All Departments</option>
         ${depts.map(d=>`<option value="${d}"${state._hrEmpDept===d?' selected':''}>${d}</option>`).join('')}
@@ -10007,7 +10017,7 @@ function _renderHRTimeOff() {
 
   el.innerHTML = `
   <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-    <input class="input" style="font-size:11px;max-width:200px" placeholder="Search employee…" value="${(tf.emp||'').replace(/"/g,'&quot;')}" oninput="state._tofFilter.emp=this.value;_renderHRTimeOff()">
+    <input class="input" style="font-size:11px;max-width:200px" placeholder="Search employee…" value="${(tf.emp||'').replace(/"/g,'&quot;')}" oninput="state._tofFilter.emp=this.value;_db('hr-tof',_renderHRTimeOff,280)">
     <select class="input" style="font-size:11px;max-width:130px" onchange="state._tofFilter.type=this.value;_renderHRTimeOff()">
       <option value=""${!tf.type?' selected':''}>All Types</option>
       <option value="annual"${tf.type==='annual'?' selected':''}>Annual</option>

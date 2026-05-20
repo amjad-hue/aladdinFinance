@@ -140,12 +140,6 @@
     .btn-submit:hover   { opacity: .92; }
     .btn-submit:disabled { opacity: .55; cursor: default; }
 
-    .policy-text {
-      font-size: 13px; line-height: 1.75; color: #374151;
-      white-space: pre-wrap; background: var(--surface-2);
-      border-radius: 8px; padding: 16px;
-    }
-
     .alert { border-radius: 9px; padding: 13px 16px; font-size: 13px; line-height: 1.6; margin-bottom: 16px; }
     .alert-success { background: var(--success-bg); border: 1px solid var(--success-border); color: #15803D; }
     .alert-error   { background: var(--danger-bg);  border: 1px solid var(--danger-border);  color: #B91C1C; }
@@ -605,21 +599,78 @@ function renderPortal() {
       </div>
 
       <div id="panel-policy" style="display:none">
-        <div class="card">
-          <div class="card-title">
-            <div class="card-icon" style="background:#F3F4F6;color:#374151">📄</div>
-            Company Policy
-          </div>
-          <div class="policy-text" id="policy-content"></div>
-        </div>
+        <div id="policy-cards"></div>
       </div>
     </div>`;
-  // Render policy as HTML (not escaped text)
-  const policyEl = document.getElementById('policy-content');
-  if (policyEl) {
-    const raw = portalData.policy || '';
-    policyEl.innerHTML = raw || '<p style="color:#6B7280">No company policy has been set yet. Please contact HR.</p>';
-  }
+  // Render policy as modern cards
+  (function renderPolicy() {
+    const el = document.getElementById('policy-cards'); if (!el) return;
+    const raw = (portalData.policy || '').trim();
+    if (!raw) {
+      el.innerHTML = `<div class="card" style="text-align:center;padding:40px 24px">
+        <div style="font-size:40px;margin-bottom:12px">📄</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text)">No policy yet</div>
+        <div style="font-size:12px;color:var(--text-2);margin-top:6px">Contact HR for company policy information.</div>
+      </div>`;
+      return;
+    }
+    // Section icons by keyword
+    const ICONS = { HOUR:'🕐', LEAVE:'🏖', REMOTE:'🏠', CODE:'📋', REQUEST:'📝', EXPENSE:'💰', CONDUCT:'🤝', TRAVEL:'✈', HEALTH:'❤', DRESS:'👔', CONFIDEN:'🔒', PERFORM:'🎯', DEFAULT:'📌' };
+    function iconFor(title) {
+      const t = title.toUpperCase();
+      for (const [k,v] of Object.entries(ICONS)) { if (t.includes(k)) return v; }
+      return ICONS.DEFAULT;
+    }
+    // Split on numbered headings like "1. TITLE" or "## TITLE"
+    const sectionRe = /^(\d+\.\s+[A-Z][^\n]+|#{1,3}\s+[^\n]+)/gm;
+    const parts = raw.split(sectionRe).filter(s => s.trim());
+    let sections = [];
+    for (let i = 0; i < parts.length; i++) {
+      const hMatch = parts[i].match(/^(\d+\.\s+|#{1,3}\s+)?(.+)/);
+      if (hMatch && (parts[i].match(/^\d+\./) || parts[i].match(/^#+\s/))) {
+        sections.push({ title: hMatch[2].trim(), body: (parts[i+1] || '').trim() });
+        i++;
+      }
+    }
+    if (!sections.length) {
+      // No structured headings — render as a single card with nice typography
+      const lines = raw.split('\n').filter(l => l.trim());
+      el.innerHTML = `<div class="card">
+        <div class="card-title" style="margin-bottom:16px"><div class="card-icon" style="background:#F3F4F6;color:#374151">📄</div>Company Policy</div>
+        <div style="font-size:13px;line-height:1.8;color:#374151">${lines.map(l=>`<p style="margin-bottom:10px">${l}</p>`).join('')}</div>
+      </div>`;
+      return;
+    }
+    const CARD_PALETTE = [
+      {bg:'#EFF6FF',border:'#BFDBFE',icon:'#2563EB'},
+      {bg:'#F0FDF4',border:'#BBF7D0',icon:'#16A34A'},
+      {bg:'#FFF7ED',border:'#FED7AA',icon:'#EA580C'},
+      {bg:'#FAF5FF',border:'#E9D5FF',icon:'#7C3AED'},
+      {bg:'#FFF1F2',border:'#FECDD3',icon:'#E11D48'},
+      {bg:'#F0FDFA',border:'#99F6E4',icon:'#0D9488'},
+    ];
+    el.innerHTML = sections.map((sec, idx) => {
+      const pal = CARD_PALETTE[idx % CARD_PALETTE.length];
+      const icon = iconFor(sec.title);
+      const bodyLines = sec.body.split('\n').filter(l => l.trim());
+      const bodyHtml = bodyLines.map(l => {
+        l = l.trim();
+        if (l.startsWith('- ') || l.startsWith('• ')) {
+          return `<div style="display:flex;gap:8px;padding:4px 0"><span style="color:${pal.icon};flex-shrink:0;margin-top:2px">•</span><span>${l.slice(2)}</span></div>`;
+        }
+        return `<p style="margin-bottom:8px;line-height:1.7">${l}</p>`;
+      }).join('');
+      return `<div style="background:${pal.bg};border:1px solid ${pal.border};border-radius:14px;padding:20px 22px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <div style="width:38px;height:38px;border-radius:10px;background:${pal.icon}18;border:1px solid ${pal.border};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">${icon}</div>
+          <div style="font-size:13px;font-weight:700;color:${pal.icon};letter-spacing:.01em;text-transform:uppercase">${sec.title}</div>
+        </div>
+        <div style="font-size:13px;color:#374151;line-height:1.7">${bodyHtml || '<span style="color:#9CA3AF">No details provided.</span>'}</div>
+      </div>`;
+    }).join('') + `<div style="margin-top:8px;padding:12px 16px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;text-align:center">
+      <div style="font-size:11px;color:#9CA3AF">Questions about company policy? Contact <strong>HR</strong> via the Request tab.</div>
+    </div>`;
+  })();
 }
 
 function switchTab(name) {
