@@ -1162,7 +1162,10 @@ function renderDashboard(c) {
   // Add subscriptions widget if there are subscriptions
   _secHTML['subscriptions'] = (state.subscriptions||[]).length ? subDashWidget() : '';
 
-  const orderedSections = getDashOrder().map(id => _secHTML[id] || '').join('') + (_secHTML['subscriptions']||'');
+  const orderedSections = getDashOrder().map(id => {
+    if (id === 'ratios') return (_secHTML['subscriptions']||'') + (_secHTML[id]||'');
+    return _secHTML[id] || '';
+  }).join('');
 
   c.innerHTML = `
   <div id="dash-grid" style="display:flex;flex-direction:column;gap:14px">
@@ -11255,6 +11258,21 @@ function _renderSubReports(el) {
     if (byBill[k]) { byBill[k].count++; byBill[k].rev+=Number(s.amount||0); }
   });
 
+  // Plan/tier breakdown
+  const PLAN_ORDER = ['Free','Pro','Premium','Enterprise','Custom'];
+  const PLAN_COLORS = { Free:'#64748B', Pro:'#2563EB', Premium:'#7C3AED', Enterprise:'#FF6600', Custom:'#16A34A' };
+  const allPlanKeys = [...new Set([...PLAN_ORDER, ...subs.map(s=>s.plan||'Unspecified')])];
+  const byPlan = {};
+  allPlanKeys.forEach(p => { byPlan[p] = { active:0, churned:0, mrrActive:0 }; });
+  subs.forEach(s => {
+    const p = s.plan||'Unspecified';
+    if (!byPlan[p]) byPlan[p] = { active:0, churned:0, mrrActive:0 };
+    if (s.status==='active') { byPlan[p].active++; byPlan[p].mrrActive+=subToMRR(s); }
+    else if (s.status==='churned'||s.status==='cancelled') byPlan[p].churned++;
+  });
+  const planEntries = Object.entries(byPlan).filter(([,d])=>d.active+d.churned>0)
+    .sort((a,b)=>(PLAN_ORDER.indexOf(a[0])<0?99:PLAN_ORDER.indexOf(a[0]))-(PLAN_ORDER.indexOf(b[0])<0?99:PLAN_ORDER.indexOf(b[0])));
+
   el.innerHTML = `
   <div style="display:flex;flex-direction:column;gap:14px">
 
@@ -11287,10 +11305,39 @@ function _renderSubReports(el) {
       </div>
     </div>
 
+    <!-- Plan / Tier Analysis -->
+    <div class="card">
+      <div class="card-header">
+        <div><div class="card-title">Plan & Tier Analysis</div><div style="font-size:11px;color:var(--text-2);margin-top:2px">Breakdown by subscription plan — Pro, Premium, Enterprise, Custom & more</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px">
+        ${planEntries.map(([plan,d])=>{
+          const col = PLAN_COLORS[plan]||'#94A3B8';
+          const churnRate = (d.active+d.churned) ? +((d.churned/(d.active+d.churned))*100).toFixed(1) : 0;
+          const mrrPct    = mrr ? Math.round((d.mrrActive/mrr)*100) : 0;
+          return `<div style="background:var(--surface-2);border-radius:9px;padding:12px;border-top:3px solid ${col}">
+            <div style="font-size:11px;font-weight:700;color:${col};margin-bottom:6px">${plan}</div>
+            <div style="font-size:18px;font-weight:800;margin-bottom:2px">${d.active}</div>
+            <div style="font-size:10px;color:var(--text-2);margin-bottom:6px">${d.active===1?'client':'clients'} active${d.churned?` · ${d.churned} churned`:''}</div>
+            <div style="font-size:11px;font-weight:600;margin-bottom:2px">${fmt(Math.round(d.mrrActive))}<span style="font-size:9px;color:var(--text-3);font-weight:400"> MRR</span></div>
+            <div style="font-size:9px;color:var(--text-3);margin-bottom:6px">${mrrPct}% of total MRR</div>
+            <div style="height:4px;background:var(--surface-1);border-radius:2px;overflow:hidden">
+              <div style="height:100%;width:${mrrPct}%;background:${col};border-radius:2px"></div>
+            </div>
+            ${churnRate>0?`<div style="font-size:9px;margin-top:5px;color:${churnRate>20?'var(--danger)':churnRate>10?'var(--warning)':'var(--text-2)'}">Churn: ${churnRate}%</div>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="chart-wrap" style="height:180px"><canvas id="ch-sub-plan-mrr"></canvas></div>
+        <div class="chart-wrap" style="height:180px"><canvas id="ch-sub-plan-count"></canvas></div>
+      </div>
+    </div>
+
     <!-- Billing plan breakdown -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div class="card">
-        <div class="card-header"><div class="card-title">Revenue by Billing Plan</div></div>
+        <div class="card-header"><div class="card-title">Revenue by Billing Cycle</div></div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
           ${['monthly','quarterly','yearly'].map(b=>{
             const d = byBill[b];
@@ -11366,6 +11413,20 @@ function _renderSubReports(el) {
   </div>`;
 
   setTimeout(() => {
+    if (document.getElementById('ch-sub-plan-mrr') && planEntries.length) {
+      mkDoughnut('ch-sub-plan-mrr',
+        planEntries.map(([p])=>p),
+        planEntries.map(([,d])=>Math.round(d.mrrActive)),
+        planEntries.map(([p])=>PLAN_COLORS[p]||'#94A3B8')
+      );
+    }
+    if (document.getElementById('ch-sub-plan-count') && planEntries.length) {
+      mkDoughnut('ch-sub-plan-count',
+        planEntries.map(([p])=>p),
+        planEntries.map(([,d])=>d.active),
+        planEntries.map(([p])=>PLAN_COLORS[p]||'#94A3B8')
+      );
+    }
     if (document.getElementById('ch-sub-billing')) {
       const labels = ['Monthly','Quarterly','Yearly'];
       const data   = [byBill.monthly.count, byBill.quarterly.count, byBill.yearly.count];
@@ -11464,6 +11525,7 @@ function openAddSub() {
   });
   const billingEl = document.getElementById('sub-billing');   if (billingEl) billingEl.value = 'yearly';
   const statusEl  = document.getElementById('sub-status');    if (statusEl)  statusEl.value  = 'active';
+  const planEl    = document.getElementById('sub-plan');      if (planEl)    planEl.value    = '';
   _subToggleLostReason('active');
   openModal('modal-sub');
 }
@@ -11474,6 +11536,7 @@ function openEditSub(id) {
   document.getElementById('sub-modal-title').textContent = 'Edit Subscription';
   document.getElementById('sub-clientName').value  = sub.clientName||'';
   document.getElementById('sub-billing').value     = sub.billing||'yearly';
+  document.getElementById('sub-plan').value        = sub.plan||'';
   document.getElementById('sub-amount').value      = sub.amount||'';
   document.getElementById('sub-seats').value       = sub.seats||'';
   document.getElementById('sub-startDate').value   = sub.startDate||'';
@@ -11502,13 +11565,14 @@ async function saveSub() {
   const startDate   = document.getElementById('sub-startDate')?.value;
   const renewalDate = document.getElementById('sub-renewalDate')?.value;
   const status      = document.getElementById('sub-status')?.value;
+  const plan        = document.getElementById('sub-plan')?.value;
   const lostReason  = document.getElementById('sub-lostReason')?.value.trim();
   const notes       = document.getElementById('sub-notes')?.value.trim();
 
   if (!clientName) { toast('Client name is required'); return; }
   if (!amount)     { toast('Amount is required'); return; }
 
-  const body = { clientName, billing, amount:Number(amount), seats:seats?Number(seats):null, startDate:startDate||null, renewalDate:renewalDate||null, status, lostReason:lostReason||null, notes:notes||null };
+  const body = { clientName, billing, plan:plan||null, amount:Number(amount), seats:seats?Number(seats):null, startDate:startDate||null, renewalDate:renewalDate||null, status, lostReason:lostReason||null, notes:notes||null };
 
   try {
     if (state._subEditId) {
@@ -11582,6 +11646,11 @@ function subDashWidget() {
   const in30   = new Date(now); in30.setDate(now.getDate()+30);
   const renewalsDue = active.filter(s=>{ if(!s.renewalDate) return false; const d=new Date(s.renewalDate+'T00:00:00'); return d>=now&&d<=in30; }).length;
   const churned = subs.filter(s=>s.status==='churned'||s.status==='cancelled').length;
+  // Plan mini-breakdown
+  const planColors = { Free:'#64748B', Pro:'#2563EB', Premium:'#7C3AED', Enterprise:'#FF6600', Custom:'#16A34A' };
+  const planMap = {};
+  active.forEach(s=>{ const p=s.plan||'Other'; planMap[p]=(planMap[p]||0)+1; });
+  const planChips = Object.entries(planMap).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([p,c])=>`<span style="display:inline-flex;align-items:center;gap:3px;background:var(--surface-1);border-radius:4px;padding:2px 6px;font-size:10px"><span style="width:6px;height:6px;border-radius:50%;background:${planColors[p]||'#94A3B8'};display:inline-block"></span>${p} <strong>${c}</strong></span>`).join('');
   return `
   <div class="card dash-section" data-dash-id="subscriptions" style="cursor:pointer" onclick="showSection('subscriptions')">
     <div class="card-header" style="margin-bottom:10px">
@@ -11598,6 +11667,7 @@ function subDashWidget() {
         <div style="font-size:18px;font-weight:700;margin-top:2px">${fmt(Math.round(arr))}</div>
       </div>
     </div>
+    ${planChips ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">${planChips}</div>` : ''}
     <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-2)">
       <span>${churned} churned</span>
       ${renewalsDue ? `<span style="color:var(--warning);font-weight:700">⏰ ${renewalsDue} renewal${renewalsDue>1?'s':''} due</span>` : '<span style="color:var(--success)">✅ No renewals due</span>'}
