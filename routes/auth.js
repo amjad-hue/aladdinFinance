@@ -22,9 +22,6 @@ function ensureAdmin() {
     saveUsers(db);
   }
 }
-// In production (Firestore mode) the admin is seeded via data/migrate.js — skip here
-if (process.env.NODE_ENV !== 'production') ensureAdmin();
-
 function signToken(user) {
   return jwt.sign(
     { userId: user.id, email: user.email, name: user.name, role: user.role },
@@ -38,6 +35,7 @@ function publicUser(user) {
 }
 
 router.post('/login', (req, res) => {
+  ensureAdmin();
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   const db   = getUsers();
