@@ -11,7 +11,7 @@ function getGmailClient() {
   const oauth2 = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/events/gcal/callback'
+    process.env.GOOGLE_REDIRECT_URI || (process.env.APP_URL ? `${process.env.APP_URL}/api/events/gcal/callback` : `http://localhost:${process.env.PORT || 3000}/api/events/gcal/callback`)
   );
   oauth2.setCredentials(tokens);
   oauth2.on('tokens', updated => save('gcal_tokens.json', { ...tokens, ...updated }));

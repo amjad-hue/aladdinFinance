@@ -6,8 +6,10 @@ const { load, save } = require('../data/store');
 const { seed } = require('../data/seed');
 const crypto  = require('crypto');
 
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const UPLOAD_DIR = process.env.NODE_ENV === 'production'
+  ? '/tmp/uploads'
+  : path.join(__dirname, '..', 'uploads');
+try { if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true }); } catch (_) {}
 const _upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 // ── Drive helper (reuses same OAuth tokens as calendar) ───────────────────────
@@ -22,7 +24,7 @@ function getDriveClient() {
   const oauth2 = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/events/gcal/callback'
+    process.env.GOOGLE_REDIRECT_URI || (process.env.APP_URL ? `${process.env.APP_URL}/api/events/gcal/callback` : `http://localhost:${process.env.PORT || 3000}/api/events/gcal/callback`)
   );
   oauth2.setCredentials(tokens);
   oauth2.on('tokens', updated => save('gcal_tokens.json', { ...tokens, ...updated }));
