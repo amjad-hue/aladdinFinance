@@ -19,7 +19,7 @@ router.get('/status', (req, res) => {
     mode: s.mode || 'test',
     lastWebhook: log[0]?.receivedAt || null,
     eventCount: log.length,
-    webhookUrl: `${proto}://${req.get('host')}/api/stripe/webhook`,
+    webhookUrl: `${process.env.APP_URL || `${proto}://${req.get('host')}`}/api/stripe/webhook`,
   });
 });
 
@@ -34,7 +34,7 @@ router.get('/settings', requireRole('admin'), (req, res) => {
     testKeyMasked: s.testKey ? 'sk_test_' + '•'.repeat(8) + s.testKey.slice(-4) : '',
     liveKeyMasked: s.liveKey ? 'sk_live_' + '•'.repeat(8) + s.liveKey.slice(-4) : '',
     webhookSecretSet: !!s.webhookSecret,
-    webhookUrl: `${proto}://${req.get('host')}/api/stripe/webhook`,
+    webhookUrl: `${process.env.APP_URL || `${proto}://${req.get('host')}`}/api/stripe/webhook`,
   });
 });
 

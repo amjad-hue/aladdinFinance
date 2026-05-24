@@ -173,7 +173,7 @@ router.post('/:id/send-invite', async (req, res) => {
   emps[i].portalPassword = null; // reset so employee must set a new password
   setEmps(emps);
   const emp  = emps[i];
-  const host = `${req.protocol}://${req.get('host')}`;
+  const host = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
   const url  = `${host}/employee-portal/${token}`;
   const cfg  = getCfg();
   if (emp.email && mailer.isConfigured()) {
@@ -978,7 +978,7 @@ function portalAcknowledgeHandler(req, res) {
     setAnns(anns);
   }
   // Redirect to portal announcements tab
-  const host = `${req.protocol}://${req.get('host')}`;
+  const host = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
   res.redirect(`${host}/employee-portal/${req.params.token}#announcements`);
 }
 
@@ -1150,7 +1150,7 @@ router.post('/celebration-settings/send-today', requireRole('write'), async (req
 // ── Portal Forgot Password Route (authenticated — reached via /api/hr/portal/forgot-password)
 router.post('/portal/forgot-password', (req, res) => {
   // Attach host for email link generation
-  req._host = `${req.protocol}://${req.get('host')}`;
+  req._host = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
   portalForgotPasswordHandler(req, res);
 });
 
@@ -1164,7 +1164,7 @@ router.post('/notify-policy-update', async (req, res) => {
   const cfg  = getCfg();
   if (!mailer.isConfigured()) return res.status(400).json({ error: 'Email not configured' });
   const emps = getEmps();
-  const host = `${req.protocol}://${req.get('host')}`;
+  const host = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
   let sent = 0;
   for (let i = 0; i < emps.length; i++) {
     const emp = emps[i];
@@ -1224,7 +1224,7 @@ router.post('/:id/send-policy-reminder', async (req, res) => {
   if (!emp.email) return res.status(400).json({ error: 'No email address' });
   if (!mailer.isConfigured()) return res.status(400).json({ error: 'Email not configured' });
   const cfg  = getCfg();
-  const host = `${req.protocol}://${req.get('host')}`;
+  const host = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
   const url  = `${host}/employee-portal/${emp.portalToken}`;
   await mailer.sendMail({
     to: emp.email,
@@ -1244,7 +1244,7 @@ router.post('/:id/reset-portal-password', async (req, res) => {
   emps[i].portalPassword = null;
   setEmps(emps);
   const emp = emps[i];
-  const host = `${req.protocol}://${req.get('host')}`;
+  const host = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
   const url = `${host}/employee-portal/${token}`;
   const cfg = getCfg();
   if (emp.email && mailer.isConfigured()) {
@@ -1287,7 +1287,7 @@ router.post('/announcements', async (req, res) => {
 
   // Email all portal employees
   const emps = getEmps().filter(e => e.portalToken && e.email);
-  const host = `${req.protocol}://${req.get('host')}`;
+  const host = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
   if (mailer.isConfigured()) {
     for (const emp of emps) {
       const portalUrl = `${host}/employee-portal/${emp.portalToken}`;
@@ -1331,7 +1331,7 @@ router.post('/announcements/:id/send-reminders', requireRole('write'), async (re
   const emps     = getEmps().filter(e => e.portalToken && e.email);
   const ackedIds = new Set((ann.acknowledgements||[]).map(a => a.empId));
   const pending  = emps.filter(e => !ackedIds.has(e.id));
-  const host     = `${req.protocol}://${req.get('host')}`;
+  const host     = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
   const sent     = [];
   for (const emp of pending) {
     const portalUrl = `${host}/employee-portal/${emp.portalToken}`;

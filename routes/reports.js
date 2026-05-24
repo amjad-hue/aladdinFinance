@@ -321,7 +321,7 @@ function buildEmailHTML(d, baseUrl, opts={}) {
 // â”€â”€ GET /api/reports/preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const previewHandler = (req, res) => {
   const d = getData();
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
   res.set('Content-Type','text/html').send(buildEmailHTML(d, baseUrl));
 };
 router.get('/preview', previewHandler);
@@ -401,7 +401,7 @@ router.post('/send-email', async (req, res) => {
 
   try {
     const d       = getData();
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
     const tplCfg  = load('app-settings.json', {});
     const tpl     = tplCfg.emailTemplates?.financial || {};
     const dateStr = dubaiNow().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric',timeZone:'Asia/Dubai'});
@@ -423,7 +423,7 @@ router.post('/send-test-email', async (req, res) => {
   if (!mailer.isConfigured()) return res.status(400).json({ error: 'Email not configured — connect Gmail in Settings or set SMTP credentials in .env' });
   try {
     const d       = getData();
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
     const tplCfg  = load('app-settings.json', {});
     const tpl     = tplCfg.emailTemplates?.financial || {};
     const dateStr = dubaiNow().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric',timeZone:'Asia/Dubai'});
@@ -458,7 +458,7 @@ router.post('/send-ceo-reminders', async (req, res) => {
   const perTypeKey  = taskRole === 'cpo' ? 'cpoReminderRecipients' : 'ceoReminderRecipients';
   const perType     = (appSettings[perTypeKey] || []).filter(Boolean);
   const toEmail     = req.body.ceoEmail || (perType.length ? perType.join(',') : null) || process.env.CEO_EMAIL;
-  const baseUrl     = `${req.protocol}://${req.get('host')}`;
+  const baseUrl     = process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
   const roleLabel   = taskRole === 'cpo' ? 'CPO' : 'CEO';
 
   if (!mailer.isConfigured()) return res.status(400).json({ error: 'Email not configured — connect Gmail in Settings or set SMTP credentials in .env' });
