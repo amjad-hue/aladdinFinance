@@ -330,6 +330,7 @@ async function showApp() {
     if (window.LottieUI) { LottieUI.animateMetrics(mc); LottieUI.animateTitles(mc); }
   }
   setTimeout(triggerProactiveAI, 3000);
+  startAutoRefresh();
 }
 
 function updateUserUI() {
@@ -385,8 +386,115 @@ async function loadAll() {
 function setSyncStatus(msg, err=false) {
   const dot=document.getElementById('sync-dot'), lbl=document.getElementById('sync-label');
   if (!dot||!lbl) return;
-  lbl.textContent=msg; dot.style.background=err?'var(--danger)':'var(--success)'; dot.classList.remove('spin');
+  lbl.textContent=msg;
+  dot.classList.remove('spin','live');
+  if (err) { dot.style.background='var(--danger)'; }
+  else if (msg==='Live') { dot.style.background='var(--success)'; dot.classList.add('live'); }
+  else if (msg==='Refreshing…') { dot.style.background='var(--warning)'; dot.classList.add('spin'); }
+  else { dot.style.background='var(--success)'; }
 }
+
+// ── Auto-refresh (real-time polling) ─────────────────────────────────────────
+const ENDPOINT_STATE_MAP = {
+  '/cash':                       d => { state.banks = d; },
+  '/reserves':                   d => { state.reserves = d; },
+  '/cashflow':                   d => { state.cashflow = d; recalcCashflow(); },
+  '/budget':                     d => { state.budget = d; },
+  '/revenue':                    d => { state.revenue = d; },
+  '/revenue/by-type':            d => { state.revenueByType = d; },
+  '/clients':                    d => { state.clients = d; },
+  '/events':                     d => { state.events = d; },
+  '/tasks':                      d => { state.tasks = d; },
+  '/files':                      d => { state.files = d; },
+  '/pipeline':                   d => { state.pipeline = d; },
+  '/pipeline/forecast-cashflow': d => { state.pfForecast = d; },
+  '/liabilities':                d => { state.liabilities = d; },
+  '/ar':                         d => { state.ar = d; _autoMarkOverdue(); },
+  '/commissions':                d => { state.commissions = d; },
+  '/projects':                   d => { state.projects = d; },
+  '/requests':                   d => { state.requests = d; },
+  '/hr':                         d => { state.hrEmployees = d; },
+  '/hr/time-off':                d => { state.hrTimeOff = d; },
+  '/hr/announcements':           d => { state.hrAnnouncements = d; },
+  '/subscriptions':              d => { state.subscriptions = d; },
+  '/app-settings':               d => { state.appSettings = d; },
+};
+
+const SECTION_ENDPOINTS = {
+  dashboard:    ['/cash','/ar','/pipeline','/tasks','/events','/subscriptions'],
+  cash:         ['/cash'],
+  reserves:     ['/reserves'],
+  cashflow:     ['/cashflow'],
+  budget:       ['/budget'],
+  revenue:      ['/revenue','/revenue/by-type'],
+  clients:      ['/clients'],
+  pipeline:     ['/pipeline','/pipeline/forecast-cashflow'],
+  tasks:        ['/tasks'],
+  events:       ['/events'],
+  ar:           ['/ar'],
+  liabilities:  ['/liabilities'],
+  commissions:  ['/commissions'],
+  projects:     ['/projects'],
+  requests:     ['/requests'],
+  files:        ['/files'],
+  hr:           ['/hr','/hr/time-off','/hr/announcements'],
+  subscriptions:['/subscriptions'],
+  settings:     ['/app-settings'],
+  gmail:        [],
+  statements:   [],
+  users:        [],
+};
+
+let _refreshTimer = null;
+let _fullRefreshTimer = null;
+let _isRefreshing = false;
+
+async function refreshCurrentSection(silent=true) {
+  if (_isRefreshing || !state.user) return;
+  const section = state.section || 'dashboard';
+  const endpoints = SECTION_ENDPOINTS[section] || [];
+  if (!endpoints.length) return;
+  _isRefreshing = true;
+  if (!silent) setSyncStatus('Refreshing…');
+  try {
+    const yq = state.fiscalYear !== 2026 ? `?year=${state.fiscalYear}` : '';
+    await Promise.all(endpoints.map(async ep => {
+      const needsYear = /cashflow|budget|revenue/.test(ep);
+      const data = await apiCall(ep + (needsYear ? yq : ''));
+      if (ENDPOINT_STATE_MAP[ep]) ENDPOINT_STATE_MAP[ep](data);
+    }));
+    buildNotifications();
+    updateHealthPill();
+    render();
+    setSyncStatus('Live');
+  } catch(e) {
+    setSyncStatus('Connection error', true);
+  } finally {
+    _isRefreshing = false;
+  }
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  _refreshTimer     = setInterval(() => refreshCurrentSection(true), 30_000);
+  _fullRefreshTimer = setInterval(async () => { await loadAll(); render(); setSyncStatus('Live'); }, 5 * 60_000);
+}
+
+function stopAutoRefresh() {
+  clearInterval(_refreshTimer);
+  clearInterval(_fullRefreshTimer);
+  _refreshTimer = _fullRefreshTimer = null;
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    stopAutoRefresh();
+    setSyncStatus('Paused');
+  } else {
+    refreshCurrentSection(false);
+    startAutoRefresh();
+  }
+});
 
 function recalcCashflow() {
   let prev = state.cashflow[0]?.opening || 0;
@@ -925,6 +1033,7 @@ function showSection(name) {
   } else {
     render();
   }
+  refreshCurrentSection(false);
 }
 
 function isViewerRole() { return state.user?.role === 'viewer'; }
