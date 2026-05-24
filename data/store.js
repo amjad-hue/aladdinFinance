@@ -89,4 +89,4 @@ function save(filename, data) {
     .catch(e => console.error(`[store] save ${key} failed:`, e.message));
 }
 
-module.exports = { load, save, init };
+module.exports = { load, save, init, USE_FIRESTORE, _getDb };

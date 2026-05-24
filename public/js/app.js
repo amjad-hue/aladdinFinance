@@ -394,7 +394,7 @@ function setSyncStatus(msg, err=false) {
   else { dot.style.background='var(--success)'; }
 }
 
-// ── Auto-refresh (real-time polling) ─────────────────────────────────────────
+// ── Real-time SSE (push on change only) ──────────────────────────────────────
 const ENDPOINT_STATE_MAP = {
   '/cash':                       d => { state.banks = d; },
   '/reserves':                   d => { state.reserves = d; },
@@ -420,6 +420,30 @@ const ENDPOINT_STATE_MAP = {
   '/app-settings':               d => { state.appSettings = d; },
 };
 
+// Map store file keys → API endpoints that serve that data
+const KEY_TO_ENDPOINTS = {
+  'cash.json':            ['/cash'],
+  'reserves.json':        ['/reserves'],
+  'cashflow.json':        ['/cashflow'],
+  'budget.json':          ['/budget'],
+  'revenue.json':         ['/revenue', '/revenue/by-type'],
+  'clients.json':         ['/clients'],
+  'events.json':          ['/events'],
+  'tasks.json':           ['/tasks'],
+  'files.json':           ['/files'],
+  'pipeline.json':        ['/pipeline', '/pipeline/forecast-cashflow'],
+  'liabilities.json':     ['/liabilities'],
+  'ar.json':              ['/ar'],
+  'commissions.json':     ['/commissions'],
+  'projects.json':        ['/projects'],
+  'requests.json':        ['/requests'],
+  'hr-employees.json':    ['/hr'],
+  'hr-time-off.json':     ['/hr/time-off'],
+  'announcements.json':   ['/hr/announcements'],
+  'subscriptions.json':   ['/subscriptions'],
+  'app-settings.json':    ['/app-settings'],
+};
+
 const SECTION_ENDPOINTS = {
   dashboard:    ['/cash','/ar','/pipeline','/tasks','/events','/subscriptions'],
   cash:         ['/cash'],
@@ -440,50 +464,68 @@ const SECTION_ENDPOINTS = {
   hr:           ['/hr','/hr/time-off','/hr/announcements'],
   subscriptions:['/subscriptions'],
   settings:     ['/app-settings'],
-  gmail:        [],
-  statements:   [],
-  users:        [],
+  gmail:[], statements:[], users:[],
 };
 
-let _refreshTimer = null;
-let _fullRefreshTimer = null;
+let _sseSource = null;
+let _sseReconnectTimer = null;
 let _isRefreshing = false;
 
 async function refreshCurrentSection(silent=true) {
   if (_isRefreshing || !state.user) return;
-  const section = state.section || 'dashboard';
-  const endpoints = SECTION_ENDPOINTS[section] || [];
+  const endpoints = SECTION_ENDPOINTS[state.section || 'dashboard'] || [];
   if (!endpoints.length) return;
   _isRefreshing = true;
   if (!silent) setSyncStatus('Refreshing…');
   try {
     const yq = state.fiscalYear !== 2026 ? `?year=${state.fiscalYear}` : '';
     await Promise.all(endpoints.map(async ep => {
-      const needsYear = /cashflow|budget|revenue/.test(ep);
-      const data = await apiCall(ep + (needsYear ? yq : ''));
+      const data = await apiCall(ep + (/cashflow|budget|revenue/.test(ep) ? yq : ''));
       if (ENDPOINT_STATE_MAP[ep]) ENDPOINT_STATE_MAP[ep](data);
     }));
-    buildNotifications();
-    updateHealthPill();
-    render();
+    buildNotifications(); updateHealthPill(); render();
     setSyncStatus('Live');
   } catch(e) {
     setSyncStatus('Connection error', true);
-  } finally {
-    _isRefreshing = false;
-  }
+  } finally { _isRefreshing = false; }
+}
+
+async function _applySSEChange(key) {
+  const endpoints = KEY_TO_ENDPOINTS[key] || [];
+  if (!endpoints.length) return;
+  try {
+    const yq = state.fiscalYear !== 2026 ? `?year=${state.fiscalYear}` : '';
+    await Promise.all(endpoints.map(async ep => {
+      const data = await apiCall(ep + (/cashflow|budget|revenue/.test(ep) ? yq : ''));
+      if (ENDPOINT_STATE_MAP[ep]) ENDPOINT_STATE_MAP[ep](data);
+    }));
+    buildNotifications(); updateHealthPill(); render();
+    setSyncStatus('Live');
+  } catch(e) { console.warn('[SSE] apply error:', e.message); }
 }
 
 function startAutoRefresh() {
-  stopAutoRefresh();
-  _refreshTimer     = setInterval(() => refreshCurrentSection(true), 30_000);
-  _fullRefreshTimer = setInterval(async () => { await loadAll(); render(); setSyncStatus('Live'); }, 5 * 60_000);
+  clearTimeout(_sseReconnectTimer);
+  if (_sseSource) { _sseSource.close(); _sseSource = null; }
+  const token = localStorage.getItem('af_token');
+  if (!token) return;
+  setSyncStatus('Connecting…');
+  const es = new EventSource(`/api/sse?token=${encodeURIComponent(token)}`);
+  es.onopen  = () => setSyncStatus('Live');
+  es.onmessage = e => {
+    try { const { key } = JSON.parse(e.data); _applySSEChange(key); } catch(_) {}
+  };
+  es.onerror = () => {
+    es.close(); _sseSource = null;
+    setSyncStatus('Reconnecting…');
+    _sseReconnectTimer = setTimeout(startAutoRefresh, 5000);
+  };
+  _sseSource = es;
 }
 
 function stopAutoRefresh() {
-  clearInterval(_refreshTimer);
-  clearInterval(_fullRefreshTimer);
-  _refreshTimer = _fullRefreshTimer = null;
+  clearTimeout(_sseReconnectTimer);
+  if (_sseSource) { _sseSource.close(); _sseSource = null; }
 }
 
 document.addEventListener('visibilitychange', () => {

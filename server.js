@@ -54,6 +54,7 @@ const authLimiter = rateLimit({
 // ── Public routes (no JWT required) ──────────────────────────────────────────
 app.use('/api/auth', authLimiter, require('./routes/auth'));
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/api/sse', require('./routes/sse'));
 
 const eventsRoute = require('./routes/events');
 app.get('/api/events/gcal/auth',        eventsRoute.gcalAuth);
