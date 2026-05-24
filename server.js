@@ -13,7 +13,12 @@ const PORT = process.env.PORT || 3000;
 // ── Security middleware ───────────────────────────────────────────────────────
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`];
+  : [
+      `http://localhost:${PORT}`,
+      `http://127.0.0.1:${PORT}`,
+      'https://aladdinfinance-9ff22.web.app',
+      'https://aladdinfinance-9ff22.firebaseapp.com',
+    ];
 
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({
