@@ -1,0 +1,33 @@
+{
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      { "source": "/api/**",              "function": "api" },
+      { "source": "/employee-portal/**",  "function": "api" },
+      { "source": "/employee-login",      "function": "api" },
+      { "source": "/request/**",          "function": "api" },
+      { "source": "/request-respond/**",  "function": "api" },
+      { "source": "/petty-cash/**",       "function": "api" },
+      { "source": "/register",            "function": "api" },
+      { "source": "**",                   "destination": "/index.html" }
+    ]
+  },
+  "functions": {
+    "source": ".",
+    "runtime": "nodejs18",
+    "ignore": [
+      "node_modules",
+      ".git",
+      "store/**",
+      "media/**",
+      "uploads/**",
+      "firebase-debug.log",
+      ".env"
+    ]
+  }
+}

@@ -22,7 +22,8 @@ function ensureAdmin() {
     saveUsers(db);
   }
 }
-ensureAdmin();
+// In production (Firestore mode) the admin is seeded via data/migrate.js — skip here
+if (process.env.NODE_ENV !== 'production') ensureAdmin();
 
 function signToken(user) {
   return jwt.sign(

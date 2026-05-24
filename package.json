@@ -2,12 +2,14 @@
   "name": "aladdin-finance",
   "version": "2.0.0",
   "description": "Aladdin Finance CFO Command Center — Node.js + Express",
-  "main": "server.js",
+  "main": "index.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^4.9.0",
     "axios": "^1.7.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

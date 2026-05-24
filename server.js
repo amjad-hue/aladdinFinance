@@ -5,6 +5,8 @@ const rateLimit  = require('express-rate-limit');
 const path       = require('path');
 require('dotenv').config();
 
+const { init: initStore } = require('./data/store');
+
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
@@ -27,6 +29,9 @@ app.use(cors({
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ── Firestore warm-up (no-op in dev/file mode) ───────────────────────────────
+app.use((req, res, next) => { initStore().then(next).catch(next); });
 
 // ── Static assets ─────────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
@@ -127,15 +132,18 @@ app.use((err, _req, res, _next) => {
   res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
-// ── Start ─────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log('');
-  console.log('===================================================');
-  console.log('  Aladdin Finance v2 — CFO Command Center');
-  console.log('===================================================');
-  console.log(`  Server:  http://localhost:${PORT}`);
-  console.log('===================================================');
-  console.log('');
-});
+// ── Start (local dev only — Firebase Functions skip this) ─────────────────────
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log('');
+    console.log('===================================================');
+    console.log('  Aladdin Finance v3 — CFO Command Center');
+    console.log('===================================================');
+    console.log(`  Server:  http://localhost:${PORT}`);
+    console.log('===================================================');
+    console.log('');
+  });
+  require('./lib/scheduler').start(PORT);
+}
 
-require('./lib/scheduler').start(PORT);
+module.exports = app;
