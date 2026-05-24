@@ -27,7 +27,10 @@
       "media/**",
       "uploads/**",
       "firebase-debug.log",
-      ".env"
+      ".env",
+      ".env.*",
+      "railway.json",
+      "REFACTOR_PLAN.md"
     ]
   }
 }
