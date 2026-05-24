@@ -14,9 +14,9 @@ function ensureAdmin() {
   const db = getUsers();
   if (db.users.length === 0) {
     db.users.push({
-      id: 1, email: 'admin@aladdinfinance.com',
-      passwordHash: bcrypt.hashSync('Admin123!', 10),
-      name: 'Admin', role: 'admin',
+      id: 1, email: 'Amjad@aladdinb2b.com',
+      passwordHash: bcrypt.hashSync('Shak@Shak1998', 10),
+      name: 'Amjad', role: 'admin',
       createdAt: new Date().toISOString(), lastLogin: null,
     });
     saveUsers(db);
