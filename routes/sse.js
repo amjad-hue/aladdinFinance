@@ -14,46 +14,74 @@ module.exports = function sseHandler(req, res) {
   try { jwt.verify(token, JWT_SECRET); }
   catch (_) { return res.status(401).end(); }
 
+  // Headers that prevent CDN/proxy buffering (Firebase Hosting, nginx, etc.)
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
+  res.setHeader('Surrogate-Control', 'no-store');
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.flushHeaders();
 
   function send(key) {
-    try { res.write(`data: ${JSON.stringify({ key })}\n\n`); } catch (_) {}
+    try {
+      res.write(`data: ${JSON.stringify({ key })}\n\n`);
+      if (typeof res.flush === 'function') res.flush();
+    } catch (_) {}
   }
 
-  // Heartbeat keeps connection alive through proxies
+  // Immediate ping so client knows connection is live
+  send('__connected__');
+
+  // Heartbeat keeps connection alive through proxies (every 20s)
   const heartbeat = setInterval(() => {
-    try { res.write(':\n\n'); } catch (_) {}
-  }, 25_000);
+    try {
+      res.write(':\n\n');
+      if (typeof res.flush === 'function') res.flush();
+    } catch (_) {}
+  }, 20_000);
 
   let cleanup = () => {};
 
   if (USE_FIRESTORE) {
-    // Production: Firestore real-time listener per client
+    // Production: per-client Firestore real-time listener
     try {
       const db = _getDb();
-      const unsub = db.collection('store').onSnapshot(snapshot => {
-        snapshot.docChanges().forEach(change => {
-          if (change.type === 'modified') send(change.doc.id);
-        });
-      }, err => console.error('[SSE] Firestore error:', err.message));
+      const unsub = db.collection('store').onSnapshot(
+        { includeMetadataChanges: false },
+        snapshot => {
+          snapshot.docChanges().forEach(change => {
+            if (change.type === 'modified') {
+              send(change.doc.id);
+            }
+          });
+        },
+        err => console.error('[SSE] Firestore listener error:', err.message)
+      );
       cleanup = unsub;
     } catch (e) {
-      console.error('[SSE] Firestore setup error:', e.message);
+      console.error('[SSE] Firestore setup failed:', e.message);
     }
   } else {
-    // Local dev: watch store directory for file changes
+    // Local dev: watch individual store files with fs.watchFile
+    // (more reliable than fs.watch on Windows)
+    const watched = [];
     try {
-      const watcher = fs.watch(STORE_DIR, (event, filename) => {
-        if (filename && filename.endsWith('.json')) send(filename);
+      const files = fs.readdirSync(STORE_DIR).filter(f => f.endsWith('.json'));
+      files.forEach(filename => {
+        const filepath = path.join(STORE_DIR, filename);
+        const handler = (curr, prev) => {
+          if (curr.mtimeMs !== prev.mtimeMs) send(filename);
+        };
+        fs.watchFile(filepath, { interval: 400, persistent: false }, handler);
+        watched.push({ filepath, handler });
       });
-      cleanup = () => watcher.close();
     } catch (e) {
-      console.error('[SSE] fs.watch error:', e.message);
+      console.error('[SSE] fs.watchFile setup failed:', e.message);
     }
+    cleanup = () => {
+      watched.forEach(({ filepath, handler }) => fs.unwatchFile(filepath, handler));
+    };
   }
 
   req.on('close', () => {

@@ -491,6 +491,7 @@ async function refreshCurrentSection(silent=true) {
 }
 
 async function _applySSEChange(key) {
+  if (key === '__connected__') { setSyncStatus('Live'); return; }
   const endpoints = KEY_TO_ENDPOINTS[key] || [];
   if (!endpoints.length) return;
   try {
@@ -501,6 +502,12 @@ async function _applySSEChange(key) {
     }));
     buildNotifications(); updateHealthPill(); render();
     setSyncStatus('Live');
+    // Flash the sync dot so user sees something updated
+    const dot = document.getElementById('sync-dot');
+    if (dot) {
+      dot.style.transform = 'scale(1.8)';
+      setTimeout(() => { dot.style.transform = ''; }, 400);
+    }
   } catch(e) { console.warn('[SSE] apply error:', e.message); }
 }
 
@@ -511,7 +518,7 @@ function startAutoRefresh() {
   if (!token) return;
   setSyncStatus('Connecting…');
   const es = new EventSource(`/api/sse?token=${encodeURIComponent(token)}`);
-  es.onopen  = () => setSyncStatus('Live');
+  es.onopen  = () => { /* wait for __connected__ ping */ };
   es.onmessage = e => {
     try { const { key } = JSON.parse(e.data); _applySSEChange(key); } catch(_) {}
   };
