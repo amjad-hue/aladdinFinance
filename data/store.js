@@ -9,7 +9,16 @@ let _db = null;
 function _getDb() {
   if (!_db) {
     const admin = require('firebase-admin');
-    if (!admin.apps.length) admin.initializeApp();
+    if (!admin.apps.length) {
+      if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        // Service account key file path set as env var (local use / migrate script)
+        const serviceAccount = require(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+        admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+      } else {
+        // Firebase Functions environment — auto-credentials
+        admin.initializeApp();
+      }
+    }
     _db = admin.firestore();
   }
   return _db;

@@ -2,7 +2,12 @@
 // Firebase Functions entry point — not used in local development.
 // Local dev: run `node server.js` directly.
 
+const admin     = require('firebase-admin');
 const functions = require('firebase-functions/v1');
+
+// Initialize Firebase Admin once at the top level (auto-credentials in Functions env)
+if (!admin.apps.length) admin.initializeApp();
+
 const { init: initStore } = require('./data/store');
 
 // Express app (no app.listen in production — Firebase handles the port)
