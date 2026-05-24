@@ -1541,20 +1541,19 @@ function runValidation() {
 router.get('/validate', (req, res) => {
   try {
     const result = runValidation();
-    // Auto-save to history on every run
     const cfg = load('app-settings.json', {});
     const hist = cfg.validationHistory || [];
     const summary = {
       ts: new Date().toISOString(),
-      pass: result.filter(c=>c.status==='pass').length,
-      warn: result.filter(c=>c.status==='warn').length,
-      fail: result.filter(c=>c.status==='fail').length,
-      info: result.filter(c=>c.status==='info').length,
-      total: result.length,
-      critical: result.filter(c=>c.severity==='critical'&&c.status!=='pass').length,
+      pass:     result.summary.pass,
+      warn:     result.summary.warning,
+      fail:     result.summary.fail,
+      info:     result.summary.info,
+      total:    result.summary.total,
+      critical: result.checks.filter(c=>c.severity==='critical'&&c.status!=='pass').length,
     };
     hist.unshift(summary);
-    if (hist.length > 90) hist.length = 90; // keep 90 days
+    if (hist.length > 90) hist.length = 90;
     save('app-settings.json', { ...cfg, validationHistory: hist });
     res.json(result);
   }

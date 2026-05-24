@@ -126,6 +126,64 @@ router.post('/drive/sync', async (req, res) => {
   }
 });
 
+// ── Drive folder URL (user-configurable display link) ─────────────────────────
+router.get('/drive-folder', (req, res) => {
+  const settings = load('files_settings.json', {});
+  res.json({ url: settings.driveFolderUrl || '' });
+});
+
+router.post('/drive-folder', (req, res) => {
+  const settings = load('files_settings.json', {});
+  settings.driveFolderUrl = req.body.url || '';
+  save('files_settings.json', settings);
+  res.json({ ok: true });
+});
+
+// ── Upload Gmail attachment to Drive ─────────────────────────────────────────
+router.post('/save-from-gmail', async (req, res) => {
+  if (!isDriveReady()) return res.status(400).json({ error: 'Google Drive not connected or GOOGLE_DRIVE_FOLDER_ID not set.' });
+  const { messageId, attachmentId, filename, mimeType } = req.body;
+  if (!messageId || !attachmentId) return res.status(400).json({ error: 'messageId and attachmentId required' });
+
+  const { google } = require('googleapis');
+  const tokens  = load('gcal_tokens.json', null);
+  const oauth2  = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/events/gcal/callback'
+  );
+  oauth2.setCredentials(tokens);
+  const gmail = google.gmail({ version: 'v1', auth: oauth2 });
+
+  try {
+    const att  = await gmail.users.messages.attachments.get({ userId: 'me', messageId, id: attachmentId });
+    const data = Buffer.from(att.data.data.replace(/-/g,'+').replace(/_/g,'/'), 'base64');
+
+    const drive = getDrive();
+    const { Readable } = require('stream');
+    const stream = Readable.from(data);
+    const { data: driveFile } = await drive.files.create({
+      requestBody: { name: filename || 'attachment', parents: [FOLDER_ID()] },
+      media: { mimeType: mimeType || 'application/octet-stream', body: stream },
+      fields: 'id,name,webViewLink'
+    });
+
+    // Track in files list
+    const files = load('files.json', []);
+    const ext = (filename||'').split('.').pop().toLowerCase();
+    const cat = ext==='pdf'?'p':['xlsx','xls','csv'].includes(ext)?'x':'d';
+    files.unshift({ id: Date.now(), name: filename||'attachment', type:'report', cat, size:'—',
+      date: new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}),
+      drive: true, driveId: driveFile.id, webViewLink: driveFile.webViewLink, storedAs: null });
+    save('files.json', files);
+
+    res.json({ ok: true, webViewLink: driveFile.webViewLink, name: driveFile.name });
+  } catch(e) {
+    console.error('Gmail→Drive error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── List all files ────────────────────────────────────────────────────────────
 router.get('/', (req, res) => {
   res.json(load('files.json', seed().files));

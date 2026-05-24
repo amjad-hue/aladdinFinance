@@ -23,6 +23,8 @@ app.use(cors({
 }));
 
 // ── Body parsing ──────────────────────────────────────────────────────────────
+// Raw body for Stripe webhook (must be before express.json so signature can be verified)
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -50,6 +52,9 @@ app.delete('/api/events/gcal/disconnect', eventsRoute.gcalDisconnect);
 
 app.get('/api/tasks/complete-by-token/:token', require('./routes/tasks').completeByToken);
 
+const stripeRoute = require('./routes/stripe');
+app.post('/api/stripe/webhook', stripeRoute.webhookHandler);
+
 const reportsRoute = require('./routes/reports');
 app.get('/api/reports/preview',                      reportsRoute.previewHandler);
 app.get('/api/reports/task-reminder-preview',        reportsRoute.taskReminderPreviewHandler);
@@ -72,10 +77,13 @@ app.get('/petty-cash/:token', (_req, res) => res.sendFile(path.join(__dirname, '
 
 const hrRoute = require('./routes/hr');
 app.post('/api/hr/portal/login',              hrRoute.portalLoginHandler);
+app.post('/api/hr/portal/forgot-password',    (req, res) => { req._host = `${req.protocol}://${req.get('host')}`; hrRoute.portalForgotPasswordHandler(req, res); });
 app.get('/api/hr/portal/:token',              hrRoute.portalGetHandler);
 app.post('/api/hr/portal/:token/set-password', hrRoute.portalSetPasswordHandler);
 app.post('/api/hr/portal/:token/time-off',    hrRoute.portalTimeOffHandler);
 app.post('/api/hr/portal/:token/request',     hrRoute.portalRequestHandler);
+app.post('/api/hr/portal/:token/sign-policy', hrRoute.portalSignPolicyHandler);
+app.get('/api/hr/portal/:token/acknowledge/:annId', hrRoute.portalAcknowledgeHandler);
 app.get('/employee-portal/:token', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'employee-portal.html')));
 app.get('/employee-portal',        (_req, res) => res.sendFile(path.join(__dirname, 'public', 'employee-portal.html')));
 app.get('/employee-login',         (_req, res) => res.redirect('/employee-portal'));
@@ -106,6 +114,7 @@ app.use('/api/app-settings', require('./routes/settings'));
 app.use('/api/requests',     require('./routes/requests'));
 app.use('/api/hr',           require('./routes/hr'));
 app.use('/api/subscriptions', require('./routes/subscriptions'));
+app.use('/api/stripe',        stripeRoute.router);
 app.use('/api/gmail',        require('./routes/gmail'));
 app.use('/api',              require('./routes/admin'));
 

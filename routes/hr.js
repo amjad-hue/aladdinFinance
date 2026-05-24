@@ -4,10 +4,12 @@ const bcrypt  = require('bcryptjs');
 const { load, save } = require('../data/store');
 const { seed }       = require('../data/seed');
 const mailer         = require('../lib/mailer');
+const { requireRole } = require('../middleware/roles');
 
 const EMP_FILE = 'hr-employees.json';
 const CFG_FILE = 'hr-settings.json';
 const TOF_FILE = 'hr-timeoff.json';
+const ANN_FILE = 'announcements.json';
 
 function getEmps()  { return load(EMP_FILE, seed().hrEmployees || []); }
 function setEmps(d) { save(EMP_FILE, d); }
@@ -15,6 +17,8 @@ function getCfg()   { return load(CFG_FILE, seed().hrSettings  || defaultSetting
 function setCfg(d)  { save(CFG_FILE, d); }
 function getTOff()  { return load(TOF_FILE, []); }
 function setTOff(d) { save(TOF_FILE, d); }
+function getAnns()  { return load(ANN_FILE, []); }
+function setAnns(d) { save(ANN_FILE, d); }
 
 function defaultSettings() {
   return {
@@ -60,6 +64,7 @@ router.post('/', (req, res) => {
   const emp  = buildEmp(req.body);
   emps.push(emp);
   setEmps(emps);
+  syncSalesRep(emp);
   res.json({ employee: emp });
 });
 
@@ -69,6 +74,7 @@ router.put('/:id', (req, res) => {
   if (i === -1) return res.status(404).json({ error: 'Not found' });
   emps[i] = { ...emps[i], ...req.body, id: emps[i].id };
   setEmps(emps);
+  syncSalesRep(emps[i]);
   res.json({ employee: emps[i] });
 });
 
@@ -278,8 +284,48 @@ function buildEmp(body) {
     portalToken:     null,
     portalPassword:  null,
     notes:           body.notes           || '',
+    salesTarget:     Number(body.salesTarget) || 0,
     createdAt:       new Date().toISOString()
   };
+}
+
+function syncSalesRep(emp) {
+  if (emp.department !== 'Sales' || emp.status === 'terminated') return;
+  const fullName = `${emp.firstName} ${emp.lastName}`.trim();
+  if (!fullName) return;
+
+  const settings = load('commission-settings.json', {
+    rates: { Enterprise: 5, Government: 4, Tradeshow: 3, Default: 4 },
+    customReps: [], repEmails: {}, targets: {}, archivedReps: []
+  });
+  if (!settings.customReps)   settings.customReps   = [];
+  if (!settings.repEmails)    settings.repEmails    = {};
+  if (!settings.targets)      settings.targets      = {};
+  if (!settings.archivedReps) settings.archivedReps = [];
+
+  if (!settings.customReps.includes(fullName)) settings.customReps.push(fullName);
+  settings.archivedReps = settings.archivedReps.filter(r => r !== fullName);
+  if (emp.email) settings.repEmails[fullName] = emp.email;
+
+  const salesTarget = emp.salesTarget || 0;
+  if (salesTarget > 0 && emp.startDate) {
+    const now       = new Date();
+    const curYear   = now.getFullYear();
+    const start     = new Date(emp.startDate + 'T00:00:00');
+    const startYear = start.getFullYear();
+    let yearly, monthly, remainingMonths;
+    if (startYear < curYear) {
+      yearly = salesTarget; monthly = Math.round(salesTarget / 12); remainingMonths = 12;
+    } else if (startYear === curYear) {
+      remainingMonths = 12 - start.getMonth();
+      yearly  = Math.round(salesTarget * remainingMonths / 12);
+      monthly = remainingMonths > 0 ? Math.round(yearly / remainingMonths) : 0;
+    } else {
+      yearly = 0; monthly = 0; remainingMonths = 0;
+    }
+    settings.targets[fullName] = { monthly, yearly, fullYearTarget: salesTarget, startDate: emp.startDate, remainingMonths, hrSynced: true };
+  }
+  save('commission-settings.json', settings);
 }
 
 function defaultOnboardingTasks() {
@@ -300,7 +346,16 @@ function defaultOnboardingTasks() {
 function portalGetHandler(req, res) {
   const emp = getEmps().find(e => e.portalToken === req.params.token);
   if (!emp) return res.status(404).json({ error: 'Invalid or expired portal link' });
-  const cfg = getCfg();
+  const cfg  = getCfg();
+  const anns = getAnns();
+  const empAckIds = (emp.announcementAcks || []).map(a => a.annId);
+  const announcements = anns.map(a => ({
+    id:          a.id,
+    title:       a.title,
+    body:        a.body,
+    publishedAt: a.publishedAt,
+    acknowledged: empAckIds.includes(a.id)
+  }));
   res.json({
     employee: {
       id: emp.id, firstName: emp.firstName, lastName: emp.lastName,
@@ -310,7 +365,9 @@ function portalGetHandler(req, res) {
     leaveTypes:    cfg.leaveTypes    || [],
     policy:        cfg.companyPolicy || '',
     portalEnabled: cfg.portalEnabled !== false,
-    passwordSet:   !!emp.portalPassword
+    passwordSet:   !!emp.portalPassword,
+    policySigned:  emp.policySigned  || null,
+    announcements
   });
 }
 
@@ -329,9 +386,9 @@ function portalLoginHandler(req, res) {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
-  const emp = getEmps().find(e => e.email && e.email.toLowerCase() === email.toLowerCase());
+  const emp = getEmps().find(e => e.email && e.email.trim().toLowerCase() === email.trim().toLowerCase());
   if (!emp) return res.status(401).json({ error: 'No account found for this email address.' });
-  if (!emp.portalToken) return res.status(401).json({ error: 'Your portal invite has not been sent yet. Please contact HR.' });
+  if (!emp.portalToken) return res.status(401).json({ error: 'Your portal invitation has not been sent yet. Please contact HR to request access.' });
   if (!emp.portalPassword) return res.status(401).json({ error: 'You have not set a password yet. Please open the invite link sent to your email and set your password first.' });
   if (!bcrypt.compareSync(password, emp.portalPassword)) {
     return res.status(401).json({ error: 'Incorrect password. Please try again.' });
@@ -602,6 +659,64 @@ function portalInviteEmail(emp, url, policy) {
   </td></tr>${FOOTER()}</table></td></tr></table></body></html>`;
 }
 
+// ── Announcement Reminder Email Template ─────────────────────────────────────
+function announcementReminderEmail(emp, ann, portalUrl) {
+  const name = `${emp.firstName} ${emp.lastName}`;
+  const bodyHtml = (ann.body||'').split('\n').map(l => l
+    ? `<div style="margin-bottom:6px;font-size:13px;color:#374151;line-height:1.65">${l}</div>`
+    : '<div style="margin-bottom:6px">&nbsp;</div>').join('');
+  const published = ann.publishedAt ? new Date(ann.publishedAt).toLocaleDateString('en-US',{day:'2-digit',month:'short',year:'numeric'}) : '';
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#F4F6FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FA;padding:40px 0"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.12)">
+  <tr><td style="background:linear-gradient(135deg,#92400E 0%,#D97706 100%);padding:36px 40px">
+    <div style="font-size:10px;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px">Aladdin Finance · Acknowledgement Reminder</div>
+    <div style="font-size:26px;font-weight:800;color:#fff;margin-bottom:6px">⏳ Action Required: Please Acknowledge</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:4px">Originally published ${published}</div>
+  </td></tr>
+  <tr><td style="background:#fff;padding:32px 40px">
+    <div style="font-size:14px;color:#374151;line-height:1.75;margin-bottom:20px">Dear <strong>${name}</strong>,</div>
+    <div style="font-size:14px;color:#374151;line-height:1.75;margin-bottom:20px">This is a reminder that the following announcement requires your acknowledgement. Please take a moment to read and confirm.</div>
+    <div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:12px;padding:22px 24px;margin-bottom:24px">
+      <div style="font-size:16px;font-weight:800;color:#92400E;margin-bottom:12px">${ann.title}</div>
+      <div style="font-size:13px;color:#374151;line-height:1.7">${bodyHtml}</div>
+    </div>
+    <div style="text-align:center;margin-bottom:28px">
+      <a href="${portalUrl}#announcements" style="display:inline-block;background:linear-gradient(135deg,#D97706,#F59E0B);color:#fff;font-size:14px;font-weight:700;padding:14px 36px;border-radius:10px;text-decoration:none">✓ Acknowledge Now →</a>
+    </div>
+    <p style="font-size:12px;color:#9CA3AF;margin:0;line-height:1.7;text-align:center">Open the portal and click <strong>Acknowledge</strong> in the Announcements tab.</p>
+  </td></tr>${FOOTER()}</table></td></tr></table></body></html>`;
+}
+
+// ── Announcement Email Template ───────────────────────────────────────────────
+function announcementEmail(emp, ann, portalUrl) {
+  const name = `${emp.firstName} ${emp.lastName}`;
+  const d    = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const bodyHtml = (ann.body||'').split('\n').map(l => l
+    ? `<div style="margin-bottom:6px;font-size:13px;color:#374151;line-height:1.65">${l}</div>`
+    : '<div style="margin-bottom:6px">&nbsp;</div>').join('');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#F4F6FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FA;padding:40px 0"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.12)">
+  <tr><td style="background:linear-gradient(135deg,#1E3A5F 0%,#2563EB 100%);padding:36px 40px">
+    <div style="font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px">Aladdin Finance · HR Announcement</div>
+    <div style="font-size:26px;font-weight:800;color:#fff;margin-bottom:6px">📢 New Announcement from HR</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:4px">${d}</div>
+  </td></tr>
+  <tr><td style="background:#fff;padding:32px 40px">
+    <div style="font-size:14px;color:#374151;line-height:1.75;margin-bottom:20px">Dear <strong>${name}</strong>,</div>
+    <div style="font-size:14px;color:#374151;line-height:1.75;margin-bottom:20px">Please read the following announcement from HR:</div>
+    <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:12px;padding:22px 24px;margin-bottom:24px">
+      <div style="font-size:16px;font-weight:800;color:#1E3A5F;margin-bottom:12px">${ann.title}</div>
+      <div style="font-size:13px;color:#374151;line-height:1.7">${bodyHtml}</div>
+    </div>
+    <div style="text-align:center;margin-bottom:28px">
+      <a href="${portalUrl}#announcements" style="display:inline-block;background:linear-gradient(135deg,#1D4ED8,#3B82F6);color:#fff;font-size:14px;font-weight:700;padding:14px 36px;border-radius:10px;text-decoration:none">✓ Acknowledge in Portal →</a>
+    </div>
+    <p style="font-size:12px;color:#9CA3AF;margin:0;line-height:1.7;text-align:center">Open the portal and click <strong>Acknowledge</strong> in the Announcements tab after reading.</p>
+  </td></tr>${FOOTER()}</table></td></tr></table></body></html>`;
+}
+
 // ── Welcome Email Templates ───────────────────────────────────────────────────
 function welcomeEmail(emp, type, note) {
   const name   = `${emp.firstName} ${emp.lastName}`;
@@ -660,11 +775,16 @@ function welcomeEmail(emp, type, note) {
   </td></tr>${FOOTER()}</table></td></tr></table></body></html>`;
 }
 
-function birthdayReminderEmail(emp, daysUntil) {
+function birthdayReminderEmail(emp, daysUntil, customMessage) {
   const name  = `${emp.firstName} ${emp.lastName}`;
   const bday  = emp.dob ? new Date(emp.dob+'T00:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric'}) : '';
   const age   = emp.dob ? (new Date().getFullYear() - new Date(emp.dob).getFullYear()) : null;
   const when  = daysUntil === 0 ? 'TODAY' : daysUntil === 1 ? 'TOMORROW' : `IN ${daysUntil} DAYS`;
+  const msg   = (customMessage || `Don't forget to wish <strong>${emp.firstName}</strong> a happy birthday${daysUntil===0?' today':''}! A small gesture goes a long way in building a positive team culture.`)
+    .replace(/\{\{firstName\}\}/g, emp.firstName)
+    .replace(/\{\{fullName\}\}/g,  name)
+    .replace(/\{\{position\}\}/g,  emp.position||'')
+    .replace(/\{\{department\}\}/g, emp.department||'');
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#F4F6FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FA;padding:40px 0"><tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.12)">
@@ -681,14 +801,20 @@ function birthdayReminderEmail(emp, daysUntil) {
         ${bday ? `<div style="font-size:12px;color:#DB2777;margin-top:3px">🎂 ${bday}${age ? ' · Turning '+age : ''}</div>` : ''}
       </div>
     </div>
-    <div style="font-size:14px;color:#374151;line-height:1.8">Don't forget to wish <strong>${emp.firstName}</strong> a happy birthday${daysUntil===0?' today':''}! A small gesture goes a long way in building a positive team culture.</div>
+    <div style="font-size:14px;color:#374151;line-height:1.8">${msg}</div>
   </td></tr>${FOOTER()}</table></td></tr></table></body></html>`;
 }
 
-function anniversaryReminderEmail(emp, years, daysUntil) {
+function anniversaryReminderEmail(emp, years, daysUntil, customMessage) {
   const name  = `${emp.firstName} ${emp.lastName}`;
   const when  = daysUntil === 0 ? 'TODAY' : daysUntil === 1 ? 'TOMORROW' : `IN ${daysUntil} DAYS`;
   const start = emp.startDate ? new Date(emp.startDate+'T00:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '';
+  const msg   = (customMessage || `<strong>${name}</strong> is celebrating <strong>${years} year${years!==1?'s':''}</strong> with Aladdin Finance${daysUntil===0?' today':''}! Consider recognizing this milestone with a personal message or team acknowledgement.`)
+    .replace(/\{\{firstName\}\}/g, emp.firstName)
+    .replace(/\{\{fullName\}\}/g,  name)
+    .replace(/\{\{years\}\}/g,     String(years))
+    .replace(/\{\{position\}\}/g,  emp.position||'')
+    .replace(/\{\{department\}\}/g, emp.department||'');
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#F4F6FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FA;padding:40px 0"><tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.12)">
@@ -705,9 +831,224 @@ function anniversaryReminderEmail(emp, years, daysUntil) {
         ${start ? `<div style="font-size:12px;color:#0F766E;margin-top:3px">📅 Started ${start}</div>` : ''}
       </div>
     </div>
-    <div style="font-size:14px;color:#374151;line-height:1.8"><strong>${name}</strong> is celebrating <strong>${years} year${years!==1?'s':''}</strong> with Aladdin Finance${daysUntil===0?' today':''}! Consider recognizing this milestone with a personal message or team acknowledgement.</div>
+    <div style="font-size:14px;color:#374151;line-height:1.8">${msg}</div>
   </td></tr>${FOOTER()}</table></td></tr></table></body></html>`;
 }
+
+// ── Celebration Email Templates (sent TO employee on the day) ────────────────
+function _applyVars(str, emp, extra) {
+  const vars = {
+    firstName:   emp.firstName || '',
+    fullName:    `${emp.firstName} ${emp.lastName}`.trim(),
+    department:  emp.department  || '',
+    position:    emp.position    || '',
+    hireDate:    emp.startDate   ? new Date(emp.startDate+'T00:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '',
+    ...extra,
+  };
+  return str.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] !== undefined ? vars[k] : `{{${k}}}`);
+}
+
+const DEFAULT_CELEBRATION_SETTINGS = {
+  enabled: true,
+  birthdayEnabled: true,
+  anniversaryEnabled: true,
+  advanceNoticeDays: 3,
+  birthdaySubject:  'Happy Birthday, {{firstName}}! 🎂',
+  birthdayBody:     'Dear {{firstName}},\n\nOn behalf of everyone at Aladdin Finance, wishing you a very Happy Birthday! 🎂\n\nYour energy, talent, and dedication mean so much to our team. We hope your day is filled with joy and everything you love.\n\nHere\'s to a wonderful year ahead!\n\nWarm regards,\nAladdin Finance HR Team',
+  anniversarySubject: 'Happy {{years}}-Year Work Anniversary, {{firstName}}! 🏆',
+  anniversaryBody:    'Dear {{firstName}},\n\nCongratulations on {{years}} year{{yearsPlural}} with Aladdin Finance! 🏆\n\nYour commitment and contributions over this time have made a real difference to our team and our clients. This milestone is a testament to your dedication and we are truly grateful.\n\nHere\'s to many more years together!\n\nWarm regards,\nAladdin Finance HR Team',
+};
+
+function birthdayCelebrationEmail(emp, settings) {
+  const s = { ...DEFAULT_CELEBRATION_SETTINGS, ...settings };
+  const heading = _applyVars(s.birthdaySubject, emp);
+  const body    = _applyVars(s.birthdayBody, emp);
+  const bodyHtml = body.split('\n').map(l => l ? `<div style="font-size:14px;color:#374151;line-height:1.75;margin-bottom:8px">${l}</div>` : '<div style="margin-bottom:8px">&nbsp;</div>').join('');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#F4F6FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FA;padding:40px 0"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.12)">
+  <tr><td style="background:linear-gradient(135deg,#DB2777 0%,#EC4899 100%);padding:40px;text-align:center">
+    <div style="font-size:10px;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.12em;margin-bottom:14px">Aladdin Finance · Celebration</div>
+    <div style="font-size:52px;margin-bottom:12px">🎂</div>
+    <div style="font-size:26px;font-weight:800;color:#fff">${heading}</div>
+  </td></tr>
+  <tr><td style="background:#fff;padding:32px 40px">
+    ${bodyHtml}
+    <div style="background:linear-gradient(135deg,rgba(219,39,119,.05),rgba(236,72,153,.05));border:1px solid #FBCFE8;border-radius:12px;padding:18px 20px;text-align:center;margin-top:20px">
+      <div style="font-size:24px;margin-bottom:6px">🎉 🎈 🎁</div>
+      <div style="font-size:13px;font-weight:700;color:#DB2777">${emp.firstName} ${emp.lastName}</div>
+      ${emp.position||emp.department ? `<div style="font-size:11px;color:#9CA3AF;margin-top:2px">${[emp.position,emp.department].filter(Boolean).join(' · ')}</div>` : ''}
+    </div>
+  </td></tr>${FOOTER()}</table></td></tr></table></body></html>`;
+}
+
+function anniversaryCelebrationEmail(emp, years, settings) {
+  const s = { ...DEFAULT_CELEBRATION_SETTINGS, ...settings };
+  const extra = { years: String(years), yearsPlural: years !== 1 ? 's' : '' };
+  const heading = _applyVars(s.anniversarySubject, emp, extra);
+  const body    = _applyVars(s.anniversaryBody,    emp, extra);
+  const bodyHtml = body.split('\n').map(l => l ? `<div style="font-size:14px;color:#374151;line-height:1.75;margin-bottom:8px">${l}</div>` : '<div style="margin-bottom:8px">&nbsp;</div>').join('');
+  const start = emp.startDate ? new Date(emp.startDate+'T00:00:00').toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}) : '';
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#F4F6FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FA;padding:40px 0"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.12)">
+  <tr><td style="background:linear-gradient(135deg,#0F766E 0%,#14B8A6 100%);padding:40px;text-align:center">
+    <div style="font-size:10px;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.12em;margin-bottom:14px">Aladdin Finance · Celebration</div>
+    <div style="font-size:52px;margin-bottom:12px">🏆</div>
+    <div style="font-size:26px;font-weight:800;color:#fff">${heading}</div>
+    ${start ? `<div style="font-size:12px;color:rgba(255,255,255,.7);margin-top:8px">With us since ${start}</div>` : ''}
+  </td></tr>
+  <tr><td style="background:#fff;padding:32px 40px">
+    ${bodyHtml}
+    <div style="background:linear-gradient(135deg,rgba(15,118,110,.05),rgba(20,184,166,.05));border:1px solid #99F6E4;border-radius:12px;padding:18px 20px;text-align:center;margin-top:20px">
+      <div style="font-size:24px;margin-bottom:6px">🌟 ⭐ 🎊</div>
+      <div style="font-size:15px;font-weight:800;color:#0F766E">${years} Year${years!==1?'s':''} with Aladdin Finance</div>
+      <div style="font-size:13px;font-weight:700;color:#374151;margin-top:4px">${emp.firstName} ${emp.lastName}</div>
+      ${emp.position||emp.department ? `<div style="font-size:11px;color:#9CA3AF;margin-top:2px">${[emp.position,emp.department].filter(Boolean).join(' · ')}</div>` : ''}
+    </div>
+  </td></tr>${FOOTER()}</table></td></tr></table></body></html>`;
+}
+
+// Advance notice email sent TO the employee (before the day)
+function birthdayAdvanceEmail(emp, daysUntil) {
+  const when = daysUntil === 1 ? 'tomorrow' : `in ${daysUntil} days`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#F4F6FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FA;padding:40px 0"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.12)">
+  <tr><td style="background:linear-gradient(135deg,#DB2777 0%,#EC4899 100%);padding:36px 40px;text-align:center">
+    <div style="font-size:10px;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px">Aladdin Finance · Birthday Coming Up</div>
+    <div style="font-size:40px;margin-bottom:10px">🎂</div>
+    <div style="font-size:22px;font-weight:800;color:#fff">Your Birthday is ${when}, ${emp.firstName}!</div>
+  </td></tr>
+  <tr><td style="background:#fff;padding:32px 40px">
+    <div style="font-size:14px;color:#374151;line-height:1.8">Dear <strong>${emp.firstName}</strong>,<br><br>
+    Just a heads-up — your birthday is <strong>${when}</strong>! 🎉 The Aladdin Finance team is looking forward to celebrating with you.<br><br>
+    Expect a special birthday message from us on your big day.<br><br>Warm regards,<br><strong style="color:#374151">Aladdin Finance HR Team</strong></div>
+  </td></tr>${FOOTER()}</table></td></tr></table></body></html>`;
+}
+
+function anniversaryAdvanceEmail(emp, years, daysUntil) {
+  const when = daysUntil === 1 ? 'tomorrow' : `in ${daysUntil} days`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#F4F6FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FA;padding:40px 0"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.12)">
+  <tr><td style="background:linear-gradient(135deg,#0F766E 0%,#14B8A6 100%);padding:36px 40px;text-align:center">
+    <div style="font-size:10px;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px">Aladdin Finance · Work Anniversary Coming Up</div>
+    <div style="font-size:40px;margin-bottom:10px">🏆</div>
+    <div style="font-size:22px;font-weight:800;color:#fff">Your ${years}-Year Anniversary is ${when}!</div>
+  </td></tr>
+  <tr><td style="background:#fff;padding:32px 40px">
+    <div style="font-size:14px;color:#374151;line-height:1.8">Dear <strong>${emp.firstName}</strong>,<br><br>
+    We wanted to let you know that your <strong>${years}-year work anniversary</strong> at Aladdin Finance is <strong>${when}</strong>! 🌟<br><br>
+    It has been a privilege having you on our team. Thank you for your commitment, your contributions, and everything you bring to Aladdin Finance every day.<br><br>
+    Look forward to a special message from us on your anniversary.<br><br>Warm regards,<br><strong style="color:#374151">Aladdin Finance HR Team</strong></div>
+  </td></tr>${FOOTER()}</table></td></tr></table></body></html>`;
+}
+
+// ── Portal Sign Policy Handler ────────────────────────────────────────────────
+function portalSignPolicyHandler(req, res) {
+  const emps = getEmps();
+  const i    = emps.findIndex(e => e.portalToken === req.params.token);
+  if (i === -1) return res.status(404).json({ error: 'Invalid or expired portal link' });
+  const cfg = getCfg();
+  const policySnippet = (cfg.companyPolicy || '').slice(0, 100);
+  emps[i].policySigned = { signedAt: new Date().toISOString(), policySnippet };
+  setEmps(emps);
+  res.json({ ok: true });
+}
+
+// ── Portal Acknowledge Announcement Handler (public GET — email link) ─────────
+function portalAcknowledgeHandler(req, res) {
+  const emps = getEmps();
+  const i    = emps.findIndex(e => e.portalToken === req.params.token);
+  if (i === -1) return res.status(404).json({ error: 'Invalid or expired portal link' });
+  const annId = Number(req.params.annId);
+  const anns  = getAnns();
+  const ann   = anns.find(a => a.id === annId);
+  if (!ann) return res.status(404).json({ error: 'Announcement not found' });
+  const emp = emps[i];
+  const acks = emp.announcementAcks || [];
+  if (!acks.find(a => a.annId === annId)) {
+    acks.push({ annId, acknowledgedAt: new Date().toISOString() });
+    emps[i].announcementAcks = acks;
+    setEmps(emps);
+    // Also record in the announcement's acknowledgements array
+    if (!ann.acknowledgements) ann.acknowledgements = [];
+    ann.acknowledgements.push({ empId: emp.id, acknowledgedAt: new Date().toISOString() });
+    setAnns(anns);
+  }
+  // Redirect to portal announcements tab
+  const host = `${req.protocol}://${req.get('host')}`;
+  res.redirect(`${host}/employee-portal/${req.params.token}#announcements`);
+}
+
+// ── Portal Forgot Password Handler ────────────────────────────────────────────
+function portalForgotPasswordHandler(req, res) {
+  const { email } = req.body;
+  if (!email) return res.json({ ok: true }); // always ok for security
+  const emps = getEmps();
+  const i    = emps.findIndex(e => e.email && e.email.trim().toLowerCase() === email.trim().toLowerCase());
+  if (i !== -1 && emps[i].portalToken) {
+    // Generate a new token and clear password so employee must reset via new link
+    const token = crypto.randomBytes(24).toString('hex');
+    emps[i].portalToken    = token;
+    emps[i].portalPassword = null;
+    setEmps(emps);
+    const emp  = emps[i];
+    const cfg  = getCfg();
+    // We need req for host; if called from public route, req has host
+    if (emp.email && mailer.isConfigured()) {
+      const host = req._host || '';
+      const url  = host ? `${host}/employee-portal/${token}` : `/employee-portal/${token}`;
+      mailer.sendMail({
+        to: emp.email,
+        subject: 'Reset Your Aladdin Finance Employee Portal Password',
+        html: portalPasswordResetEmail(emp, url, cfg.companyPolicy || '')
+      }).catch(e => console.error('portal forgot-password email:', e.message));
+    }
+  }
+  res.json({ ok: true });
+}
+
+// ── Portal Password Reset Email ───────────────────────────────────────────────
+function portalPasswordResetEmail(emp, url) {
+  const name = `${emp.firstName} ${emp.lastName}`;
+  const d    = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#F4F6FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FA;padding:40px 0"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.12)">
+  <tr><td style="background:linear-gradient(135deg,#1E3A5F 0%,#2563EB 100%);padding:36px 40px">
+    <div style="font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px">Aladdin Finance · Employee Portal</div>
+    <div style="font-size:24px;font-weight:800;color:#fff">🔑 Password Reset</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.65);margin-top:4px">${d}</div>
+  </td></tr>
+  <tr><td style="background:#fff;padding:32px 40px">
+    <div style="font-size:14px;color:#374151;line-height:1.75;margin-bottom:16px">Dear <strong>${name}</strong>,</div>
+    <div style="font-size:14px;color:#374151;line-height:1.75;margin-bottom:24px">We received a request to reset your employee portal password. Click the button below to set a new password and regain access to your portal.</div>
+    <div style="text-align:center;margin-bottom:28px">
+      <a href="${url}" style="display:inline-block;background:linear-gradient(135deg,#FF681A,#FF8C4A);color:#fff;font-size:14px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none">Reset Password & Access Portal →</a>
+    </div>
+    <div style="background:#FFF7F3;border:1px solid #FFD5B8;border-radius:12px;padding:18px;margin-bottom:20px">
+      <div style="font-size:10px;color:#FF681A;text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-bottom:8px">Your Reset Link</div>
+      <div style="font-size:12px;color:#7C2D12;word-break:break-all;line-height:1.5">${url}</div>
+    </div>
+    <p style="font-size:12px;color:#9CA3AF;margin:0;line-height:1.7">If you did not request a password reset, please ignore this email. Your account remains secure. Contact HR if you have concerns.</p>
+  </td></tr>${FOOTER()}</table></td></tr></table></body></html>`;
+}
+
+// ── Welcome Email Preview (GET — returns draft without sending) ───────────────
+router.get('/:id/welcome-email/preview', (req, res) => {
+  const emps = getEmps();
+  const emp  = emps.find(e => e.id === Number(req.params.id));
+  if (!emp) return res.status(404).json({ error: 'Not found' });
+  const type = req.query.type || emp.type || 'full-time';
+  const note = req.query.note || '';
+  res.json({
+    to:      emp.email || '',
+    subject: `Welcome to Aladdin Finance, ${emp.firstName}!`,
+    html:    welcomeEmail(emp, type, note),
+  });
+});
 
 // ── Welcome Email Route ───────────────────────────────────────────────────────
 router.post('/:id/welcome-email', async (req, res) => {
@@ -731,35 +1072,33 @@ router.get('/check-reminders', async (req, res) => {
   const cfg  = getCfg();
   if (!cfg.hrEmail) return res.status(400).json({ error: 'HR email not configured in settings' });
   if (!mailer.isConfigured()) return res.status(400).json({ error: 'Email not configured on server' });
+  if (cfg.celebrationAutoSend === false) return res.json({ ok: true, sent: [], skipped: 'Auto-send disabled' });
   const emps  = getEmps().filter(e => e.status !== 'terminated');
   const today = new Date();
-  const todayMD = `${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
   const sent  = [];
 
   for (const emp of emps) {
-    // Birthday check (7-day window)
     if (emp.dob) {
-      const dobMD = emp.dob.slice(5); // MM-DD
+      const dobMD = emp.dob.slice(5);
       for (let d = 0; d <= 7; d++) {
         const check = new Date(today); check.setDate(check.getDate() + d);
         const checkMD = `${String(check.getMonth()+1).padStart(2,'0')}-${String(check.getDate()).padStart(2,'0')}`;
         if (checkMD === dobMD && (d === 0 || d === 1 || d === 7)) {
-          mailer.sendMail({ to: cfg.hrEmail, subject: `🎂 Birthday Reminder: ${emp.firstName} ${emp.lastName} — ${d===0?'Today':d===1?'Tomorrow':'In 7 days'}`, html: birthdayReminderEmail(emp, d) }).catch(()=>{});
+          mailer.sendMail({ to: cfg.hrEmail, subject: `🎂 Birthday Reminder: ${emp.firstName} ${emp.lastName} — ${d===0?'Today':d===1?'Tomorrow':'In 7 days'}`, html: birthdayReminderEmail(emp, d, cfg.birthdayEmailMessage||'') }).catch(()=>{});
           sent.push({ type:'birthday', employee:`${emp.firstName} ${emp.lastName}`, daysUntil:d });
           break;
         }
       }
     }
-    // Anniversary check (7-day window)
     if (emp.startDate) {
-      const startMD = emp.startDate.slice(5);
+      const startMD  = emp.startDate.slice(5);
       const startYear = parseInt(emp.startDate.slice(0,4),10);
       for (let d = 0; d <= 7; d++) {
         const check = new Date(today); check.setDate(check.getDate() + d);
         const checkMD = `${String(check.getMonth()+1).padStart(2,'0')}-${String(check.getDate()).padStart(2,'0')}`;
         const years = check.getFullYear() - startYear;
         if (checkMD === startMD && years > 0 && (d === 0 || d === 1 || d === 7)) {
-          mailer.sendMail({ to: cfg.hrEmail, subject: `🏆 Work Anniversary: ${emp.firstName} ${emp.lastName} — ${years} Year${years!==1?'s':''}`, html: anniversaryReminderEmail(emp, years, d) }).catch(()=>{});
+          mailer.sendMail({ to: cfg.hrEmail, subject: `🏆 Work Anniversary: ${emp.firstName} ${emp.lastName} — ${years} Year${years!==1?'s':''}`, html: anniversaryReminderEmail(emp, years, d, cfg.anniversaryEmailMessage||'') }).catch(()=>{});
           sent.push({ type:'anniversary', employee:`${emp.firstName} ${emp.lastName}`, years, daysUntil:d });
           break;
         }
@@ -769,9 +1108,268 @@ router.get('/check-reminders', async (req, res) => {
   res.json({ ok: true, sent });
 });
 
+// ── Celebration Settings ──────────────────────────────────────────────────────
+const CEL_FILE = 'celebration-settings.json';
+function getCelSettings() { return load(CEL_FILE, DEFAULT_CELEBRATION_SETTINGS); }
+function setCelSettings(d) { save(CEL_FILE, d); }
+
+router.get('/celebration-settings', (req, res) => res.json(getCelSettings()));
+router.put('/celebration-settings', requireRole('write'), (req, res) => {
+  setCelSettings({ ...getCelSettings(), ...req.body });
+  res.json({ ok: true });
+});
+
+// Manual trigger: send celebration emails for today (test / one-off use)
+router.post('/celebration-settings/send-today', requireRole('write'), async (req, res) => {
+  const cfg  = getCfg();
+  const cel  = getCelSettings();
+  if (!mailer.isConfigured()) return res.status(400).json({ error: 'Email not configured' });
+  const emps  = getEmps().filter(e => e.status !== 'terminated' && e.email);
+  const today = new Date();
+  const todayMD = `${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const sent  = [];
+
+  for (const emp of emps) {
+    if (cel.birthdayEnabled !== false && emp.dob && emp.dob.slice(5) === todayMD) {
+      mailer.sendMail({ to: emp.email, subject: _applyVars(cel.birthdaySubject||DEFAULT_CELEBRATION_SETTINGS.birthdaySubject, emp), html: birthdayCelebrationEmail(emp, cel) }).catch(()=>{});
+      if (cfg.hrEmail) mailer.sendMail({ to: cfg.hrEmail, subject: `🎂 Birthday Today: ${emp.firstName} ${emp.lastName}`, html: birthdayReminderEmail(emp, 0, '') }).catch(()=>{});
+      sent.push({ type:'birthday', name:`${emp.firstName} ${emp.lastName}` });
+    }
+    if (cel.anniversaryEnabled !== false && emp.startDate && emp.startDate.slice(5) === todayMD) {
+      const years = today.getFullYear() - parseInt(emp.startDate.slice(0,4),10);
+      if (years > 0) {
+        mailer.sendMail({ to: emp.email, subject: _applyVars(cel.anniversarySubject||DEFAULT_CELEBRATION_SETTINGS.anniversarySubject, emp, { years: String(years), yearsPlural: years!==1?'s':'' }), html: anniversaryCelebrationEmail(emp, years, cel) }).catch(()=>{});
+        if (cfg.hrEmail) mailer.sendMail({ to: cfg.hrEmail, subject: `🏆 Anniversary Today: ${emp.firstName} ${emp.lastName} — ${years} Year${years!==1?'s':''}`, html: anniversaryReminderEmail(emp, years, 0, '') }).catch(()=>{});
+        sent.push({ type:'anniversary', name:`${emp.firstName} ${emp.lastName}`, years });
+      }
+    }
+  }
+  res.json({ ok: true, sent });
+});
+
+// ── Portal Forgot Password Route (authenticated — reached via /api/hr/portal/forgot-password)
+router.post('/portal/forgot-password', (req, res) => {
+  // Attach host for email link generation
+  req._host = `${req.protocol}://${req.get('host')}`;
+  portalForgotPasswordHandler(req, res);
+});
+
+// ── Portal Sign Policy Route (authenticated — reached via /api/hr/portal/:token/sign-policy)
+router.post('/portal/:token/sign-policy', (req, res) => {
+  portalSignPolicyHandler(req, res);
+});
+
+// ── Notify Policy Update (reset signed status + email all portal employees) ───
+router.post('/notify-policy-update', async (req, res) => {
+  const cfg  = getCfg();
+  if (!mailer.isConfigured()) return res.status(400).json({ error: 'Email not configured' });
+  const emps = getEmps();
+  const host = `${req.protocol}://${req.get('host')}`;
+  let sent = 0;
+  for (let i = 0; i < emps.length; i++) {
+    const emp = emps[i];
+    if (!emp.portalToken) continue;
+    if (emp.policySigned) { emps[i].policySigned = null; }
+    if (emp.email) {
+      const url = `${host}/employee-portal/${emp.portalToken}`;
+      mailer.sendMail({
+        to: emp.email,
+        subject: `Action Required: Updated ${cfg.policyTitle||'Company Policy'} — Please Re-sign`,
+        html: policyReminderEmail(emp, url, cfg.companyPolicy||'', cfg.policyTitle||'Company Policy'),
+      }).catch(e => console.error('policy update email:', e.message));
+      sent++;
+    }
+  }
+  setEmps(emps);
+  res.json({ ok: true, sent });
+});
+
+// ── Policy Reminder Email Template ────────────────────────────────────────────
+function policyReminderEmail(emp, url, policy, policyTitle) {
+  const name = `${emp.firstName} ${emp.lastName}`;
+  const d    = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const title = policyTitle || 'Company Policy';
+  const policyHtml = (policy||'').split('\n').map(l => l
+    ? `<div style="margin-bottom:6px;font-size:13px;color:#374151;line-height:1.6">${l}</div>`
+    : '<div style="margin-bottom:6px">&nbsp;</div>').join('');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#F4F6FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#F4F6FA;padding:40px 0"><tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.12)">
+  <tr><td style="background:linear-gradient(135deg,#1D4ED8 0%,#3B82F6 100%);padding:36px 40px">
+    <div style="font-size:10px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px">Aladdin Finance · HR Compliance</div>
+    <div style="font-size:26px;font-weight:800;color:#fff;margin-bottom:6px">📋 Policy Acknowledgement Required</div>
+    <div style="font-size:12px;color:rgba(255,255,255,.75)">${d}</div>
+  </td></tr>
+  <tr><td style="background:#fff;padding:32px 40px">
+    <div style="font-size:14px;color:#374151;line-height:1.75;margin-bottom:16px">Dear <strong>${name}</strong>,</div>
+    <div style="font-size:14px;color:#374151;line-height:1.75;margin-bottom:24px">
+      Please review and acknowledge the <strong>${title}</strong> via your employee self-service portal. Your acknowledgement is required to remain compliant.
+    </div>
+    <div style="text-align:center;margin-bottom:28px">
+      <a href="${url}" style="display:inline-block;background:linear-gradient(135deg,#1D4ED8,#3B82F6);color:#fff;font-size:14px;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none">Review &amp; Sign Policy →</a>
+    </div>
+    ${policy ? `<div style="border-top:1px solid #F3F4F6;padding-top:20px;margin-top:4px"><div style="font-size:10px;color:#6B7280;text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:12px">${title}</div><div style="background:#F9FAFB;border-radius:8px;padding:16px;max-height:300px;overflow:hidden">${policyHtml}</div></div>` : ''}
+    <p style="font-size:12px;color:#9CA3AF;margin:24px 0 0;line-height:1.7">If you have already signed the policy please disregard this email. Contact HR if you have any questions.</p>
+  </td></tr>${FOOTER()}</table></td></tr></table></body></html>`;
+}
+
+// ── Send Policy Reminder ───────────────────────────────────────────────────────
+router.post('/:id/send-policy-reminder', async (req, res) => {
+  const emps = getEmps();
+  const i = emps.findIndex(e => e.id === Number(req.params.id));
+  if (i === -1) return res.status(404).json({ error: 'Not found' });
+  const emp = emps[i];
+  if (!emp.portalToken) return res.status(400).json({ error: 'Employee has no portal access' });
+  if (emp.policySigned) return res.json({ ok: true, skipped: true, reason: 'Already signed' });
+  if (!emp.email) return res.status(400).json({ error: 'No email address' });
+  if (!mailer.isConfigured()) return res.status(400).json({ error: 'Email not configured' });
+  const cfg  = getCfg();
+  const host = `${req.protocol}://${req.get('host')}`;
+  const url  = `${host}/employee-portal/${emp.portalToken}`;
+  await mailer.sendMail({
+    to: emp.email,
+    subject: `Action Required: Please Sign the ${cfg.policyTitle||'Company Policy'}`,
+    html: policyReminderEmail(emp, url, cfg.companyPolicy||'', cfg.policyTitle||'Company Policy'),
+  });
+  res.json({ ok: true });
+});
+
+// ── Reset Portal Password ─────────────────────────────────────────────────────
+router.post('/:id/reset-portal-password', async (req, res) => {
+  const emps = getEmps();
+  const i = emps.findIndex(e => e.id === Number(req.params.id));
+  if (i === -1) return res.status(404).json({ error: 'Not found' });
+  const token = crypto.randomBytes(24).toString('hex');
+  emps[i].portalToken = token;
+  emps[i].portalPassword = null;
+  setEmps(emps);
+  const emp = emps[i];
+  const host = `${req.protocol}://${req.get('host')}`;
+  const url = `${host}/employee-portal/${token}`;
+  const cfg = getCfg();
+  if (emp.email && mailer.isConfigured()) {
+    mailer.sendMail({
+      to: emp.email,
+      subject: 'Your Aladdin Finance Employee Portal — Password Reset',
+      html: portalInviteEmail(emp, url, cfg.companyPolicy || '')
+    }).catch(e => console.error('reset password email:', e.message));
+  }
+  res.json({ ok: true, url });
+});
+
+// ── Announcements ─────────────────────────────────────────────────────────────
+router.get('/announcements', (req, res) => {
+  res.json(getAnns());
+});
+
+router.post('/announcements', async (req, res) => {
+  const { title, body, requiresAck, reminderSettings } = req.body;
+  if (!title) return res.status(400).json({ error: 'Title is required' });
+  const ann = {
+    id:               Date.now(),
+    title:            title.trim(),
+    body:             (body || '').trim(),
+    publishedAt:      new Date().toISOString(),
+    publishedBy:      'HR',
+    acknowledgements: [],
+    requiresAck:      !!requiresAck,
+    reminderSettings: requiresAck ? {
+      firstReminderHours:  (reminderSettings?.firstReminderHours)  || 24,
+      secondReminderHours: (reminderSettings?.secondReminderHours) || 48,
+      repeatEveryDays:     (reminderSettings?.repeatEveryDays)     || 3,
+      maxReminders:        (reminderSettings?.maxReminders)        || 5,
+    } : null,
+    remindersSent: {},  // { empId: [isoDate, ...] }
+  };
+  const anns = getAnns();
+  anns.push(ann);
+  setAnns(anns);
+
+  // Email all portal employees
+  const emps = getEmps().filter(e => e.portalToken && e.email);
+  const host = `${req.protocol}://${req.get('host')}`;
+  if (mailer.isConfigured()) {
+    for (const emp of emps) {
+      const portalUrl = `${host}/employee-portal/${emp.portalToken}`;
+      mailer.sendMail({
+        to: emp.email,
+        subject: `📢 New Announcement: ${ann.title}`,
+        html: announcementEmail(emp, ann, portalUrl)
+      }).catch(e => console.error('announcement email:', e.message));
+    }
+  }
+  res.json({ announcement: ann, emailed: emps.length });
+});
+
+// Pending acknowledgements for an announcement
+router.get('/announcements/:id/pending-acks', (req, res) => {
+  const anns = getAnns();
+  const ann  = anns.find(a => a.id === Number(req.params.id));
+  if (!ann) return res.status(404).json({ error: 'Not found' });
+  const emps       = getEmps().filter(e => e.portalToken);
+  const ackedIds   = new Set((ann.acknowledgements||[]).map(a => a.empId));
+  const pending    = emps.filter(e => !ackedIds.has(e.id)).map(e => ({
+    id: e.id, name: `${e.firstName} ${e.lastName}`, email: e.email||'',
+    department: e.department||'', position: e.position||'',
+    remindersCount: (ann.remindersSent?.[e.id]||[]).length,
+    lastReminder: (ann.remindersSent?.[e.id]||[]).slice(-1)[0] || null,
+  }));
+  const acked = emps.filter(e => ackedIds.has(e.id)).map(e => ({
+    id: e.id, name: `${e.firstName} ${e.lastName}`,
+    acknowledgedAt: (ann.acknowledgements||[]).find(a => a.empId === e.id)?.acknowledgedAt,
+  }));
+  res.json({ pending, acked, total: emps.length });
+});
+
+// Manual send reminders for an announcement
+router.post('/announcements/:id/send-reminders', requireRole('write'), async (req, res) => {
+  const anns = getAnns();
+  const annIdx = anns.findIndex(a => a.id === Number(req.params.id));
+  if (annIdx === -1) return res.status(404).json({ error: 'Not found' });
+  const ann  = anns[annIdx];
+  if (!mailer.isConfigured()) return res.status(400).json({ error: 'Email not configured' });
+  const emps     = getEmps().filter(e => e.portalToken && e.email);
+  const ackedIds = new Set((ann.acknowledgements||[]).map(a => a.empId));
+  const pending  = emps.filter(e => !ackedIds.has(e.id));
+  const host     = `${req.protocol}://${req.get('host')}`;
+  const sent     = [];
+  for (const emp of pending) {
+    const portalUrl = `${host}/employee-portal/${emp.portalToken}`;
+    await mailer.sendMail({ to: emp.email, subject: `⏳ Reminder: Please Acknowledge "${ann.title}"`, html: announcementReminderEmail(emp, ann, portalUrl) }).catch(()=>{});
+    if (!ann.remindersSent) ann.remindersSent = {};
+    if (!ann.remindersSent[emp.id]) ann.remindersSent[emp.id] = [];
+    ann.remindersSent[emp.id].push(new Date().toISOString());
+    sent.push(emp.email);
+  }
+  anns[annIdx] = ann;
+  setAnns(anns);
+  res.json({ ok: true, sent: sent.length, recipients: sent });
+});
+
+router.delete('/announcements/:id', (req, res) => {
+  const id = Number(req.params.id);
+  setAnns(getAnns().filter(a => a.id !== id));
+  res.json({ ok: true });
+});
+
+// ── Sales Reps (for Commission & Pipeline sync) ───────────────────────────────
+router.get('/sales-reps', (req, res) => {
+  const emps = getEmps().filter(e => e.department === 'Sales' && e.status !== 'terminated');
+  res.json(emps.map(e => ({
+    id:          e.id,
+    name:        `${e.firstName} ${e.lastName}`.trim(),
+    email:       e.email       || '',
+    salesTarget: e.salesTarget || 0,
+    startDate:   e.startDate   || ''
+  })));
+});
+
 module.exports = router;
-module.exports.portalGetHandler         = portalGetHandler;
-module.exports.portalSetPasswordHandler = portalSetPasswordHandler;
-module.exports.portalLoginHandler       = portalLoginHandler;
-module.exports.portalTimeOffHandler     = portalTimeOffHandler;
-module.exports.portalRequestHandler     = portalRequestHandler;
+module.exports.portalGetHandler            = portalGetHandler;
+module.exports.portalSetPasswordHandler    = portalSetPasswordHandler;
+module.exports.portalLoginHandler          = portalLoginHandler;
+module.exports.portalTimeOffHandler        = portalTimeOffHandler;
+module.exports.portalRequestHandler        = portalRequestHandler;
+module.exports.portalSignPolicyHandler      = portalSignPolicyHandler;
+module.exports.portalForgotPasswordHandler  = portalForgotPasswordHandler;
+module.exports.portalAcknowledgeHandler     = portalAcknowledgeHandler;

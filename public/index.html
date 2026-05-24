@@ -253,7 +253,7 @@ body{font-family:'Barlow',sans-serif;font-size:13px;color:var(--text);background
 button[onclick*="openAI"]:not(.ayla-float){display:none!important}
 /* floating Ayla button */
 .ayla-float{
-  position:fixed;bottom:28px;right:28px;z-index:9999;
+  position:fixed;bottom:20px;right:20px;z-index:9999;
   width:76px;height:76px;border-radius:50%;
   background:linear-gradient(145deg,#FF8C00,#FF4500);
   border:none;cursor:pointer;padding:0;
@@ -431,6 +431,10 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
 .filter-bar .filter-select:focus{border-color:var(--primary)}
 .filter-bar .filter-sep{width:1px;height:18px;background:var(--border);flex-shrink:0}
 .filter-bar .filter-count{font-size:11px;color:var(--text-3);white-space:nowrap;margin-left:auto}
+/* CustomSelect inside filter-bar: compact inline sizing */
+.filter-bar .csel-wrap{width:auto;flex-shrink:0;min-width:110px;max-width:200px}
+.filter-bar .csel-trigger{padding:4px 10px;font-size:11px;min-height:28px;border-radius:7px;background:var(--surface-2);min-width:110px;max-width:200px}
+.filter-bar .csel-trigger:hover{border-color:var(--primary)}
 
 /* ── Editable select ── */
 .editable-select-wrap{position:relative;display:inline-block}
@@ -809,8 +813,8 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
 .sortable-th{cursor:pointer;user-select:none}
 .sortable-th:hover{color:var(--primary)}
 
-/* ── Ayla float — shift up to avoid overlapping last table row ── */
-.ayla-float{bottom:100px!important}
+/* ── Ayla float — keep in bottom-right corner ── */
+.ayla-float{bottom:20px!important;right:20px!important}
 
 @media(max-width:900px){.shell{flex-direction:column}.sidebar{display:none}.clients-grid{grid-template-columns:1fr}.grid-5{grid-template-columns:repeat(2,1fr)}.ratio-grid{grid-template-columns:repeat(2,1fr)}}
 
@@ -1397,7 +1401,7 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
       <!-- Financials -->
       <div class="nav-sec" onclick="toggleNavGroup('financials')"><span>Financials</span><svg class="nav-chevron" width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 3.5L5 6.5L8 3.5"/></svg></div>
       <div class="nav-group-items" id="ng-financials">
-        <button class="nav-item active" data-section="dashboard"><svg class="nav-icon" viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>Dashboard</button>
+        <button class="nav-item" data-section="dashboard"><svg class="nav-icon" viewBox="0 0 14 14" fill="currentColor"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>Dashboard</button>
         <button class="nav-item" data-section="cash"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="3" width="12" height="8" rx="1.5"/><path d="M1 6h12"/></svg>Cash & Reserves</button>
         <button class="nav-item" data-section="cashflow"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><polyline points="1,10 4,6 7,8 10,4 13,2"/></svg>Cash Flow</button>
         <button class="nav-item" data-section="budget"><svg class="nav-icon" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="1" y="3" width="12" height="10" rx="1"/><path d="M1 7h12M5 3V1M9 3V1"/></svg>Budget</button>
@@ -1591,16 +1595,90 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
 <div class="modal-backdrop" id="modal-client">
   <div class="modal">
     <div class="modal-header"><div class="modal-title" id="client-modal-title">Add Client</div><button class="modal-close" onclick="closeModal('modal-client')">×</button></div>
-    <div class="form-row"><label>Client Name <span class="badge-qbo">QBO</span></label><input type="text" id="cl-name" placeholder="e.g. Informa Markets"></div>
-    <div class="form-row"><label>Segment</label>
-      <select id="cl-type" onchange="handleSelectOther(this)">
-        <option value="Enterprise">Enterprise</option>
-        <option value="SMB">SMB</option>
-        <option value="Government">Government</option>
-        <option value="Startup">Startup</option>
-        <option value="NGO">NGO</option>
-        <option value="Education">Education</option>
-        <option value="__other__">+ Add other...</option>
+    <div class="form-row"><label>Client Name</label><input type="text" id="cl-name" placeholder="e.g. Informa Markets"></div>
+    <div class="form-row"><label>Sector / Industry</label>
+      <select id="cl-type">
+        <option value="">— Select sector —</option>
+        <optgroup label="Technology">
+          <option value="Software">Software</option>
+          <option value="Hardware">Hardware</option>
+          <option value="IT Services">IT Services</option>
+          <option value="Cybersecurity">Cybersecurity</option>
+          <option value="AI / ML">AI / ML</option>
+          <option value="Cloud">Cloud</option>
+          <option value="Telecom">Telecom</option>
+        </optgroup>
+        <optgroup label="Real Estate">
+          <option value="Commercial Real Estate">Commercial Real Estate</option>
+          <option value="Residential Real Estate">Residential Real Estate</option>
+          <option value="Industrial Real Estate">Industrial Real Estate</option>
+          <option value="REIT">REIT</option>
+        </optgroup>
+        <optgroup label="Financial Services">
+          <option value="Banking">Banking</option>
+          <option value="Insurance">Insurance</option>
+          <option value="Asset Management">Asset Management</option>
+          <option value="FinTech">FinTech</option>
+          <option value="Private Equity">Private Equity</option>
+        </optgroup>
+        <optgroup label="Healthcare">
+          <option value="Pharma">Pharma</option>
+          <option value="Medical Devices">Medical Devices</option>
+          <option value="Hospital &amp; Health Systems">Hospital &amp; Health Systems</option>
+          <option value="Biotech">Biotech</option>
+        </optgroup>
+        <optgroup label="Energy">
+          <option value="Oil &amp; Gas">Oil &amp; Gas</option>
+          <option value="Renewables">Renewables</option>
+          <option value="Utilities">Utilities</option>
+        </optgroup>
+        <optgroup label="Manufacturing">
+          <option value="Automotive">Automotive</option>
+          <option value="Aerospace">Aerospace</option>
+          <option value="Consumer Goods">Consumer Goods</option>
+          <option value="Industrial">Industrial</option>
+        </optgroup>
+        <optgroup label="Retail &amp; Consumer">
+          <option value="E-commerce">E-commerce</option>
+          <option value="Fashion">Fashion</option>
+          <option value="Food &amp; Beverage">Food &amp; Beverage</option>
+          <option value="Luxury Goods">Luxury Goods</option>
+        </optgroup>
+        <optgroup label="Media &amp; Entertainment">
+          <option value="Media">Media</option>
+          <option value="Publishing">Publishing</option>
+          <option value="Gaming">Gaming</option>
+        </optgroup>
+        <optgroup label="Professional Services">
+          <option value="Legal">Legal</option>
+          <option value="Consulting">Consulting</option>
+          <option value="Accounting">Accounting</option>
+          <option value="Events &amp; Exhibitions">Events &amp; Exhibitions</option>
+        </optgroup>
+        <optgroup label="Logistics &amp; Transport">
+          <option value="Logistics">Logistics</option>
+          <option value="Aviation">Aviation</option>
+          <option value="Maritime">Maritime</option>
+        </optgroup>
+        <optgroup label="Other">
+          <option value="Education">Education</option>
+          <option value="Government">Government</option>
+          <option value="Non-profit / NGO">Non-profit / NGO</option>
+          <option value="Hospitality &amp; Tourism">Hospitality &amp; Tourism</option>
+          <option value="Other">Other</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="form-row"><label>Entry Type <span style="font-size:9px;color:var(--text-3);font-weight:400">How the client joined</span></label>
+      <select id="cl-entry-type">
+        <option value="">— Select —</option>
+        <option value="Enterprise Deal">Enterprise Deal</option>
+        <option value="Government Contract">Government Contract</option>
+        <option value="Tradeshow">Tradeshow</option>
+        <option value="Self-serve">Self-serve</option>
+        <option value="Referral">Referral</option>
+        <option value="Partnership">Partnership</option>
+        <option value="Events">Events</option>
       </select>
     </div>
     <div class="form-row"><label>Country</label>
@@ -1635,10 +1713,10 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="form-row"><label>Phone</label><input type="text" id="cl-phone" placeholder="+971 50 000 0000"></div>
-      <div class="form-row"><label>Annual Revenue ($) <span class="badge-qbo">QBO</span></label><input type="number" id="cl-revenue" placeholder="196000"></div>
+      <div class="form-row"><label>Annual Revenue ($)</label><input type="number" id="cl-revenue" placeholder="Auto from AppFolio" style="background:var(--surface-2);color:var(--text-2)"></div>
     </div>
     <div class="form-row"><label>Address</label><input type="text" id="cl-address" placeholder="City, Country or full address"></div>
-    <div class="form-row"><label>SaaS Revenue ($)</label><input type="number" id="cl-saas" placeholder="74000"></div>
+    <div class="form-row"><label>SaaS Revenue ($) <span style="font-size:9px;padding:1px 6px;border-radius:3px;background:rgba(124,58,237,.1);color:#7C3AED;font-weight:600">Stripe</span></label><input type="number" id="cl-saas" placeholder="Auto from Stripe subscriptions" style="background:var(--surface-2);color:var(--text-2)"></div>
     <div class="form-row"><label>Contract Renewal Date</label><input type="date" id="cl-renewal"></div>
     <div style="border-top:0.5px solid var(--border);margin:14px 0 12px;padding-top:12px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:10px">Billing & Charges</div>
@@ -1784,9 +1862,9 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
     <div id="hr-emp-panel-job" style="display:none">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="form-row" style="margin:0"><label>Employee ID</label><input class="input" id="hr-emp-empid" placeholder="EMP-001"></div>
-        <div class="form-row" style="margin:0"><label>Start Date</label><input type="date" class="input" id="hr-emp-start"></div>
+        <div class="form-row" style="margin:0"><label>Start Date</label><input type="date" class="input" id="hr-emp-start" onchange="hrCalcProratedTarget()"></div>
         <div class="form-row" style="margin:0"><label>Department</label>
-          <select class="input" id="hr-emp-dept" onchange="handleSelectOther(this)"><option value="">Select…</option></select>
+          <select class="input" id="hr-emp-dept" onchange="handleSelectOther(this);hrToggleSalesFields()"><option value="">Select…</option></select>
         </div>
         <div class="form-row" style="margin:0"><label>Position</label>
           <select class="input" id="hr-emp-pos" onchange="handleSelectOther(this)"><option value="">Select…</option></select>
@@ -1811,6 +1889,14 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
         <div class="form-row" style="margin:0;grid-column:1/-1"><label>Manager</label>
           <select class="input" id="hr-emp-manager"><option value="">No manager</option></select>
         </div>
+      </div>
+      <div id="hr-emp-sales-row" style="display:none;margin-top:12px;padding:12px;background:var(--surface-2);border-radius:10px;border:1px solid var(--border)">
+        <div style="font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">💰 Sales Commission Settings</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-row" style="margin:0"><label>Annual Sales Target</label><input type="number" class="input" id="hr-emp-sales-target" placeholder="e.g. 1200000" min="0" oninput="hrCalcProratedTarget()"></div>
+          <div class="form-row" style="margin:0"><label>Prorated This Year</label><div id="hr-emp-prorated-display" style="font-size:12px;color:var(--text-2);padding:9px 11px;background:var(--surface);border:1px solid var(--border);border-radius:8px;min-height:38px;display:flex;align-items:center">— set target &amp; start date</div></div>
+        </div>
+        <div style="font-size:11px;color:var(--text-2);margin-top:8px">This rep will be auto-added to Commissions with prorated monthly &amp; yearly targets based on their start date.</div>
       </div>
     </div>
     <!-- Leave Balances tab -->
@@ -1861,24 +1947,43 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
 </div>
 
 <div class="modal-backdrop" id="modal-welcome-email">
-  <div class="modal" style="max-width:520px">
+  <div class="modal" style="max-width:700px">
     <div class="modal-header">
       <div class="modal-title">Send Welcome Email</div>
       <button class="modal-close" onclick="closeModal('modal-welcome-email')">×</button>
     </div>
-    <div class="form-row">
-      <label>To</label>
-      <input type="text" id="welcome-to" readonly style="background:var(--surface-2);color:var(--text-2)">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row" style="grid-column:1/-1">
+        <label>To</label>
+        <input type="text" id="welcome-to" readonly style="background:var(--surface-2);color:var(--text-2)">
+      </div>
+      <div class="form-row">
+        <label>Subject</label>
+        <input type="text" id="welcome-subject" placeholder="Welcome to Aladdin Finance!" oninput="refreshWelcomePreview()">
+      </div>
+      <div class="form-row">
+        <label>Employment Type</label>
+        <select id="welcome-type" data-no-custom onchange="refreshWelcomePreview()">
+          <option value="full-time">Full-time</option>
+          <option value="part-time">Part-time</option>
+          <option value="contractor">Contractor</option>
+          <option value="intern">Intern</option>
+          <option value="milestone">Milestone</option>
+        </select>
+      </div>
+      <div class="form-row" style="grid-column:1/-1">
+        <label>Personal Note <span style="font-size:10px;color:var(--text-3)">(optional — appended to email)</span></label>
+        <textarea id="welcome-note" rows="3" placeholder="Add a personal note to the new team member…" style="width:100%;resize:vertical" oninput="refreshWelcomePreview()"></textarea>
+      </div>
     </div>
-    <div class="form-row">
-      <label>Subject</label>
-      <input type="text" id="welcome-subject" placeholder="Welcome to Aladdin Finance!">
+    <div style="margin-top:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <label style="font-size:11px;font-weight:600;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em">Email Preview</label>
+        <span id="welcome-preview-status" style="font-size:10px;color:var(--text-3)"></span>
+      </div>
+      <iframe id="welcome-preview-iframe" style="width:100%;height:340px;border:1px solid var(--border);border-radius:8px;background:#fff" sandbox="allow-same-origin"></iframe>
     </div>
-    <div class="form-row">
-      <label>Personal Note <span style="font-size:10px;color:var(--text-3)">(optional — appended to email)</span></label>
-      <textarea id="welcome-note" rows="4" placeholder="Add a personal note to the new team member…" style="width:100%;resize:vertical"></textarea>
-    </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
       <button class="btn" onclick="closeModal('modal-welcome-email')">Cancel</button>
       <button class="btn btn-primary" onclick="doSendWelcomeEmail()">✉ Send Email</button>
     </div>
@@ -1889,33 +1994,55 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
   <div class="modal">
     <div class="modal-header"><div class="modal-title" id="deal-modal-title">Add Deal</div><button class="modal-close" onclick="closeModal('modal-deal')">×</button></div>
     <div class="form-row"><label>Deal Name</label><input type="text" id="deal-name" placeholder="e.g. TechCorp Enterprise License"></div>
-    <div class="form-row"><label>Client</label><input type="text" id="deal-client" placeholder="Client name"></div>
-    <div class="form-row"><label>Channel</label>
-      <select id="deal-type" onchange="handleSelectOther(this)">
-        <option value="Enterprise">Enterprise</option>
-        <option value="Government">Government</option>
-        <option value="Tradeshow">Tradeshow</option>
-        <option value="SaaS">SaaS</option>
-        <option value="Services">Services</option>
-        <option value="Partnership">Partnership</option>
-        <option value="Reseller">Reseller</option>
-        <option value="Referral">Referral</option>
-        <option value="__other__">+ Add other...</option>
+    <div class="form-row"><label>Client</label>
+      <input type="text" id="deal-client" placeholder="Select client..." list="dl-deal-clients" autocomplete="off">
+      <datalist id="dl-deal-clients"></datalist>
+    </div>
+    <div class="form-row"><label>Channel / Deal Type</label>
+      <select id="deal-type" onchange="toggleDealTypeFields()">
+        <option value="Enterprise">Enterprise — Subscription</option>
+        <option value="Tradeshow">Tradeshow / Event — Project</option>
+        <option value="Government">Government — Commission only</option>
       </select>
     </div>
+    <div id="deal-sub-fields" style="display:none">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-row"><label>Plan / Package</label>
+          <select id="deal-plan">
+            <option value="">— select plan —</option>
+            <option value="Pro">Pro</option>
+            <option value="Premium">Premium</option>
+            <option value="Enterprise">Enterprise</option>
+            <option value="Custom">Custom</option>
+          </select>
+        </div>
+        <div class="form-row"><label>Billing Cycle</label>
+          <select id="deal-billing-cycle">
+            <option value="">— select —</option>
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="semi-annual">Semi-annual</option>
+            <option value="annual">Annual</option>
+          </select>
+        </div>
+      </div>
+    </div>
     <div class="form-row"><label>Value ($)</label><input type="number" id="deal-value" placeholder="250000"></div>
-    <div class="form-row"><label>Probability (%)</label><input type="number" id="deal-prob" min="0" max="100" placeholder="75"></div>
-    <div class="form-row"><label>Stage</label>
-      <select id="deal-stage" onchange="handleSelectOther(this)">
-        <option value="Prospecting">Prospecting</option>
-        <option value="Qualification">Qualification</option>
-        <option value="Proposal">Proposal</option>
-        <option value="Negotiation">Negotiation</option>
-        <option value="Closed Won">Closed Won</option>
-        <option value="Closed Lost">Closed Lost</option>
-        <option value="On Hold">On Hold</option>
-        <option value="__other__">+ Add other...</option>
-      </select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-row"><label>Stage</label>
+        <select id="deal-stage" onchange="updateDealProbFromStage()">
+          <option value="Prospecting">Prospecting</option>
+          <option value="Qualification">Qualification</option>
+          <option value="Proposal">Proposal</option>
+          <option value="Negotiation">Negotiation</option>
+          <option value="Closed Won">Closed Won</option>
+          <option value="Closed Lost">Closed Lost</option>
+          <option value="On Hold">On Hold</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Probability (%)</label>
+        <input type="number" id="deal-prob" min="0" max="100" readonly style="background:var(--surface-2);color:var(--text-2);cursor:default" title="Auto-calculated from stage">
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="form-row"><label>Expected Close Date</label><input type="date" id="deal-close"></div>
@@ -2139,7 +2266,7 @@ button[onclick*="openAI"]:not(.ayla-float){display:none!important}
     <div class="modal-header"><div class="modal-title" id="comm-modal-title">Add Commission</div><button class="modal-close" onclick="closeModal('modal-commission')">×</button></div>
     <datalist id="dl-pipeline-deals"></datalist>
     <div class="form-row"><label>Deal / Invoice Name</label><input type="text" id="comm-deal" list="dl-pipeline-deals" placeholder="e.g. AlShifa SaaS License" autocomplete="off" oninput="autoFillCommFromDeal(this.value)"></div>
-    <div class="form-row"><label>Sales Rep</label><input type="text" id="comm-rep" placeholder="Rep name"></div>
+    <div class="form-row"><label>Sales Rep</label><select class="input" id="comm-rep" data-no-custom style="font-size:13px"></select></div>
     <div class="form-row"><label>Client</label><input type="text" id="comm-client" list="dl-ar-clients" placeholder="Client name" autocomplete="off"></div>
     <div class="form-row"><label>Deal Value ($)</label><input type="number" id="comm-value" placeholder="250000" oninput="calcCommAmt()"></div>
     <div class="form-row"><label>Commission Rate (%)</label><input type="number" id="comm-rate" value="5" min="0" max="100" step=".5" oninput="calcCommAmt()"></div>

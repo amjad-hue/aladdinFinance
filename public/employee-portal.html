@@ -120,8 +120,46 @@
       width: 100%; outline: none; transition: border-color .15s; font-family: inherit;
     }
     .input:focus { border-color: var(--primary); }
-    select.input { cursor: pointer; }
+    select.input {
+      cursor: pointer;
+      appearance: none; -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 11px center;
+      padding-right: 30px;
+    }
+    input[type=date].input {
+      cursor: pointer;
+      padding: 8px 12px;
+    }
+    input[type=date].input::-webkit-calendar-picker-indicator {
+      opacity: 0.5; cursor: pointer; filter: invert(0);
+    }
     textarea.input { resize: vertical; }
+    .select-group { position: relative; }
+    .select-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+      border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer;
+      border: 2px solid transparent; transition: all .15s;
+    }
+    .date-row { display: flex; gap: 10px; align-items: center; }
+    .date-sep { font-size: 14px; color: var(--text-2); font-weight: 700; padding-top: 22px; }
+    .priority-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .priority-btn {
+      flex: 1; padding: 9px 12px; border-radius: 8px; border: 1.5px solid var(--border);
+      background: var(--surface-2); color: var(--text-2); font-size: 12px; font-weight: 600;
+      cursor: pointer; text-align: center; transition: all .15s; min-width: 80px;
+    }
+    .priority-btn.sel-low    { border-color: #16A34A; background: #F0FDF4; color: #16A34A; }
+    .priority-btn.sel-medium { border-color: #D97706; background: #FFFBEB; color: #D97706; }
+    .priority-btn.sel-high   { border-color: #DC2626; background: #FEF2F2; color: #DC2626; }
+    .route-btns { display: flex; gap: 8px; }
+    .route-btn {
+      flex: 1; padding: 9px 12px; border-radius: 8px; border: 1.5px solid var(--border);
+      background: var(--surface-2); color: var(--text-2); font-size: 12px; font-weight: 600;
+      cursor: pointer; text-align: center; transition: all .15s;
+    }
+    .route-btn.sel-hr      { border-color: #7C3AED; background: #FAF5FF; color: #7C3AED; }
+    .route-btn.sel-finance { border-color: #16A34A; background: #F0FDF4; color: #16A34A; }
 
     .wd-badge {
       display: inline-flex; align-items: center; gap: 5px;
@@ -143,6 +181,7 @@
     .alert { border-radius: 9px; padding: 13px 16px; font-size: 13px; line-height: 1.6; margin-bottom: 16px; }
     .alert-success { background: var(--success-bg); border: 1px solid var(--success-border); color: #15803D; }
     .alert-error   { background: var(--danger-bg);  border: 1px solid var(--danger-border);  color: #B91C1C; }
+    .alert-info    { background: var(--info-bg);    border: 1px solid var(--info-border);    color: #1D4ED8; }
 
     /* Auth screens */
     .auth-wrap {
@@ -257,6 +296,41 @@
     }
     .error-screen h2 { font-size: 20px; font-weight: 700; }
     .error-screen p  { font-size: 13px; color: var(--text-2); max-width: 360px; line-height: 1.65; }
+
+    /* Leave type cards */
+    .leave-type-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin-top: 6px; }
+    .leave-type-card {
+      border: 2px solid var(--border); border-radius: 10px; padding: 10px 12px;
+      cursor: pointer; transition: all .15s; background: var(--surface);
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .leave-type-card:hover { border-color: #D1D5DB; background: var(--surface-2); }
+    .leave-type-card.active { border-color: var(--primary); background: var(--primary-light); }
+    .lt-card-top { display: flex; align-items: center; gap: 7px; }
+    .lt-card-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .lt-card-name { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; }
+    .lt-card-badge {
+      font-size: 10px; font-weight: 700; color: var(--text-2);
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 1px 7px; align-self: flex-start; margin-top: 2px;
+    }
+    .leave-type-card.active .lt-card-badge { background: var(--primary-light); border-color: var(--primary-border); color: var(--primary); }
+
+    /* Date input wrap */
+    .date-input-wrap { position: relative; }
+    .date-input-wrap input[type=date] {
+      width: 100%; padding: 11px 12px 11px 36px;
+      font-size: 13px; border-radius: 10px;
+      border: 1.5px solid var(--border); background: var(--surface);
+      color: var(--text); outline: none; transition: border-color .15s;
+      font-family: inherit; cursor: pointer;
+    }
+    .date-input-wrap input[type=date]:focus { border-color: var(--primary); }
+    .date-input-wrap input[type=date]::-webkit-calendar-picker-indicator { opacity: .5; cursor: pointer; }
+    .date-input-icon {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      font-size: 15px; pointer-events: none; line-height: 1;
+    }
   </style>
 </head>
 <body>
@@ -342,7 +416,10 @@ function renderEmailLogin() {
             <input type="password" id="el-pw" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doEmailLogin()">
           </div>
           <button class="auth-btn" id="el-btn" onclick="doEmailLogin()">Sign In →</button>
-          <p style="font-size:11px;color:#aaa;margin-top:16px;line-height:1.6">First time? Open the <strong style="color:var(--primary)">invite link</strong> sent to your email to set your password before signing in here.</p>
+          <p style="font-size:11px;color:#aaa;margin-top:12px;text-align:center">
+            <span style="cursor:pointer;color:var(--primary);font-weight:600" onclick="renderForgotPassword()">Forgot password?</span>
+          </p>
+          <p style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.6">First time? Open the <strong style="color:var(--primary)">invite link</strong> sent to your email to set your password before signing in here.</p>
         </div>
       </div>
       ${authBrandPanel()}
@@ -367,7 +444,8 @@ async function doEmailLogin() {
     showAuthMsg('el-msg','success','Login successful! Redirecting…');
     setTimeout(() => { location.href = `/employee-portal/${data.token}`; }, 700);
   } catch(e) {
-    showAuthMsg('el-msg','error', e.message);
+    const msgType = e.message.includes('invite has not been sent') ? 'info' : 'error';
+    showAuthMsg('el-msg', msgType, e.message);
     btn.disabled = false; btn.textContent = 'Sign In →';
   }
 }
@@ -462,6 +540,9 @@ function renderLogin() {
             <input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doPortalLogin()">
           </div>
           <button class="auth-btn" id="login-btn" onclick="doPortalLogin()">Sign In →</button>
+          <p style="font-size:11px;color:#aaa;margin-top:12px;text-align:center">
+            <span style="cursor:pointer;color:var(--primary);font-weight:600" onclick="renderForgotPassword()">Forgot password?</span>
+          </p>
         </div>
       </div>
       ${authBrandPanel()}
@@ -486,8 +567,55 @@ async function doPortalLogin() {
     sessionStorage.setItem(SESSION_KEY,'1');
     renderPortal();
   } catch(e) {
-    showAuthMsg('login-msg','error',e.message);
+    const msgType = e.message.includes('invite has not been sent') ? 'info' : 'error';
+    showAuthMsg('login-msg', msgType, e.message);
     btn.disabled = false; btn.textContent = 'Sign In →';
+  }
+}
+
+function renderForgotPassword() {
+  document.getElementById('portal-body').innerHTML = `
+    <div class="auth-wrap">
+      <div class="auth-form-side">
+        <div class="auth-box">
+          <div class="auth-vid-wrap">
+            <video src="/media/aladdinb2b_logo.mp4" autoplay loop muted playsinline></video>
+          </div>
+          <div class="auth-badge"><div class="auth-dot"></div><span class="auth-badge-label">Password Reset</span></div>
+          <h2>Forgot Password?</h2>
+          <p>Enter your work email address and we'll send you a link to reset your password.</p>
+          <div id="fp-msg" class="msg"></div>
+          <div class="auth-group">
+            <label>Work Email</label>
+            <input type="email" id="fp-email" placeholder="your.name@company.com" autocomplete="email" onkeydown="if(event.key==='Enter')doForgotPassword()">
+          </div>
+          <button class="auth-btn" id="fp-btn" onclick="doForgotPassword()">Send Reset Link →</button>
+          <p style="font-size:11px;color:#aaa;margin-top:12px;text-align:center">
+            <span style="cursor:pointer;color:var(--primary);font-weight:600" onclick="${token ? 'renderLogin()' : 'renderEmailLogin()'}">← Back to Sign In</span>
+          </p>
+        </div>
+      </div>
+      ${authBrandPanel()}
+    </div>`;
+}
+
+async function doForgotPassword() {
+  const email = (document.getElementById('fp-email')?.value || '').trim();
+  const btn   = document.getElementById('fp-btn');
+  if (!email) { showAuthMsg('fp-msg','error','Please enter your email address.'); return; }
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const r = await fetch('/api/hr/portal/forgot-password', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ email })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Failed');
+    showAuthMsg('fp-msg','success','Check your email for a reset link.');
+    btn.disabled = true; btn.textContent = 'Email Sent';
+  } catch(e) {
+    showAuthMsg('fp-msg','error', e.message);
+    btn.disabled = false; btn.textContent = 'Send Reset Link →';
   }
 }
 
@@ -521,9 +649,10 @@ function renderPortal() {
       </div>
 
       <div class="tabs">
-        <button class="tab-btn active" id="tab-timeoff" onclick="switchTab('timeoff')">🏖 Time Off</button>
-        <button class="tab-btn"        id="tab-request" onclick="switchTab('request')">📋 Request</button>
-        <button class="tab-btn"        id="tab-policy"  onclick="switchTab('policy')">📄 Policy</button>
+        <button class="tab-btn active" id="tab-timeoff" onclick="switchTab('timeoff')">&#x1F3D6; Time Off</button>
+        <button class="tab-btn"        id="tab-request" onclick="switchTab('request')">&#x1F4CB; Request</button>
+        <button class="tab-btn"        id="tab-policy"  onclick="switchTab('policy')">&#x1F4C4; Policy</button>
+        <button class="tab-btn"        id="tab-announcements" onclick="switchTab('announcements')">&#x1F4E2; Announcements<span id="ann-unread-badge" style="display:none;margin-left:5px;background:var(--info);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700"></span></button>
       </div>
 
       <div id="panel-timeoff">
@@ -534,24 +663,42 @@ function renderPortal() {
           </div>
           <div id="timeoff-msg"></div>
           <div class="form-grid">
-            <div class="form-group">
+            <div class="form-group full">
               <label>Leave Type</label>
-              <select class="input" id="tof-type" onchange="calcWorkingDays()">
-                <option value="">Select type…</option>
-                ${ltypes.map(lt => `<option value="${lt.id}">${lt.name} (${bal[lt.id]??0} days remaining)</option>`).join('')}
-              </select>
+              <input type="hidden" id="tof-type">
+              <div class="leave-type-cards">
+                ${ltypes.map(lt => `<div class="leave-type-card" id="ltc-${lt.id}" onclick="setLeaveType('${lt.id}')">
+                  <div class="lt-card-top">
+                    <div class="lt-card-dot" style="background:${lt.color||'var(--primary)'}"></div>
+                    <div class="lt-card-name">${lt.name}</div>
+                  </div>
+                  <div class="lt-card-badge">${bal[lt.id]??0} days left</div>
+                </div>`).join('')}
+              </div>
             </div>
             <div class="form-group" style="align-self:end">
               <label>Working Days</label>
               <div class="wd-badge"><span>📅</span> <span id="wd-count">—</span></div>
             </div>
-            <div class="form-group">
-              <label>Start Date</label>
-              <input type="date" class="input" id="tof-start" onchange="calcWorkingDays()">
-            </div>
-            <div class="form-group">
-              <label>End Date</label>
-              <input type="date" class="input" id="tof-end" onchange="calcWorkingDays()">
+            <div class="form-group full">
+              <label>Leave Period</label>
+              <div class="date-row">
+                <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+                  <span style="font-size:10px;color:var(--text-2)">From</span>
+                  <div class="date-input-wrap">
+                    <span class="date-input-icon">📅</span>
+                    <input type="date" id="tof-start" onchange="calcWorkingDays()">
+                  </div>
+                </div>
+                <div class="date-sep">→</div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+                  <span style="font-size:10px;color:var(--text-2)">To</span>
+                  <div class="date-input-wrap">
+                    <span class="date-input-icon">📅</span>
+                    <input type="date" id="tof-end" onchange="calcWorkingDays()">
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="form-group full">
               <label>Reason <span style="font-weight:400;text-transform:none;font-size:10px">(optional)</span></label>
@@ -569,21 +716,23 @@ function renderPortal() {
             Submit a Request
           </div>
           <div id="req-msg"></div>
+          <input type="hidden" id="req-route" value="hr">
+          <input type="hidden" id="req-priority" value="medium">
           <div class="form-grid">
-            <div class="form-group">
+            <div class="form-group full">
               <label>Route To</label>
-              <select class="input" id="req-route">
-                <option value="hr">HR Team</option>
-                <option value="finance">Finance Team</option>
-              </select>
+              <div class="route-btns">
+                <button type="button" class="route-btn sel-hr" id="route-hr" onclick="setRoute('hr')">👥 HR Team</button>
+                <button type="button" class="route-btn" id="route-finance" onclick="setRoute('finance')">💰 Finance Team</button>
+              </div>
             </div>
-            <div class="form-group">
+            <div class="form-group full">
               <label>Priority</label>
-              <select class="input" id="req-priority">
-                <option value="low">Low</option>
-                <option value="medium" selected>Medium</option>
-                <option value="high">High</option>
-              </select>
+              <div class="priority-btns">
+                <button type="button" class="priority-btn" id="prio-low" onclick="setPriority('low')">🟢 Low</button>
+                <button type="button" class="priority-btn sel-medium" id="prio-medium" onclick="setPriority('medium')">🟡 Medium</button>
+                <button type="button" class="priority-btn" id="prio-high" onclick="setPriority('high')">🔴 High</button>
+              </div>
             </div>
             <div class="form-group full">
               <label>Subject *</label>
@@ -600,6 +749,11 @@ function renderPortal() {
 
       <div id="panel-policy" style="display:none">
         <div id="policy-cards"></div>
+        <div id="policy-sign-area"></div>
+      </div>
+
+      <div id="panel-announcements" style="display:none">
+        <div id="announcements-list"></div>
       </div>
     </div>`;
   // Render policy as modern cards
@@ -671,13 +825,105 @@ function renderPortal() {
       <div style="font-size:11px;color:#9CA3AF">Questions about company policy? Contact <strong>HR</strong> via the Request tab.</div>
     </div>`;
   })();
+  renderPolicySign();
+  updateAnnBadge();
+  // If URL hash is #announcements, switch to that tab automatically
+  if (location.hash === '#announcements') switchTab('announcements');
+}
+
+function renderPolicySign() {
+  const el = document.getElementById('policy-sign-area');
+  if (!el) return;
+  if (portalData && portalData.policySigned) {
+    const d = new Date(portalData.policySigned.signedAt).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+    el.innerHTML = `<div style="margin-top:16px;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:12px"><span style="font-size:22px">✅</span><div><div style="font-size:13px;font-weight:700;color:#16A34A">Policy Acknowledged</div><div style="font-size:11px;color:#15803D;margin-top:2px">Signed on ${d}</div></div></div>`;
+  } else {
+    el.innerHTML = `<div style="margin-top:16px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:12px;padding:16px 20px"><div style="font-size:12px;color:#92400E;margin-bottom:12px">By clicking "I Acknowledge" you confirm you have read and agree to abide by the company policy above.</div><button id="sign-policy-btn" onclick="signPolicy()" style="background:linear-gradient(135deg,#FF681A,#FF8C4A);color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:13px;font-weight:700;cursor:pointer">✅ I Acknowledge &amp; Sign</button></div>`;
+  }
+}
+
+async function signPolicy() {
+  const btn = document.getElementById('sign-policy-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Signing…'; }
+  try {
+    const r = await fetch(`/api/hr/portal/${token}/sign-policy`, {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: '{}'
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Failed');
+    portalData.policySigned = { signedAt: new Date().toISOString() };
+    renderPolicySign();
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.textContent = '✅ I Acknowledge & Sign'; }
+  }
 }
 
 function switchTab(name) {
-  ['timeoff','request','policy'].forEach(t => {
-    document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
-    document.getElementById(`panel-${t}`).style.display = t === name ? '' : 'none';
+  ['timeoff','request','policy','announcements'].forEach(t => {
+    document.getElementById(`tab-${t}`)?.classList.toggle('active', t === name);
+    document.getElementById(`panel-${t}`)?.style && (document.getElementById(`panel-${t}`).style.display = t === name ? '' : 'none');
   });
+  if (name === 'announcements') renderAnnouncements();
+}
+
+function updateAnnBadge() {
+  const anns = (portalData.announcements || []);
+  const unread = anns.filter(a => !a.acknowledged).length;
+  const badge = document.getElementById('ann-unread-badge');
+  if (!badge) return;
+  if (unread > 0) { badge.textContent = unread; badge.style.display = 'inline'; }
+  else { badge.style.display = 'none'; }
+}
+
+function renderAnnouncements() {
+  const el = document.getElementById('announcements-list');
+  if (!el) return;
+  const anns = (portalData.announcements || []).slice().reverse();
+  const fmtDt = dt => { try { return new Date(dt).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}); } catch(e2){return dt;} };
+
+  if (!anns.length) {
+    el.innerHTML = `<div class="card" style="text-align:center;padding:40px 24px">
+      <div style="font-size:40px;margin-bottom:12px">&#x1F4E2;</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text)">No announcements yet</div>
+      <div style="font-size:12px;color:var(--text-2);margin-top:6px">HR announcements will appear here.</div>
+    </div>`;
+    return;
+  }
+
+  el.innerHTML = anns.map(ann => {
+    const bodyHtml = ann.body ? ann.body.split('\n').map(l => l.trim()
+      ? `<p style="margin:0 0 8px;line-height:1.7">${esc(l)}</p>`
+      : '<p style="margin:0 0 4px">&nbsp;</p>').join('')
+      : '';
+    return `
+    <div style="background:${ann.acknowledged?'var(--surface)':'#EFF6FF'};border:1px solid ${ann.acknowledged?'var(--border)':'var(--info-border)'};border-radius:14px;padding:20px 22px;margin-bottom:14px">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:${bodyHtml?'12px':'0'}">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:3px">${esc(ann.title)}</div>
+          <div style="font-size:11px;color:var(--text-2)">${fmtDt(ann.publishedAt)}</div>
+        </div>
+        <div style="flex-shrink:0">
+          ${ann.acknowledged
+            ? `<span style="display:inline-flex;align-items:center;gap:5px;background:var(--success-bg);border:1px solid var(--success-border);color:var(--success);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:700">&#x2713; Read</span>`
+            : `<button onclick="acknowledgeAnnouncement(${ann.id})" style="background:linear-gradient(135deg,var(--info),#3B82F6);color:#fff;border:none;border-radius:8px;padding:8px 18px;font-size:12px;font-weight:700;cursor:pointer;transition:opacity .15s" onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">&#x2713; Acknowledge</button>`
+          }
+        </div>
+      </div>
+      ${bodyHtml ? `<div style="font-size:13px;color:#374151;line-height:1.7">${bodyHtml}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function acknowledgeAnnouncement(annId) {
+  // Call the acknowledge route (it will redirect the browser, but via fetch it won't navigate)
+  try {
+    await fetch(`/api/hr/portal/${token}/acknowledge/${annId}`, { redirect: 'manual' });
+  } catch(e2) { /* ignore redirect/network noise */ }
+  // Update local state immediately
+  const ann = (portalData.announcements||[]).find(a => a.id === annId);
+  if (ann) { ann.acknowledged = true; }
+  updateAnnBadge();
+  renderAnnouncements();
 }
 
 function countWorkingDays(startStr, endStr) {
@@ -724,7 +970,7 @@ async function submitTimeOff() {
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'Failed to submit');
     showMsg(msgEl,'success',`Leave request submitted (${days} working day${days!==1?'s':''}). HR will be in touch soon.`);
-    document.getElementById('tof-type').value = '';
+    setLeaveType('');
     document.getElementById('tof-start').value = '';
     document.getElementById('tof-end').value   = '';
     document.getElementById('tof-reason').value = '';
@@ -734,6 +980,32 @@ async function submitTimeOff() {
   } finally {
     btn.disabled = false; btn.textContent = 'Submit Leave Request';
   }
+}
+
+function setLeaveType(id) {
+  document.getElementById('tof-type').value = id;
+  // Update card active states
+  document.querySelectorAll('.leave-type-card').forEach(card => {
+    card.classList.toggle('active', card.id === `ltc-${id}`);
+  });
+  calcWorkingDays();
+}
+
+function setRoute(val) {
+  document.getElementById('req-route').value = val;
+  ['hr','finance'].forEach(v => {
+    const btn = document.getElementById(`route-${v}`);
+    if (!btn) return;
+    btn.className = 'route-btn' + (v === val ? ` sel-${v}` : '');
+  });
+}
+function setPriority(val) {
+  document.getElementById('req-priority').value = val;
+  ['low','medium','high'].forEach(v => {
+    const btn = document.getElementById(`prio-${v}`);
+    if (!btn) return;
+    btn.className = 'priority-btn' + (v === val ? ` sel-${v}` : '');
+  });
 }
 
 async function submitRequest() {
@@ -772,8 +1044,9 @@ function showMsg(el, type, text) {
 function showAuthMsg(id, type, text) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.className = `msg ${type} show`;
-  el.textContent = text;
+  // Render as an alert div for better visibility
+  const cls = type === 'success' ? 'alert-success' : type === 'info' ? 'alert-info' : 'alert-error';
+  el.innerHTML = `<div class="alert ${cls}" style="margin-bottom:14px">${esc(text)}</div>`;
 }
 
 function esc(str) {

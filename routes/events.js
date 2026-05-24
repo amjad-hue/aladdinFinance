@@ -45,6 +45,41 @@ function getCalendar() {
 
 const GCAL_ID = () => process.env.GOOGLE_CALENDAR_ID || 'primary';
 
+function isPermissionError(e) {
+  const msg = (e.message || '').toLowerCase();
+  const status = e.code || e.response?.status;
+  return status === 403 || msg.includes('writer') || msg.includes('forbidden') || msg.includes('permission');
+}
+
+async function gcalInsertWithFallback(gcal, eventBody, sendUpdates) {
+  const calId = GCAL_ID();
+  try {
+    const r = await gcal.events.insert({ calendarId: calId, requestBody: eventBody, sendUpdates });
+    return { id: r.data.id, calendarId: calId, usedFallback: false };
+  } catch (e) {
+    if (calId !== 'primary' && isPermissionError(e)) {
+      const r = await gcal.events.insert({ calendarId: 'primary', requestBody: eventBody, sendUpdates });
+      return { id: r.data.id, calendarId: 'primary', usedFallback: true };
+    }
+    throw e;
+  }
+}
+
+async function gcalUpdateWithFallback(gcal, gcalId, storedCalId, eventBody, sendUpdates) {
+  const calId = storedCalId || GCAL_ID();
+  try {
+    await gcal.events.update({ calendarId: calId, eventId: gcalId, requestBody: eventBody, sendUpdates });
+    return { calendarId: calId, usedFallback: false };
+  } catch (e) {
+    if (isPermissionError(e)) {
+      // Re-insert into primary if the stored calendar is inaccessible
+      const r = await gcal.events.insert({ calendarId: 'primary', requestBody: eventBody, sendUpdates });
+      return { id: r.data.id, calendarId: 'primary', usedFallback: true };
+    }
+    throw e;
+  }
+}
+
 // ── Zoom Server-to-Server OAuth ───────────────────────────────────────────────
 async function getZoomToken() {
   const axios = require('axios');
@@ -216,6 +251,71 @@ router.delete('/gcal/disconnect', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── ICS / iCalendar builder ───────────────────────────────────────────────────
+function buildICS(event, toEmail, fromEmail) {
+  const pad = n => String(n).padStart(2, '0');
+  const fmtLocalDt = (date, time) => {
+    const [y, mo, d] = date.split('-');
+    const [h, m] = (time || '00:00').split(':');
+    return `${y}${mo}${d}T${pad(+h)}${pad(+m)}00`;
+  };
+  const stamp = new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15) + 'Z';
+
+  let startLine, endLine;
+  if (event.time) {
+    startLine = `DTSTART;TZID=Asia/Dubai:${fmtLocalDt(event.date, event.time)}`;
+    const endTime = event.endTime || (() => {
+      const [h, m] = event.time.split(':').map(Number);
+      return `${pad(h + 1)}:${pad(m)}`;
+    })();
+    endLine = `DTEND;TZID=Asia/Dubai:${fmtLocalDt(event.date, endTime)}`;
+  } else {
+    startLine = `DTSTART;VALUE=DATE:${event.date.replace(/-/g, '')}`;
+    const tom = new Date(event.date + 'T00:00:00');
+    tom.setDate(tom.getDate() + 1);
+    endLine = `DTEND;VALUE=DATE:${tom.toISOString().split('T')[0].replace(/-/g, '')}`;
+  }
+
+  const esc = s => (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+  const organizer = fromEmail
+    ? `ORGANIZER;CN=CFO Genie:mailto:${fromEmail}`
+    : 'ORGANIZER:mailto:noreply@cfogenie.app';
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//CFO Genie//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:REQUEST',
+    'BEGIN:VEVENT',
+    `UID:${event.id}@cfogenie`,
+    `DTSTAMP:${stamp}`,
+    startLine,
+    endLine,
+    `SUMMARY:${esc(event.title)}`,
+    event.note   ? `DESCRIPTION:${esc(event.note)}`    : '',
+    event.zoomLink ? `LOCATION:${esc(event.zoomLink)}` : '',
+    organizer,
+    `ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE;CN=${toEmail}:mailto:${toEmail}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].filter(Boolean);
+
+  // RFC 5545: fold lines longer than 75 octets
+  return lines.map(line => {
+    if (Buffer.byteLength(line, 'utf8') <= 75) return line;
+    const chunks = [];
+    while (Buffer.byteLength(line, 'utf8') > 75) {
+      let cut = 75;
+      while (Buffer.byteLength(line.slice(0, cut), 'utf8') > 75) cut--;
+      chunks.push(line.slice(0, cut));
+      line = ' ' + line.slice(cut);
+    }
+    chunks.push(line);
+    return chunks.join('\r\n');
+  }).join('\r\n');
+}
+
 // ── Meeting invitation email (fallback when GCal not connected) ───────────────
 function buildInviteEmail(event, toEmail) {
   const fmtTime = t => {
@@ -255,13 +355,20 @@ async function sendFallbackInvites(event) {
   if (!mailer.isConfigured()) return { sent: 0 };
   const invitees = (event.invitees || []).filter(Boolean);
   if (!invitees.length) return { sent: 0 };
+  const fromEmail = mailer.fromAddress ? mailer.fromAddress() : null;
   let sent = 0;
   for (const email of invitees) {
     try {
+      const icsContent = buildICS(event, email, fromEmail);
       await mailer.sendMail({
         to: email,
         subject: `📅 Meeting Invitation: ${event.title} — ${event.date}`,
         html: buildInviteEmail(event, email),
+        attachments: [{
+          filename: 'invite.ics',
+          content: icsContent,
+          contentType: 'text/calendar; method=REQUEST',
+        }],
       });
       sent++;
     } catch (e) { console.warn(`[events] Invite to ${email} failed:`, e.message); }
@@ -287,15 +394,20 @@ router.post('/', async (req, res) => {
 
   let invitesSent = 0;
   let gcalHandledInvites = false;
+  let gcalWarning = null;
   const gcal = getCalendar();
   if (gcal) {
     try {
       const hasInvitees = (event.invitees || []).length > 0;
       const sendUpdates = hasInvitees ? 'all' : 'none';
-      const r = await gcal.events.insert({ calendarId: GCAL_ID(), requestBody: toGCalEvent(event), sendUpdates });
-      event.gcalId = r.data.id;
+      const ins = await gcalInsertWithFallback(gcal, toGCalEvent(event), sendUpdates);
+      event.gcalId = ins.id;
+      event.gcalCalendarId = ins.calendarId;
+      if (ins.usedFallback) gcalWarning = 'Saved to your primary Google Calendar (configured calendar ID has no write access).';
       if (hasInvitees) { invitesSent = event.invitees.length; gcalHandledInvites = true; }
-    } catch (e) { console.warn('GCal insert failed:', e.message); }
+    } catch (e) {
+      console.warn('GCal insert failed:', e.message);
+    }
   }
 
   // Send direct email invites when GCal isn't connected or didn't handle them
@@ -306,7 +418,7 @@ router.post('/', async (req, res) => {
 
   events.push(event);
   set(events);
-  res.json({ event, invitesSent });
+  res.json({ event, invitesSent, gcalWarning });
 });
 
 router.put('/:id', async (req, res) => {
@@ -318,19 +430,27 @@ router.put('/:id', async (req, res) => {
 
   let invitesSent = 0;
   let gcalHandledInvites = false;
+  let gcalWarning = null;
   const gcal = getCalendar();
   if (gcal) {
     try {
       const hasInvitees = (events[i].invitees || []).length > 0;
       const sendUpdates = hasInvitees ? 'all' : 'none';
       if (events[i].gcalId) {
-        await gcal.events.update({ calendarId: GCAL_ID(), eventId: events[i].gcalId, requestBody: toGCalEvent(events[i]), sendUpdates });
+        const upd = await gcalUpdateWithFallback(gcal, events[i].gcalId, events[i].gcalCalendarId, toGCalEvent(events[i]), sendUpdates);
+        if (upd.id) events[i].gcalId = upd.id;
+        events[i].gcalCalendarId = upd.calendarId;
+        if (upd.usedFallback) gcalWarning = 'Saved to your primary Google Calendar (configured calendar ID has no write access).';
       } else {
-        const r = await gcal.events.insert({ calendarId: GCAL_ID(), requestBody: toGCalEvent(events[i]), sendUpdates });
-        events[i].gcalId = r.data.id;
+        const ins = await gcalInsertWithFallback(gcal, toGCalEvent(events[i]), sendUpdates);
+        events[i].gcalId = ins.id;
+        events[i].gcalCalendarId = ins.calendarId;
+        if (ins.usedFallback) gcalWarning = 'Saved to your primary Google Calendar (configured calendar ID has no write access).';
       }
       if (hasInvitees) { invitesSent = events[i].invitees.length; gcalHandledInvites = true; }
-    } catch (e) { console.warn('GCal update failed:', e.message); }
+    } catch (e) {
+      console.warn('GCal update failed:', e.message);
+    }
   }
 
   // Fallback: email newly added invitees directly when GCal didn't handle it
@@ -344,7 +464,7 @@ router.put('/:id', async (req, res) => {
   }
 
   set(events);
-  res.json({ event: events[i], invitesSent });
+  res.json({ event: events[i], invitesSent, gcalWarning });
 });
 
 router.delete('/:id', async (req, res) => {
@@ -354,7 +474,7 @@ router.delete('/:id', async (req, res) => {
   const gcal = getCalendar();
   if (gcal && ev?.gcalId) {
     try {
-      await gcal.events.delete({ calendarId: GCAL_ID(), eventId: ev.gcalId });
+      await gcal.events.delete({ calendarId: ev.gcalCalendarId || GCAL_ID(), eventId: ev.gcalId });
     } catch (e) { console.warn('GCal delete failed:', e.message); }
   }
 

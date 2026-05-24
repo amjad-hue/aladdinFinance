@@ -106,23 +106,27 @@ router.post('/check-renewals', async (req, res) => {
 
   const now  = new Date();
   const sent = [];
+  const due  = []; // renewals within any reminder window (for response even if no mailer)
   for (const sub of subs.filter(s=>s.status==='active'&&s.renewalDate)) {
     const renewal   = new Date(sub.renewalDate+'T00:00:00');
     const daysUntil = Math.round((renewal-now)/86400000);
-    if (days.includes(daysUntil) && mailer.isConfigured()) {
-      try {
-        await mailer.sendMail({
-          to: rcpt.join(', '),
-          subject: `⏰ Renewal Reminder: ${sub.clientName} — ${daysUntil} day${daysUntil!==1?'s':''} left`,
-          html: reminderHtml(sub, daysUntil)
-        });
-        sent.push({ type:'reminder', client:sub.clientName, daysUntil });
-      } catch(e) {}
+    if (daysUntil >= 1 && days.some(d => daysUntil <= d)) {
+      due.push({ client: sub.clientName, daysUntil });
+      if (mailer.isConfigured()) {
+        try {
+          await mailer.sendMail({
+            to: rcpt.join(', '),
+            subject: `⏰ Renewal Reminder: ${sub.clientName} — ${daysUntil} day${daysUntil!==1?'s':''} left`,
+            html: reminderHtml(sub, daysUntil)
+          });
+          sent.push({ type:'reminder', client:sub.clientName, daysUntil });
+        } catch(e) {}
+      }
     }
   }
   cfg.renewalNextSend = new Date(Date.now()+86400000).toISOString().slice(0,10);
   saveCfg(cfg);
-  res.json({ ok:true, sent });
+  res.json({ ok:true, sent, due });
 });
 
 // ── Email previews ────────────────────────────────────────────────────────────

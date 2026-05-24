@@ -114,14 +114,25 @@ router.get('/messages/:id', async (req, res) => {
       return '';
     }
 
+    function extractAttachments(payload, list = []) {
+      if (!payload) return list;
+      const disp = (payload.headers || []).find(h => h.name === 'Content-Disposition')?.value || '';
+      if (payload.filename && payload.body?.attachmentId) {
+        list.push({ attachmentId: payload.body.attachmentId, filename: payload.filename, mimeType: payload.mimeType, size: payload.body.size || 0 });
+      }
+      if (payload.parts) payload.parts.forEach(p => extractAttachments(p, list));
+      return list;
+    }
+
     res.json({
-      id:      d.data.id,
-      subject: headers.Subject || '(no subject)',
-      from:    headers.From    || '',
-      to:      headers.To      || '',
-      date:    headers.Date    || '',
-      body:    extractBody(d.data.payload),
-      labels:  d.data.labelIds || []
+      id:          d.data.id,
+      subject:     headers.Subject || '(no subject)',
+      from:        headers.From    || '',
+      to:          headers.To      || '',
+      date:        headers.Date    || '',
+      body:        extractBody(d.data.payload),
+      labels:      d.data.labelIds || [],
+      attachments: extractAttachments(d.data.payload)
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -133,22 +144,24 @@ router.post('/send', async (req, res) => {
   const gmail = getGmailClient();
   if (!gmail) return res.status(400).json({ error: 'Gmail not connected' });
 
-  const { to, subject, body, html } = req.body;
+  const { to, cc, subject, body, html } = req.body;
   if (!to || !subject) return res.status(400).json({ error: 'to and subject are required' });
 
   const tokens  = load('gcal_tokens.json', null);
   const from    = tokens?._email || 'me';
   const content = html || `<pre style="font-family:inherit;white-space:pre-wrap">${body || ''}</pre>`;
 
-  const raw = [
+  const rawLines = [
     `From: ${from}`,
     `To: ${to}`,
+    ...(cc ? [`Cc: ${cc}`] : []),
     `Subject: =?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=`,
     'MIME-Version: 1.0',
     'Content-Type: text/html; charset=UTF-8',
     '',
     content
-  ].join('\r\n');
+  ];
+  const raw = rawLines.join('\r\n');
 
   const encoded = Buffer.from(raw).toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 
@@ -168,6 +181,45 @@ router.post('/messages/:id/read', async (req, res) => {
     await gmail.users.messages.modify({ userId: 'me', id: req.params.id, requestBody: { removeLabelIds: ['UNREAD'] } });
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Trash message ─────────────────────────────────────────────────────────────
+router.post('/messages/:id/trash', async (req, res) => {
+  const gmail = getGmailClient();
+  if (!gmail) return res.status(400).json({ error: 'Gmail not connected' });
+  try {
+    await gmail.users.messages.trash({ userId: 'me', id: req.params.id });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Download attachment ───────────────────────────────────────────────────────
+router.get('/messages/:id/attachment/:attachmentId', async (req, res) => {
+  const gmail = getGmailClient();
+  if (!gmail) return res.status(400).json({ error: 'Gmail not connected' });
+  try {
+    const att = await gmail.users.messages.attachments.get({
+      userId: 'me', messageId: req.params.id, id: req.params.attachmentId
+    });
+    const data = Buffer.from(att.data.data.replace(/-/g,'+').replace(/_/g,'/'), 'base64');
+    const filename = req.query.filename || 'attachment';
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', req.query.mime || 'application/octet-stream');
+    res.send(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── Email signature ───────────────────────────────────────────────────────────
+router.get('/signature', (req, res) => {
+  const settings = load('gmail_settings.json', {});
+  res.json({ signature: settings.signature || '' });
+});
+
+router.post('/signature', (req, res) => {
+  const settings = load('gmail_settings.json', {});
+  settings.signature = req.body.signature || '';
+  save('gmail_settings.json', settings);
+  res.json({ ok: true });
 });
 
 module.exports = router;

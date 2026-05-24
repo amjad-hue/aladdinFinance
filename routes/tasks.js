@@ -150,6 +150,22 @@ router.post('/:id/notify-complete', async (req, res) => {
   }
 });
 
+// ── Future Notes (shared notepad) ────────────────────────────────────────────
+function getNotes() { return load('task-notes.json', { content: '', updatedAt: null }); }
+function setNotes(d) { save('task-notes.json', d); }
+
+router.get('/notes', (req, res) => {
+  res.json(getNotes());
+});
+
+router.post('/notes', (req, res) => {
+  const { content } = req.body;
+  if (typeof content !== 'string') return res.status(400).json({ error: 'content required' });
+  const notes = { content, updatedAt: new Date().toISOString() };
+  setNotes(notes);
+  res.json(notes);
+});
+
 // Complete CEO task via token link (no auth required — called from email link)
 const completeByToken = (req, res) => {
   const tasks = get();

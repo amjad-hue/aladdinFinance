@@ -318,6 +318,9 @@ async function showApp() {
     if (saved && saved !== 'undefined') state.section = saved;
   }
   updateBreadcrumb(state.section);
+  document.querySelectorAll('.nav-item').forEach(b => {
+    b.classList.toggle('active', b.dataset.section === state.section);
+  });
   render();
   const mc = document.getElementById('main-content');
   if (mc) {
@@ -345,7 +348,7 @@ async function loadAll() {
   try {
     const fy = state.fiscalYear;
     const yq = fy !== 2026 ? `?year=${fy}` : '';
-    const [banks,reserves,cashflow,budget,prevBudget,revenue,revenueByType,clients,events,tasks,files,sync,pipeline,liabilities,ar,commissions,projects,appSettings,commSettings,requests,requestCfg,pfForecast,_linked,_userPrefs,hrEmployees,hrTimeOff,hrSettings,subscriptions,subSettings] = await Promise.all([
+    const [banks,reserves,cashflow,budget,prevBudget,revenue,revenueByType,clients,events,tasks,files,sync,pipeline,liabilities,ar,commissions,projects,appSettings,commSettings,requests,requestCfg,pfForecast,_linked,_userPrefs,hrEmployees,hrTimeOff,hrSettings,hrAnnouncements,subscriptions,subSettings] = await Promise.all([
       apiCall('/cash'), apiCall('/reserves'), apiCall(`/cashflow${yq}`), apiCall(`/budget${yq}`),
       apiCall(`/budget?year=${fy-1}`).catch(()=>[]),
       apiCall(`/revenue${yq}`), apiCall(`/revenue/by-type${yq}`), apiCall('/clients'), apiCall('/events'), apiCall('/tasks'),
@@ -359,10 +362,11 @@ async function loadAll() {
       apiCall('/hr').catch(()=>[]),
       apiCall('/hr/time-off').catch(()=>[]),
       apiCall('/hr/settings').catch(()=>({departments:[],positions:[],leaveTypes:[]})),
+      apiCall('/hr/announcements').catch(()=>[]),
       apiCall('/subscriptions').catch(()=>[]),
       apiCall('/subscriptions/settings').catch(()=>({reminderDays:[7,30,60],recipients:[]}))
     ]);
-    Object.assign(state, {banks,reserves,cashflow,budget,prevBudget,revenue,revenueByType,clients,events,tasks,files,sync,pipeline,liabilities,ar,commissions,projects,appSettings,commSettings,requests,requestCfg,pfForecast,_linked,_userPrefs,hrEmployees,hrTimeOff,hrSettings,subscriptions,subSettings});
+    Object.assign(state, {banks,reserves,cashflow,budget,prevBudget,revenue,revenueByType,clients,events,tasks,files,sync,pipeline,liabilities,ar,commissions,projects,appSettings,commSettings,requests,requestCfg,pfForecast,_linked,_userPrefs,hrEmployees,hrTimeOff,hrSettings,hrAnnouncements,subscriptions,subSettings});
     // Sync server-side dashboard prefs to localStorage for seamless offline access
     if (_userPrefs?.dashHidden) localStorage.setItem('dashHidden', JSON.stringify(_userPrefs.dashHidden));
     if (_userPrefs?.dashOrder) localStorage.setItem('dashOrder', JSON.stringify(_userPrefs.dashOrder));
@@ -892,7 +896,7 @@ function showSection(name) {
   const role = state.user?.role;
   if (role === 'sales'   && !PIPELINE_ROLE_SECTIONS.includes(name)) return;
   if (role === 'finance' && !FINANCE_ROLE_SECTIONS.includes(name))  return;
-  if (name !== 'pipeline') state.pipelineView = 'pipeline';
+  if (name !== 'pipeline') { state.pipelineView = 'pipeline'; state._pipeSubTab = 'pipe-charts'; }
   if (name === 'cashflow') state.cfTab = 'cf-charts';
   if (name === 'budget') state.budgetTab = 'bud-charts';
   state.section = name;
@@ -985,6 +989,8 @@ function switchView(btn, panelId) {
   container?.querySelectorAll('.view-panel').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById(panelId)?.classList.add('active');
+  // Persist commission view tab across re-renders
+  if (['comm-list','comm-reps','comm-settings'].includes(panelId)) state._commView = panelId;
 }
 
 function mkChart(id, type, data, extraOpts={}) {
@@ -999,12 +1005,13 @@ function mkChart(id, type, data, extraOpts={}) {
   state.charts[id] = new Chart(ctx, { type, data, options: mergeDeep(defaults, extraOpts) });
 }
 
-function mkDoughnut(id, labels, data, colors) {
+function mkDoughnut(id, labels, data, colors, opts) {
   const ctx=document.getElementById(id); if(!ctx) return;
   if (state.charts[id]) state.charts[id].destroy();
+  const fmtLabel = opts?.countOnly ? c=>c.label+': '+c.raw : c=>c.label+': '+fmt(c.raw);
   state.charts[id] = new Chart(ctx, {
     type:'doughnut', data:{ labels, datasets:[{ data, backgroundColor:colors, borderWidth:2, borderColor:'#FFFFFF', hoverOffset:6 }] },
-    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend:{ position:'right', labels:{ font:{size:10}, color:'#5E6C84', boxWidth:10, padding:8 } }, tooltip:{ callbacks:{ label:c=>c.label+': '+fmt(c.raw) } } } }
+    options:{ responsive:true, maintainAspectRatio:false, cutout:'62%', plugins:{ legend:{ position:'right', labels:{ font:{size:10}, color:'#5E6C84', boxWidth:10, padding:8 } }, tooltip:{ callbacks:{ label:fmtLabel } } } }
   });
 }
 
@@ -1225,13 +1232,13 @@ function renderDashboard(c) {
         ${DRAG_HANDLE}
         <div class="grid-2">
           ${showBanks ? `<div class="card">
-            <div class="card-header"><div class="card-title">Cash by Bank</div><span style="font-size:10px;color:var(--text-2)">Available vs reserved</span></div>
+            <div class="card-header"><div class="card-title">Cash by Bank</div><button class="btn btn-sm" onclick="showSection('cash')">View All →</button></div>
             <div class="chart-wrap chart-wrap-lg"><canvas id="ch-banks"></canvas></div>
             <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">${state.banks.map(b=>`<div style="font-size:11px;flex:1;min-width:80px;background:var(--surface-2);border-radius:7px;padding:7px 10px;border:1px solid var(--border)"><div style="color:var(--text-2);font-size:10px">${b.name}</div><div style="font-weight:700;margin-top:2px;font-family:'Montserrat',sans-serif">${fmt(b.total)}</div></div>`).join('')}</div>
           </div>` : '<div></div>'}
           ${(showRev || showLiab) ? `<div style="display:flex;flex-direction:column;gap:12px">
-            ${showRev ? `<div class="card"><div class="card-header"><div class="card-title">Revenue vs Target</div></div><div class="chart-wrap"><canvas id="ch-rev"></canvas></div></div>` : ''}
-            ${showLiab ? `<div class="card"><div class="card-header"><div class="card-title">Liabilities by Category</div><button class="btn btn-sm" onclick="showSection('liabilities')">View all →</button></div><div class="chart-wrap-sm"><canvas id="ch-liab-donut"></canvas></div></div>` : ''}
+            ${showRev ? `<div class="card"><div class="card-header"><div class="card-title">Revenue vs Target</div><button class="btn btn-sm" onclick="showSection('revenue')">View All →</button></div><div class="chart-wrap"><canvas id="ch-rev"></canvas></div></div>` : ''}
+            ${showLiab ? `<div class="card"><div class="card-header"><div class="card-title">Liabilities by Category</div><button class="btn btn-sm" onclick="showSection('liabilities')">View All →</button></div><div class="chart-wrap-sm"><canvas id="ch-liab-donut"></canvas></div></div>` : ''}
           </div>` : '<div></div>'}
         </div>
       </div>`;
@@ -1243,9 +1250,9 @@ function renderDashboard(c) {
       return `<div class="dash-section" data-dash-id="charts">
         ${DRAG_HANDLE}
         <div style="display:grid;grid-template-columns:repeat(${vis},1fr);gap:12px">
-          ${showCf ? `<div class="card"><div class="card-header"><div class="card-title">Cash Flow Forecast</div></div><div class="chart-wrap"><canvas id="ch-cf"></canvas></div></div>` : ''}
+          ${showCf ? `<div class="card"><div class="card-header"><div class="card-title">Cash Flow Forecast</div><button class="btn btn-sm" onclick="showSection('cashflow')" style="font-size:11px">View All →</button></div><div class="chart-wrap"><canvas id="ch-cf"></canvas></div></div>` : ''}
           ${showPf ? `<div class="card"><div class="card-header"><div class="card-title">Pipeline CF Forecast</div><button class="btn btn-sm" onclick="switchPipelineView('forecast')" style="font-size:10px">View →</button></div><div class="chart-wrap"><canvas id="ch-pf-cf"></canvas></div></div>` : ''}
-          ${showBud ? `<div class="card"><div class="card-header"><div class="card-title">Expense Distribution</div></div><div class="chart-wrap"><canvas id="ch-bud-pie"></canvas></div></div>` : ''}
+          ${showBud ? `<div class="card"><div class="card-header"><div class="card-title">Expense Distribution</div><button class="btn btn-sm" onclick="showSection('budget')">View All →</button></div><div class="chart-wrap"><canvas id="ch-bud-pie"></canvas></div></div>` : ''}
         </div>
       </div>`;
     })(),
@@ -2736,6 +2743,21 @@ function renderRevenue(c) {
         <div class="metric"><div class="metric-label">vs Target YTD</div><div class="metric-value" style="color:${ytdRev>=ytdTgt?'var(--success)':'var(--danger-text)'}">${ytdRev>=ytdTgt?'+':''}${fmt(ytdRev-ytdTgt)}</div></div>
       </div>
       <div class="card"><div class="card-header"><div class="card-title">Revenue vs Target — FY ${state.fiscalYear}</div><div style="display:flex;gap:6px;align-items:center">${yearNavHTML()}<button class="btn btn-sm" onclick="syncSource('/revenue/sync','QuickBooks + HubSpot')">↻ Sync</button></div></div><div class="chart-wrap chart-wrap-lg"><canvas id="chart-rev-detail"></canvas></div></div>
+
+      <!-- Revenue Trend card with period selector + closed-deals overlay -->
+      <div class="card" style="margin-top:0">
+        <div class="card-header">
+          <div class="card-title">Revenue Trend</div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <div class="view-tabs" style="width:fit-content">
+              <button class="view-tab${(state._revTrendPeriod||6)===6?' active':''}" onclick="state._revTrendPeriod=6;renderRevenueTrendChart()">6 Mo</button>
+              <button class="view-tab${(state._revTrendPeriod||6)===12?' active':''}" onclick="state._revTrendPeriod=12;renderRevenueTrendChart()">12 Mo</button>
+              <button class="view-tab${(state._revTrendPeriod||6)===24?' active':''}" onclick="state._revTrendPeriod=24;renderRevenueTrendChart()">24 Mo</button>
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap chart-wrap-lg"><canvas id="chart-rev-trend"></canvas></div>
+      </div>
     </div>
 
     <!-- By Channel -->
@@ -3052,8 +3074,67 @@ function renderRevenue(c) {
     const cLabels=Object.keys(byCountry), cData=Object.values(byCountry);
     mkChart('chart-rev-country-bar','bar',{labels:cLabels,datasets:[{data:cData,backgroundColor:CCOLS.slice(0,cLabels.length),borderRadius:6}]});
     mkChart('chart-rev-country-donut','doughnut',{labels:cLabels,datasets:[{data:cData,backgroundColor:CCOLS.slice(0,cLabels.length),borderWidth:2,borderColor:'#fff'}]},{plugins:{legend:{display:true,position:'right',labels:{boxWidth:12,font:{size:11}}}}});
+    // Revenue Trend chart
+    renderRevenueTrendChart();
   },50);
 }
+
+function renderRevenueTrendChart() {
+  if (!document.getElementById('chart-rev-trend')) return;
+  // Rebuild period selector active states without full re-render
+  document.querySelectorAll('#rev-charts .view-tab').forEach(b => {
+    const period = b.textContent.trim()==='6 Mo'?6:b.textContent.trim()==='12 Mo'?12:24;
+    b.classList.toggle('active', period===(state._revTrendPeriod||6));
+  });
+  const nMo = state._revTrendPeriod || 6;
+  const now = new Date();
+  // Build month labels for last nMo months
+  const months = Array.from({length:nMo},(_,i)=>{
+    const d = new Date(now.getFullYear(), now.getMonth()-(nMo-1)+i, 1);
+    return { y:d.getFullYear(), m:d.getMonth(), label:d.toLocaleString('en',{month:'short',year:nMo>12?'2-digit':undefined}) };
+  });
+  // Revenue actuals matched by month label (state.revenue has { month: 'Jan 2026', revenue, target })
+  const revData = months.map(mo => {
+    const row = (state.revenue||[]).find(r=>{
+      const parts=(r.month||'').split(' ');
+      const rLabel=parts[0]; const rYear=Number(parts[1]||state.fiscalYear);
+      return rLabel===mo.label.split(' ')[0] && rYear===mo.y;
+    });
+    return row?.revenue || 0;
+  });
+  const tgtData = months.map(mo => {
+    const row = (state.revenue||[]).find(r=>{
+      const parts=(r.month||'').split(' ');
+      const rLabel=parts[0]; const rYear=Number(parts[1]||state.fiscalYear);
+      return rLabel===mo.label.split(' ')[0] && rYear===mo.y;
+    });
+    return row?.target || 0;
+  });
+  // Closed-won deals per month from pipeline
+  const closedData = months.map(mo => {
+    return (state.pipeline||[]).filter(d=>{
+      if (d.stage!=='Closed Won'||!d.closeDate) return false;
+      const cd = new Date(d.closeDate);
+      return cd.getFullYear()===mo.y && cd.getMonth()===mo.m;
+    }).reduce((a,d)=>a+d.value,0);
+  });
+  const hasClosedData = closedData.some(v=>v>0);
+  const datasets = [
+    { label:'Revenue', data:revData, borderColor:'#FF6600', backgroundColor:'rgba(255,102,0,.1)', fill:true, borderWidth:2.5, pointRadius:3, tension:.35, yAxisID:'y' },
+    { label:'Target',  data:tgtData, borderColor:'rgba(0,0,0,0.18)', backgroundColor:'transparent', borderDash:[4,3], borderWidth:1.5, pointRadius:0, tension:.35, yAxisID:'y' }
+  ];
+  if (hasClosedData) datasets.push({ label:'Closed Deals', data:closedData, borderColor:'#16A34A', backgroundColor:'rgba(22,163,74,.07)', fill:false, borderWidth:2, pointRadius:3, tension:.3, borderDash:[3,2], yAxisID:'y2' });
+  mkChart('chart-rev-trend','line',{
+    labels: months.map(m=>m.label),
+    datasets
+  },{
+    scales:{
+      y:{ position:'left', ticks:{color:'#5E6C84',font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'} },
+      ...(hasClosedData?{y2:{ position:'right', ticks:{color:'#16A34A',font:{size:10}}, grid:{display:false} }}:{})
+    }
+  });
+}
+
 function updateRevenue(i,f,v){const n=parseInt(String(v).replace(/[^0-9]/g,''));if(!isNaN(n))state.revenue[i][f]=n;}
 function showRevSave(){document.getElementById('rev-savebar')?.classList.add('visible');}
 async function saveRevenue(){try{await apiCall(`/revenue${_yq()}`,{method:'PUT',body:JSON.stringify({revenue:state.revenue})});toast('Revenue saved');render();}catch(e){toast(e.message);}}
@@ -3073,9 +3154,81 @@ const STAGE_COLORS={'Prospecting':'#97A0AF','Qualification':'#2563EB','Proposal'
 
 function switchPipelineView(v) { state.pipelineView = v; render(); }
 
+function _pipeListHTML() {
+  const f  = state._pipeFilter || {};
+  const hs = state.appSettings?.hubspotConnected;
+  let pl   = [...state.pipeline];
+  if (f.q)     pl = pl.filter(d=>(d.name+' '+d.client).toLowerCase().includes(f.q.toLowerCase()));
+  if (f.stage) pl = pl.filter(d=>d.stage===f.stage);
+  if (f.owner) pl = pl.filter(d=>d.owner===f.owner);
+  if (f.sortBy==='value')           pl.sort((a,b)=>b.value-a.value);
+  else if (f.sortBy==='closeDate')  pl.sort((a,b)=>(a.closeDate||'').localeCompare(b.closeDate||''));
+  else if (f.sortBy==='probability') pl.sort((a,b)=>b.probability-a.probability);
+  const {slice:plSlice, ctrl:plCtrl} = _paginate(pl, 'pipeline');
+  const rows = plSlice.map(d => {
+    const col = STAGE_COLORS[d.stage]||'#475569';
+    const wtd = Math.round(d.value*d.probability/100);
+    const hasInvoice = state.ar.some(x => x.pipelineDealId === d.id);
+    return `<div class="deal-row">
+      <div style="width:3px;border-radius:2px;background:${col};align-self:stretch;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:600">${d.name}</div>
+        <div style="font-size:10px;color:var(--text-2);margin-top:2px">${d.client} · ${d.owner} · Close: ${fmtDate(d.closeDate)}</div>
+      </div>
+      <span class="stage-badge" style="background:${col}22;color:${col}">${d.stage}</span>
+      ${d.stage==='Closed Won'?`<span title="${hasInvoice?'AR invoice exists':'No AR invoice yet'}" style="font-size:10px;padding:1px 7px;border-radius:7px;font-weight:700;background:${hasInvoice?'var(--success-bg)':'rgba(220,38,38,.08)'};color:${hasInvoice?'var(--success)':'var(--danger)'}">📄 ${hasInvoice?'Invoiced':'No Invoice'}</span>`:''}
+      <span class="tag ${d.type==='Enterprise'?'tag-primary':d.type==='Government'?'tag-info':'tag-purple'}">${d.type}</span>
+      <div style="text-align:right;min-width:90px"><div style="font-size:13px;font-weight:700">${fmt(d.value)}</div><div style="font-size:10px;color:var(--text-2)">${d.probability}% → ${fmt(wtd)}</div></div>
+      <button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editDeal(${d.id})">Edit</button>
+      <button class="del-btn" onclick="deleteDeal(${d.id})">×</button>
+    </div>`;
+  }).join('') + plCtrl;
+
+  const hasFilter = f.q || f.stage || f.owner || f.sortBy;
+  return `<div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Sales Pipeline — All Deals</div>
+        <div class="card-desc">${hs?'HubSpot connected · manual override enabled':'Manual entry — connect HubSpot in Settings to sync'}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        ${hs?`<button class="btn btn-sm" onclick="syncSource('/pipeline/sync','HubSpot')">↻ HubSpot</button>`:''}
+        <button class="btn btn-primary btn-sm" onclick="openAddDeal()">+ Add Deal</button>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <input class="filter-search" placeholder="Search name, client…" value="${(f.q||'').replace(/"/g,'&quot;')}"
+        oninput="state._pipeFilter.q=this.value;_db('pipe-q',()=>{state._pages.pipeline=0;_pipeRenderList();},320)">
+      <div class="filter-sep"></div>
+      <select class="filter-select" onchange="state._pipeFilter.stage=this.value;state._pages.pipeline=0;_pipeRenderList()">
+        <option value="">All Stages</option>
+        ${[...new Set(state.pipeline.map(d=>d.stage).filter(Boolean))].map(s=>`<option value="${s}"${f.stage===s?' selected':''}>${s}</option>`).join('')}
+      </select>
+      <select class="filter-select" onchange="state._pipeFilter.owner=this.value;state._pages.pipeline=0;_pipeRenderList()">
+        <option value="">All Owners</option>
+        ${[...new Set(state.pipeline.map(d=>d.owner).filter(Boolean))].map(o=>`<option value="${o}"${f.owner===o?' selected':''}>${o}</option>`).join('')}
+      </select>
+      <select class="filter-select" onchange="state._pipeFilter.sortBy=this.value;_pipeRenderList()">
+        <option value="">Sort: Default</option>
+        <option value="value"${f.sortBy==='value'?' selected':''}>↓ Value</option>
+        <option value="closeDate"${f.sortBy==='closeDate'?' selected':''}>↑ Close Date</option>
+        <option value="probability"${f.sortBy==='probability'?' selected':''}>↓ Probability</option>
+      </select>
+      ${hasFilter?`<button class="btn btn-sm" style="font-size:11px;padding:3px 8px" onclick="state._pipeFilter={stage:'',owner:'',q:'',sortBy:'',sortDir:'asc'};state._pages.pipeline=0;_pipeRenderList()">✕ Clear</button>`:''}
+    </div>
+    ${rows}
+  </div>`;
+}
+
+function _pipeRenderList() {
+  const el = document.getElementById('pipe-list-inner');
+  if (el) el.innerHTML = _pipeListHTML();
+}
+
 function renderPipeline(c) {
   if (!state.pipelineView) state.pipelineView = 'pipeline';
   if (state.pipelineView === 'forecast') { renderPipelineForecast(c); return; }
+  if (!state._pipeSubTab) state._pipeSubTab = 'pipe-charts';
 
   const byType={}, byStage={};
   let totalVal=0, weightedVal=0;
@@ -3101,11 +3254,11 @@ function renderPipeline(c) {
       <button class="btn btn-sm" style="font-size:11px;color:var(--primary);border-color:var(--primary-bg)" onclick="openAI('pipeline')">✦ Ask Ayla</button>
     </div>
     <div class="view-tabs" style="width:fit-content">
-      <button class="view-tab active" onclick="switchView(this,'pipe-charts')">Overview</button>
-      <button class="view-tab" onclick="switchView(this,'pipe-kpi')">Sales KPIs</button>
-      <button class="view-tab" onclick="switchView(this,'pipe-list')">All Deals</button>
+      <button class="view-tab${state._pipeSubTab==='pipe-charts'?' active':''}" onclick="state._pipeSubTab='pipe-charts';switchView(this,'pipe-charts')">Overview</button>
+      <button class="view-tab${state._pipeSubTab==='pipe-kpi'?' active':''}" onclick="state._pipeSubTab='pipe-kpi';switchView(this,'pipe-kpi')">Sales KPIs</button>
+      <button class="view-tab${state._pipeSubTab==='pipe-list'?' active':''}" onclick="state._pipeSubTab='pipe-list';switchView(this,'pipe-list')">All Deals</button>
     </div>
-    <div class="view-panel active" id="pipe-charts">
+    <div class="view-panel${state._pipeSubTab==='pipe-charts'?' active':''}" id="pipe-charts">
       <div class="grid-4" style="margin-bottom:12px">
         <div class="metric"><div class="metric-label">Total Pipeline</div><div class="metric-value">${fmt(totalVal)}</div><div class="metric-sub">${state.pipeline.length} total deals</div></div>
         <div class="metric"><div class="metric-label">Weighted Forecast</div><div class="metric-value" style="color:var(--primary)">${fmt(weightedVal)}</div><div class="metric-sub">probability-adjusted</div></div>
@@ -3117,7 +3270,7 @@ function renderPipeline(c) {
         <div class="card"><div class="card-header"><div class="card-title">Deals by Stage</div></div><div class="chart-wrap chart-wrap-lg"><canvas id="pipe-stage-chart"></canvas></div></div>
       </div>
     </div>
-    <div class="view-panel" id="pipe-kpi">
+    <div class="view-panel${state._pipeSubTab==='pipe-kpi'?' active':''}" id="pipe-kpi">
       ${(()=>{
         const STAGES = ['Prospecting','Qualification','Proposal','Negotiation','Closed Won','Closed Lost'];
         const won  = state.pipeline.filter(d => d.stage === 'Closed Won');
@@ -3264,56 +3417,8 @@ function renderPipeline(c) {
       })()}
     </div>
 
-    <div class="view-panel" id="pipe-list">
-      <div class="card">
-        <div class="card-header"><div><div class="card-title">Sales Pipeline — All Deals</div><div class="card-desc">${state.appSettings?.hubspotConnected?'HubSpot connected · manual override enabled':'Manual entry — connect HubSpot in Settings to sync'}</div></div><div style="display:flex;gap:6px">${state.appSettings?.hubspotConnected?`<button class="btn btn-sm" onclick="syncSource('/pipeline/sync','HubSpot')">↻ HubSpot</button>`:''}<button class="btn btn-primary btn-sm" onclick="openAddDeal()">+ Add Deal</button></div></div>
-        <!-- Pipeline Filters -->
-        <div class="filter-bar">
-          <input class="filter-search" placeholder="Search name, client…" value="${state._pipeFilter.q}" oninput="state._pipeFilter.q=this.value;_db('pipe-q',()=>{state._pages.pipeline=0;renderPipeline(document.getElementById('main-content'));},320)">
-          <div class="filter-sep"></div>
-          <select class="filter-select" onchange="state._pipeFilter.stage=this.value;state._pages.pipeline=0;renderPipeline(document.getElementById('main-content'))">
-            <option value="">All Stages</option>
-            ${[...new Set(state.pipeline.map(d=>d.stage).filter(Boolean))].map(s=>`<option value="${s}"${state._pipeFilter.stage===s?' selected':''}>${s}</option>`).join('')}
-          </select>
-          <select class="filter-select" onchange="state._pipeFilter.owner=this.value;state._pages.pipeline=0;renderPipeline(document.getElementById('main-content'))">
-            <option value="">All Owners</option>
-            ${[...new Set(state.pipeline.map(d=>d.owner).filter(Boolean))].map(o=>`<option value="${o}"${state._pipeFilter.owner===o?' selected':''}>${o}</option>`).join('')}
-          </select>
-          <select class="filter-select" onchange="state._pipeFilter.sortBy=this.value;renderPipeline(document.getElementById('main-content'))">
-            <option value="">Sort: Default</option>
-            <option value="value"${state._pipeFilter.sortBy==='value'?' selected':''}>↓ Value</option>
-            <option value="closeDate"${state._pipeFilter.sortBy==='closeDate'?' selected':''}>↑ Close Date</option>
-            <option value="probability"${state._pipeFilter.sortBy==='probability'?' selected':''}>↓ Probability</option>
-          </select>
-          ${(state._pipeFilter.q||state._pipeFilter.stage||state._pipeFilter.owner||state._pipeFilter.sortBy)?`<button class="btn btn-sm" style="font-size:11px;padding:3px 8px" onclick="state._pipeFilter={stage:'',owner:'',q:'',sortBy:'',sortDir:'asc'};renderPipeline(document.getElementById('main-content'))">✕ Clear</button>`:''}
-        </div>
-        ${(()=>{
-          let pl = [...state.pipeline];
-          const f = state._pipeFilter;
-          if (f.q)     pl = pl.filter(d=>(d.name+' '+d.client).toLowerCase().includes(f.q.toLowerCase()));
-          if (f.stage) pl = pl.filter(d=>d.stage===f.stage);
-          if (f.owner) pl = pl.filter(d=>d.owner===f.owner);
-          if (f.sortBy==='value')       pl.sort((a,b)=>b.value-a.value);
-          else if (f.sortBy==='closeDate') pl.sort((a,b)=>(a.closeDate||'').localeCompare(b.closeDate||''));
-          else if (f.sortBy==='probability') pl.sort((a,b)=>b.probability-a.probability);
-          const {slice:plSlice, ctrl:plCtrl} = _paginate(pl, 'pipeline'); return plSlice.map(d=>{
-          const col=STAGE_COLORS[d.stage]||'#475569';
-          const wtd=Math.round(d.value*d.probability/100);
-          const hasInvoice = state.ar.some(x => x.pipelineDealId === d.id);
-          return `<div class="deal-row">
-            <div style="width:3px;border-radius:2px;background:${col};align-self:stretch;flex-shrink:0"></div>
-            <div style="flex:1;min-width:0">
-              <div style="font-size:12px;font-weight:600">${d.name}</div>
-              <div style="font-size:10px;color:var(--text-2);margin-top:2px">${d.client} · ${d.owner} · Close: ${fmtDate(d.closeDate)}</div>
-            </div>
-            <span class="stage-badge" style="background:${col}22;color:${col}">${d.stage}</span>
-            ${d.stage==='Closed Won'?`<span title="${hasInvoice?'AR invoice exists':'No AR invoice yet'}" style="font-size:10px;padding:1px 7px;border-radius:7px;font-weight:700;background:${hasInvoice?'var(--success-bg)':'rgba(220,38,38,.08)'};color:${hasInvoice?'var(--success)':'var(--danger)'}">📄 ${hasInvoice?'Invoiced':'No Invoice'}</span>`:''}
-            <span class="tag ${d.type==='Enterprise'?'tag-primary':d.type==='Government'?'tag-info':'tag-purple'}">${d.type}</span>
-            <div style="text-align:right;min-width:90px"><div style="font-size:13px;font-weight:700">${fmt(d.value)}</div><div style="font-size:10px;color:var(--text-2)">${d.probability}% → ${fmt(wtd)}</div></div>
-            <button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="editDeal(${d.id})">Edit</button>
-            <button class="del-btn" onclick="deleteDeal(${d.id})">×</button>
-          </div>`;}).join('') + plCtrl; })()}
-      </div>
+    <div class="view-panel${state._pipeSubTab==='pipe-list'?' active':''}" id="pipe-list">
+      <div id="pipe-list-inner">${_pipeListHTML()}</div>
     </div>
 
   </div>`;
@@ -3328,16 +3433,45 @@ function renderPipeline(c) {
   },50);
 }
 
+const STAGE_PROB_MAP = { Prospecting:10, Qualification:20, Proposal:40, Negotiation:60, 'On Hold':30, 'Closed Won':100, 'Closed Lost':0 };
+
+function updateDealProbFromStage() {
+  const stage = document.getElementById('deal-stage')?.value;
+  const prob = STAGE_PROB_MAP[stage];
+  const probEl = document.getElementById('deal-prob');
+  if (probEl && prob !== undefined) probEl.value = prob;
+}
+
+function toggleDealTypeFields() {
+  const type = document.getElementById('deal-type')?.value;
+  const subFields = document.getElementById('deal-sub-fields');
+  if (subFields) subFields.style.display = type === 'Enterprise' ? 'block' : 'none';
+}
+
+function _populateDealClientDL() {
+  const dl = document.getElementById('dl-deal-clients');
+  if (!dl) return;
+  dl.innerHTML = (state.clients||[]).filter(c=>!c.archived).map(c=>`<option value="${(c.name||'').replace(/"/g,'&quot;')}">`).join('');
+}
+
 function openAddDeal() {
   document.getElementById('deal-modal-title').textContent='Add Deal';
   ['deal-name','deal-client','deal-owner-email','deal-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   _populateOwnerDL('');
-  document.getElementById('deal-value').value=''; document.getElementById('deal-prob').value='75';
+  _populateDealClientDL();
+  const ownerSel = document.getElementById('deal-owner');
+  if (ownerSel) ownerSel.onchange = () => { const emailEl = document.getElementById('deal-owner-email'); if (emailEl && window._ownerEmailMap?.[ownerSel.value]) emailEl.value = window._ownerEmailMap[ownerSel.value]; };
+  document.getElementById('deal-value').value='';
   document.getElementById('deal-close').value=''; document.getElementById('deal-followup').value='';
-  document.getElementById('deal-type').value='Enterprise'; document.getElementById('deal-stage').value='Prospecting';
+  document.getElementById('deal-type').value='Enterprise';
+  document.getElementById('deal-stage').value='Prospecting';
+  const planEl = document.getElementById('deal-plan'); if (planEl) planEl.value='';
+  const bcEl = document.getElementById('deal-billing-cycle'); if (bcEl) bcEl.value='';
+  updateDealProbFromStage(); toggleDealTypeFields();
   delete document.getElementById('modal-deal').dataset.editId;
   openModal('modal-deal');
 }
+
 function editDeal(id) {
   const d=state.pipeline.find(x=>x.id===id); if(!d) return;
   document.getElementById('deal-modal-title').textContent='Edit Deal';
@@ -3346,53 +3480,83 @@ function editDeal(id) {
   document.getElementById('deal-value').value=d.value;
   document.getElementById('deal-prob').value=d.probability;
   setSelectValue(document.getElementById('deal-stage'), d.stage);
+  const planEl = document.getElementById('deal-plan'); if (planEl) planEl.value=d.plan||'';
+  const bcEl = document.getElementById('deal-billing-cycle'); if (bcEl) bcEl.value=d.billingCycle||'';
   document.getElementById('deal-close').value=d.closeDate;
   _populateOwnerDL(d.owner||'');
+  _populateDealClientDL();
   document.getElementById('deal-owner-email').value=d.ownerEmail||''; document.getElementById('deal-followup').value=d.followUpDate||'';
   document.getElementById('deal-notes').value=d.notes||'';
+  toggleDealTypeFields();
   document.getElementById('modal-deal').dataset.editId=id;
   openModal('modal-deal');
 }
+
+function _showClosedWonBanners(r) {
+  const items = [];
+  if (r.autoProject)      items.push({ icon:'🗂', color:'#3B5BDB', label:'Project Auto-Created',      desc:`${r.autoProject.name}`, action:`showSection('projects')`, key:'proj-banner' });
+  if (r.autoSubscription) items.push({ icon:'♻', color:'#7C3AED', label:'Subscription Pending Approval', desc:`${r.autoSubscription.plan||'Plan'} · ${r.autoSubscription.billing}`, action:`showSection('subscriptions')`, key:'sub-banner' });
+  if (r.autoCommission)   items.push({ icon:'💰', color:'#16A34A', label:'Commission Pending',          desc:`${fmt(r.autoCommission.amount)} (${r.autoCommission.rate}%)`, action:`showSection('commissions')`, key:'comm-banner' });
+  if (r.arDraft)          items.push({ icon:'📄', color:'#D97706', label:'Draft Invoice Created',        desc:`${r.arDraft.invoice} · ${fmt(r.arDraft.amount)}`, action:`showSection('ar')`, key:'ar-banner' });
+  items.forEach((item, idx) => {
+    const b = document.createElement('div');
+    b.className = item.key;
+    b.style.cssText = `position:fixed;bottom:${60+idx*60}px;left:50%;transform:translateX(-50%);z-index:9999;background:#fff;border:1px solid ${item.color}33;border-radius:10px;padding:10px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,.12);max-width:400px;min-width:300px`;
+    b.innerHTML = `<span style="font-size:18px">${item.icon}</span><div style="flex:1"><div style="font-size:11px;font-weight:700;color:${item.color}">${item.label}</div><div style="font-size:10px;color:#6B7280;margin-top:1px">${item.desc}</div></div><button style="font-size:10px;padding:4px 9px;border-radius:6px;background:${item.color};color:#fff;border:none;cursor:pointer;font-weight:600;white-space:nowrap" onclick="${item.action};this.closest('.${item.key}')?.remove()">View →</button><button style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:14px;padding:2px 6px" onclick="this.closest('.${item.key}').remove()">✕</button>`;
+    document.body.appendChild(b);
+    setTimeout(() => b.remove(), 10000);
+  });
+}
+
 async function saveDeal() {
-  const data={name:document.getElementById('deal-name').value.trim(),client:document.getElementById('deal-client').value.trim(),type:document.getElementById('deal-type').value,value:Number(document.getElementById('deal-value').value)||0,probability:Number(document.getElementById('deal-prob').value)||0,stage:document.getElementById('deal-stage').value,closeDate:document.getElementById('deal-close').value,followUpDate:document.getElementById('deal-followup').value||null,owner:document.getElementById('deal-owner').value.trim(),ownerEmail:document.getElementById('deal-owner-email').value.trim(),notes:document.getElementById('deal-notes').value,lastUpdated:new Date().toISOString().split('T')[0]};
+  const stage = document.getElementById('deal-stage').value;
+  const type  = document.getElementById('deal-type').value;
+  const dealType = type === 'Enterprise' ? 'subscription' : type === 'Government' ? 'government' : 'event_project';
+  const data = {
+    name: document.getElementById('deal-name').value.trim(),
+    client: document.getElementById('deal-client').value.trim(),
+    type,
+    dealType,
+    plan: document.getElementById('deal-plan')?.value || '',
+    billingCycle: document.getElementById('deal-billing-cycle')?.value || '',
+    value: Number(document.getElementById('deal-value').value)||0,
+    probability: STAGE_PROB_MAP[stage] ?? 50,
+    stage,
+    closeDate: document.getElementById('deal-close').value,
+    followUpDate: document.getElementById('deal-followup').value||null,
+    owner: document.getElementById('deal-owner').value.trim(),
+    ownerEmail: document.getElementById('deal-owner-email').value.trim(),
+    notes: document.getElementById('deal-notes').value,
+    lastUpdated: new Date().toISOString().split('T')[0],
+  };
   if (!data.name) { toast('Deal name required'); return; }
-  // Enforce probability for terminal stages
-  if (data.stage==='Closed Won')  data.probability=100;
-  if (data.stage==='Closed Lost') data.probability=0;
-  // Warn on duplicate deal name (new deals only)
-  const eid=document.getElementById('modal-deal').dataset.editId;
+  if (!data.client) { toast('Client is required'); return; }
+  const clientExists = state.clients.some(c=>!c.archived&&c.name.toLowerCase()===data.client.toLowerCase());
+  if (!clientExists) { toast(`"${data.client}" is not in your Clients list — add the client first`); return; }
+  const eid = document.getElementById('modal-deal').dataset.editId;
   if (!eid) {
-    const dupe=state.pipeline.find(d=>d.name.toLowerCase()===data.name.toLowerCase());
+    const dupe = state.pipeline.find(d=>d.name.toLowerCase()===data.name.toLowerCase());
     if (dupe) { if (!confirm(`A deal named "${dupe.name}" already exists (${dupe.stage}). Save anyway?`)) return; }
-    // Warn if client doesn't exist in client master
-    if (data.client) {
-      const clientExists = state.clients.some(c=>!c.archived&&c.name.toLowerCase()===data.client.toLowerCase());
-      if (!clientExists) toast(`ℹ "${data.client}" is not in your Clients list. Consider adding them as a client.`);
-    }
   }
   try {
     if (eid) {
       const r = await apiCall(`/pipeline/${eid}`, {method:'PUT', body:JSON.stringify(data)});
       const i = state.pipeline.findIndex(x => x.id === Number(eid));
       if (i > -1) state.pipeline[i] = r.deal;
-      if (r.arDraft) {
-        state.ar.push(r.arDraft);
-        closeModal('modal-deal'); render();
-        toast(`✓ Deal saved — draft invoice ${r.arDraft.invoice} created`);
-        // Banner with jump-to-AR link
-        const banner = document.createElement('div');
-        banner.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:9999;background:var(--success-bg);border:1px solid rgba(22,163,74,.3);border-radius:10px;padding:12px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,.12);max-width:420px';
-        banner.innerHTML = `<div style="font-size:18px">📄</div><div style="flex:1"><div style="font-size:12px;font-weight:700;color:var(--success)">Draft Invoice Auto-Created</div><div style="font-size:11px;color:var(--text-2);margin-top:2px">${r.arDraft.invoice} · ${r.arDraft.client} · ${new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(r.arDraft.amount)}</div></div><button style="font-size:11px;padding:5px 10px;border-radius:6px;background:var(--success);color:#fff;border:none;cursor:pointer;font-weight:600" onclick="showSection('ar');document.querySelector('.invoice-banner')?.remove()">View AR →</button><button style="background:none;border:none;cursor:pointer;color:var(--text-3);font-size:14px;padding:2px 4px" onclick="this.closest('.invoice-banner').remove()">✕</button>`;
-        banner.className = 'invoice-banner';
-        document.body.appendChild(banner);
-        setTimeout(() => banner.remove(), 8000);
-        return;
-      }
+      // Sync auto-created records into state
+      if (r.autoProject)      state.projects = [...(state.projects||[]).filter(p=>p.id!==r.autoProject.id), r.autoProject];
+      if (r.autoSubscription) state.subscriptions = [...(state.subscriptions||[]).filter(s=>s.id!==r.autoSubscription.id), r.autoSubscription];
+      if (r.autoCommission)   state.commissions = [...(state.commissions||[]).filter(c=>c.id!==r.autoCommission.id), r.autoCommission];
+      if (r.arDraft)          state.ar.push(r.arDraft);
+      closeModal('modal-deal'); render();
+      const hasAutoItems = r.autoProject || r.autoSubscription || r.autoCommission || r.arDraft;
+      toast(hasAutoItems ? '✓ Deal closed — records auto-created' : 'Deal saved');
+      if (hasAutoItems) _showClosedWonBanners(r);
     } else {
       const r = await apiCall('/pipeline', {method:'POST', body:JSON.stringify(data)});
       state.pipeline.push(r.deal);
+      closeModal('modal-deal'); render(); toast('Deal added');
     }
-    closeModal('modal-deal'); render(); toast('Deal saved');
   } catch(e) { toast(e.message); }
 }
 async function deleteDeal(id) {
@@ -3409,8 +3573,8 @@ function renderClients(c) {
   <div class="clients-grid">
     <div class="card" style="max-height:680px;overflow-y:auto">
       <div class="card-header" style="flex-direction:column;align-items:stretch;gap:8px">
-        <div style="display:flex;justify-content:space-between;align-items:center"><div class="card-title">Clients</div><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:var(--info-bg);color:var(--info)">QuickBooks</span></div>
-        <div style="display:flex;gap:6px"><button class="btn btn-sm" style="flex:1" onclick="syncSource('/clients/sync','QuickBooks')">↻ Sync</button><button class="btn btn-primary btn-sm" onclick="openAddClient()">+ Add</button></div>
+        <div style="display:flex;justify-content:space-between;align-items:center"><div class="card-title">Clients</div><span style="font-size:10px;padding:2px 8px;border-radius:4px;background:var(--info-bg);color:var(--info)">AppFolio</span></div>
+        <div style="display:flex;gap:6px"><button class="btn btn-sm" style="flex:1" onclick="syncSource('/clients/sync','AppFolio')">↻ Sync</button><button class="btn btn-primary btn-sm" onclick="openAddClient()">+ Add</button></div>
         <button class="btn btn-sm" id="archive-toggle-btn" style="font-size:10px;color:var(--text-2)" onclick="toggleArchivedClients()">${state.showArchivedClients?'Hide Archived':'Show Archived'} (${state.clients.filter(x=>x.archived).length})</button>
       </div>
       <input type="text" class="search-input" id="client-search" placeholder="Search clients..." oninput="_db('cli-s',()=>filterClients(document.getElementById('client-search')?.value||''),280)">
@@ -3453,95 +3617,407 @@ function filterClients(v){renderClientsList(v);}
 function toggleArchivedClients() { state.showArchivedClients=!state.showArchivedClients; state.selectedClientId=null; render(); }
 
 function showClient(id) {
-  state.selectedClientId=id;
-  const c=state.clients.find(x=>x.id===id); if(!c) return;
-  renderClientsList(document.getElementById('client-search')?.value||'');
-  // Derive revenue from paid AR invoices linked to this client
-  const cInv=state.ar.filter(x=>x.client.toLowerCase()===c.name.toLowerCase()&&x.status==='paid');
-  const arTotal=cInv.reduce((a,x)=>a+x.amount,0);
-  const arSaas=cInv.filter(x=>x.revenueType==='Enterprise'||x.revenueType==='SaaS').reduce((a,x)=>a+x.amount,0);
-  const arServ=cInv.filter(x=>x.revenueType!=='Enterprise'&&x.revenueType!=='SaaS').reduce((a,x)=>a+x.amount,0);
-  const dispTotal=arTotal||c.revenue; const dispSaas=arTotal?arSaas:c.saas; const dispServ=arTotal?arServ:(c.services||0);
-  const saasP=dispTotal?Math.round((dispSaas/dispTotal)*100):0;
-  // Build last-6-month trend from invoice createdAt dates
-  const now=new Date();
-  const trendMonths=Array.from({length:6},(_,i)=>{const d=new Date(now.getFullYear(),now.getMonth()-5+i,1);return{label:d.toLocaleString('en',{month:'short'}),y:d.getFullYear(),m:d.getMonth()};});
-  const trendData=trendMonths.map(mo=>cInv.filter(x=>{const d=new Date(x.createdAt||x.dueDate);return d.getFullYear()===mo.y&&d.getMonth()===mo.m;}).reduce((a,x)=>a+x.amount,0));
-  const renewDays=Math.ceil((new Date(c.renewal+'T00:00:00')-TODAY)/864e5);
-  const init=c.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-  document.getElementById('client-detail-wrap').innerHTML=`
+  state.selectedClientId = id;
+  const c = state.clients.find(x => x.id === id);
+  if (!c) return;
+  renderClientsList(document.getElementById('client-search')?.value || '');
+
+  // ── Revenue from paid AR invoices ──
+  const cInv   = state.ar.filter(x => x.client.toLowerCase() === c.name.toLowerCase() && x.status === 'paid');
+  const arTotal = cInv.reduce((a, x) => a + x.amount, 0);
+  // Channel breakdown from revenueType
+  const byChannel = {};
+  cInv.forEach(x => {
+    const ch = x.revenueType || 'Other';
+    byChannel[ch] = (byChannel[ch] || 0) + x.amount;
+  });
+  const chanOrder = ['Enterprise','SaaS','Government','Tradeshow','Events','Services','Other'];
+  const chanColors = { Enterprise:'#FF6600', SaaS:'#FF6600', Government:'#7C3AED', Tradeshow:'#D97706', Events:'#2563EB', Services:'#16A34A', Other:'#94A3B8' };
+  const chanKeys   = [...new Set([...chanOrder.filter(k => byChannel[k]), ...Object.keys(byChannel)])];
+  const dispTotal  = arTotal || c.revenue;
+  const dispSaas   = arTotal ? (byChannel['Enterprise'] || 0) + (byChannel['SaaS'] || 0) : c.saas;
+  const dispServ   = arTotal ? (arTotal - dispSaas) : (c.services || 0);
+  const saasP      = dispTotal ? Math.round(dispSaas / dispTotal * 100) : 0;
+
+  // ── Revenue trend (last 6 months) ──
+  const now = new Date();
+  const trendMonths = Array.from({length:6}, (_,i) => { const d=new Date(now.getFullYear(),now.getMonth()-5+i,1); return {label:d.toLocaleString('en',{month:'short'}),y:d.getFullYear(),m:d.getMonth()}; });
+  const trendData   = trendMonths.map(mo => cInv.filter(x => { const d=new Date(x.createdAt||x.dueDate); return d.getFullYear()===mo.y&&d.getMonth()===mo.m; }).reduce((a,x)=>a+x.amount,0));
+
+  // ── Renewal ──
+  const renewDays = Math.ceil((new Date(c.renewal+'T00:00:00') - TODAY) / 864e5);
+  const init = c.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+
+  // ── Pipeline deals ──
+  const cDeals     = state.pipeline.filter(d => d.client?.toLowerCase() === c.name.toLowerCase());
+  const activeDeals = cDeals.filter(d => d.stage !== 'Closed Lost' && d.stage !== 'Closed Won');
+  const closedDeals = cDeals.filter(d => d.stage === 'Closed Won');
+  const stageCol = {'Closed Won':'var(--success)','Closed Lost':'var(--danger)','Negotiation':'var(--primary)','Proposal':'var(--warning)','Qualification':'#7C3AED','Prospecting':'var(--text-2)','On Hold':'var(--text-3)'};
+
+  // ── Subscriptions ──
+  const cSubs = (state.subscriptions||[]).filter(s => s.clientName?.toLowerCase() === c.name.toLowerCase());
+  const activeSubs = cSubs.filter(s => s.status === 'active' || s.status === 'trial');
+  const totalSubMrr = activeSubs.reduce((a, s) => {
+    const base = s.amount || 0;
+    if (s.billing === 'yearly') return a + Math.round(base / 12);
+    if (s.billing === 'quarterly') return a + Math.round(base / 3);
+    return a + base;
+  }, 0);
+
+  // ── Commissions ── (only approved+paid count in summaries; pending shown separately)
+  const cComms        = (state.commissions||[]).filter(x => x.client?.toLowerCase() === c.name.toLowerCase());
+  const cCommsActive  = cComms.filter(x => x.status === 'approved' || x.status === 'paid' || x.status === 'partial');
+  const cCommsPending = cComms.filter(x => x.status === 'pending');
+  const totalComm     = cCommsActive.reduce((a, x) => a + x.amount, 0);
+  const paidComm      = cCommsActive.filter(x => x.status === 'paid').reduce((a, x) => a + x.amount, 0);
+
+  // ── Time to close for this client's closed-won deals ──
+  function daysToClose(deal) {
+    if (!deal.createdAt || !deal.closeDate) return null;
+    return Math.max(0, Math.round((new Date(deal.closeDate+'T00:00:00') - new Date(deal.createdAt)) / 864e5));
+  }
+  const closedWithTime = closedDeals.filter(d => daysToClose(d) !== null);
+  const avgDaysToClose = closedWithTime.length ? Math.round(closedWithTime.reduce((a,d) => a + daysToClose(d), 0) / closedWithTime.length) : null;
+
+  // ── Future notes ──
+  const notes = c.futureNotes || [];
+
+  document.getElementById('client-detail-wrap').innerHTML = `
   <div style="display:flex;flex-direction:column;gap:10px">
+
+    <!-- Header -->
     <div class="card">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
         <div style="width:44px;height:44px;border-radius:50%;background:var(--primary-bg);border:1.5px solid var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--primary);font-size:14px;flex-shrink:0">${init}</div>
-        <div style="flex:1"><div style="font-size:15px;font-weight:700">${c.name}</div><div style="font-size:11px;color:var(--text-2);margin-top:2px">${c.type} · ${c.country}${c.fromQBO?' <span style="font-size:9px;padding:1px 6px;border-radius:3px;background:var(--info-bg);color:var(--info);margin-left:4px">QuickBooks</span>':''}</div></div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:700">${c.name}</div>
+          <div style="font-size:11px;color:var(--text-2);margin-top:2px">${c.type} · ${c.country}${c.fromAppFolio?' <span style="font-size:9px;padding:1px 6px;border-radius:3px;background:var(--info-bg);color:var(--info);margin-left:4px">AppFolio</span>':''}</div>
+        </div>
         <button class="btn btn-sm" onclick="editClient(${c.id})">Edit</button>
         <button class="btn btn-sm" style="background:var(--warning-bg);color:var(--warning-text);border:1px solid rgba(217,119,6,.2)" onclick="archiveClient(${c.id})" title="${c.archived?'Unarchive':'Archive'}">${c.archived?'↩ Restore':'Archive'}</button>
         <button class="del-btn" onclick="deleteClient(${c.id})">×</button>
       </div>
-      <div class="grid-2" style="gap:8px">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
         <div class="metric"><div class="metric-label">Total Revenue</div><div class="metric-value">${fmt(dispTotal)}</div></div>
         <div class="metric"><div class="metric-label">SaaS Ratio</div><div class="metric-value">${saasP}%</div></div>
-        <div class="metric"><div class="metric-label">SaaS Revenue</div><div class="metric-value">${fmt(dispSaas)}</div></div>
-        <div class="metric"><div class="metric-label">Services</div><div class="metric-value">${fmt(dispServ)}</div></div>
+        <div class="metric"><div class="metric-label">Monthly MRR</div><div class="metric-value">${fmt(totalSubMrr||Math.round(dispTotal/12))}</div></div>
+        <div class="metric"><div class="metric-label">Total Commission</div><div class="metric-value">${fmt(totalComm)}</div></div>
       </div>
     </div>
-    <div class="card"><div class="card-title" style="margin-bottom:10px">Revenue Trend — Last 6 Months</div><div class="chart-wrap chart-wrap-sm"><canvas id="chart-client-trend"></canvas></div></div>
-    <div class="card">
-      <div class="grid-2" style="gap:12px">
-        <div><div class="card-title" style="margin-bottom:8px">SaaS vs Services</div><div style="height:140px;position:relative"><canvas id="chart-client-split"></canvas></div></div>
-        <div>
-          <div class="card-title" style="margin-bottom:8px">Contract Details</div>
-          <div class="detail-row"><span class="detail-label">Renewal</span><span class="detail-value" style="color:${renewDays<90?'var(--danger-text)':'var(--text)'}">${fmtDate(c.renewal)} <span class="tag ${renewDays<60?'tag-danger':renewDays<90?'tag-warning':'tag-neutral'}" style="font-size:9px">${renewDays}d</span></span></div>
-          <div class="detail-row"><span class="detail-label">Annual Value</span><span class="detail-value">${fmt(dispTotal)}</span></div>
-          <div class="detail-row"><span class="detail-label">Country</span><span class="detail-value">${c.country}</span></div>
-          <div class="detail-row"><span class="detail-label">Segment</span><span class="detail-value">${c.type}</span></div>
-          ${c.contact?`<div class="detail-row"><span class="detail-label">Contact</span><span class="detail-value">${c.contact}</span></div>`:''}
-          ${c.email?`<div class="detail-row"><span class="detail-label">Email</span><span class="detail-value"><a href="mailto:${c.email}" style="color:var(--primary);text-decoration:none">${c.email}</a></span></div>`:''}
-          ${c.phone?`<div class="detail-row"><span class="detail-label">Phone</span><span class="detail-value">${c.phone}</span></div>`:''}
-          ${c.address?`<div class="detail-row"><span class="detail-label">Address</span><span class="detail-value">${c.address}</span></div>`:''}
-          ${c.chargeAmount?`<div class="detail-row"><span class="detail-label">Monthly Charge</span><span class="detail-value">${fmt(c.chargeAmount)}${c.billingCycle?' <span style="font-size:10px;text-transform:capitalize;color:var(--text-2)">/ '+c.billingCycle+'</span>':''}</span></div>`:''}
-          ${c.paymentTerms?`<div class="detail-row"><span class="detail-label">Payment Terms</span><span class="detail-value" style="text-transform:uppercase">${c.paymentTerms}</span></div>`:''}
-          ${c.qbId?`<div class="detail-row"><span class="detail-label">QBO ID</span><span class="detail-value" style="font-family:monospace;font-size:10px;color:var(--text-2)">${c.qbId}</span></div>`:''}
+
+    <!-- Revenue by Channel -->
+    ${chanKeys.length > 1 ? `<div class="card">
+      <div class="card-title" style="margin-bottom:10px">Revenue by Channel</div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        ${chanKeys.map(ch => {
+          const amt = byChannel[ch] || 0;
+          const pct = dispTotal ? Math.round(amt / dispTotal * 100) : 0;
+          const col = chanColors[ch] || '#94A3B8';
+          return `<div style="display:flex;align-items:center;gap:10px">
+            <div style="width:80px;font-size:11px;color:var(--text-2);flex-shrink:0">${ch}</div>
+            <div style="flex:1;height:8px;background:var(--surface-2);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${pct}%;background:${col};border-radius:4px;transition:width .3s"></div>
+            </div>
+            <div style="width:50px;text-align:right;font-size:11px;font-weight:600">${pct}%</div>
+            <div style="width:80px;text-align:right;font-size:11px;color:var(--text-2)">${fmt(amt)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
+
+    <!-- Charts row -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="card"><div class="card-title" style="margin-bottom:8px">Revenue Trend — Last 6 Months</div><div class="chart-wrap chart-wrap-sm"><canvas id="chart-client-trend"></canvas></div></div>
+      <div class="card">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start">
+          <div><div class="card-title" style="margin-bottom:8px">SaaS vs Services</div><div style="height:130px;position:relative"><canvas id="chart-client-split"></canvas></div></div>
+          <div>
+            <div class="card-title" style="margin-bottom:8px">Contract</div>
+            <div class="detail-row"><span class="detail-label">Renewal</span><span class="detail-value" style="color:${renewDays<90?'var(--danger-text)':'var(--text)'}">${fmtDate(c.renewal)} <span class="tag ${renewDays<60?'tag-danger':renewDays<90?'tag-warning':'tag-neutral'}" style="font-size:9px">${renewDays}d</span></span></div>
+            <div class="detail-row"><span class="detail-label">Sector</span><span class="detail-value">${c.type}</span></div>
+            ${c.contact?`<div class="detail-row"><span class="detail-label">Contact</span><span class="detail-value">${c.contact}</span></div>`:''}
+            ${c.email?`<div class="detail-row"><span class="detail-label">Email</span><span class="detail-value"><a href="mailto:${c.email}" style="color:var(--primary);text-decoration:none">${c.email}</a></span></div>`:''}
+            ${c.phone?`<div class="detail-row"><span class="detail-label">Phone</span><span class="detail-value">${c.phone}</span></div>`:''}
+            ${c.chargeAmount?`<div class="detail-row"><span class="detail-label">Charge</span><span class="detail-value">${fmt(c.chargeAmount)}${c.billingCycle?' / '+c.billingCycle:''}</span></div>`:''}
+          </div>
         </div>
       </div>
     </div>
-    <div class="card"><div class="card-title" style="margin-bottom:7px">CFO Notes</div><div style="font-size:12px;color:var(--text-2);line-height:1.6">${c.notes||'No notes added.'}</div></div>
-    ${(()=>{
-      const cDeals = state.pipeline.filter(d => d.client?.toLowerCase() === c.name.toLowerCase() && d.stage !== 'Closed Lost');
-      if (!cDeals.length) return '';
-      const stageCol = {'Closed Won':'var(--success)','Negotiation':'var(--primary)','Proposal':'var(--warning)','Qualification':'#7C3AED','Prospecting':'var(--text-2)','On Hold':'var(--text-3)'};
-      return `<div class="card">
-        <div class="card-header"><div class="card-title">Pipeline Deals</div><div class="card-desc">${cDeals.length} active deal${cDeals.length>1?'s':''}</div></div>
-        <table class="table">
-          <thead><tr><th>Deal</th><th>Channel</th><th style="text-align:right">Value</th><th>Probability</th><th>Close Date</th><th>Stage</th></tr></thead>
-          <tbody>${cDeals.map(d=>`<tr>
-            <td style="font-weight:600">${d.name}</td>
-            <td style="font-size:11px;color:var(--text-2)">${d.type||'—'}</td>
-            <td style="text-align:right">${fmt(d.value)}</td>
-            <td><div style="display:flex;align-items:center;gap:5px"><div style="height:4px;width:40px;background:var(--surface-2);border-radius:2px;overflow:hidden"><div style="height:100%;width:${d.probability}%;background:var(--primary)"></div></div><span style="font-size:10px">${d.probability}%</span></div></td>
-            <td style="font-size:11px;color:var(--text-2)">${fmtDate(d.closeDate)||'—'}</td>
-            <td><span style="font-size:10px;color:${stageCol[d.stage]||'var(--text-2)'}">● ${d.stage}</span></td>
-          </tr>`).join('')}</tbody>
-        </table>
-      </div>`;
-    })()}
+
+    <!-- Pipeline Deals -->
+    ${cDeals.length ? `<div class="card">
+      <div class="card-header" style="margin-bottom:10px">
+        <div><div class="card-title">Pipeline Deals</div><div class="card-desc">${activeDeals.length} active · ${closedDeals.length} won</div></div>
+      </div>
+      ${activeDeals.length ? `<div style="margin-bottom:${closedDeals.length?'12px':'0'}">
+        <div style="font-size:10px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">Active Deals</div>
+        ${activeDeals.map(d => `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface-2);border-radius:8px;margin-bottom:5px">
+          <div style="width:3px;height:28px;background:${stageCol[d.stage]||'var(--text-3)'};border-radius:2px;flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.name}</div>
+            <div style="font-size:10px;color:var(--text-2)">${d.owner||'—'} · Close: ${fmtDate(d.closeDate)||'—'}</div>
+          </div>
+          <span style="font-size:10px;padding:2px 8px;border-radius:6px;background:${stageCol[d.stage]||'var(--text-3)'}22;color:${stageCol[d.stage]||'var(--text-3)'};white-space:nowrap">${d.stage}</span>
+          <div style="text-align:right;white-space:nowrap"><div style="font-size:12px;font-weight:700">${fmt(d.value)}</div><div style="font-size:10px;color:var(--text-2)">${d.probability}% prob</div></div>
+          <button class="btn btn-sm" style="font-size:10px;padding:2px 8px;flex-shrink:0" onclick="editDeal(${d.id})">Edit →</button>
+        </div>`).join('')}
+      </div>` : ''}
+      ${closedDeals.length ? `<div>
+        <div style="font-size:10px;font-weight:700;color:var(--success);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">Closed Won</div>
+        ${closedDeals.map(d => {
+          const dtc = daysToClose(d);
+          const comm = cComms.find(x => x.dealName === d.name || x.dealId === d.id);
+          return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--success-bg);border-radius:8px;margin-bottom:5px;opacity:.9">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:600">${d.name}</div>
+              <div style="font-size:10px;color:var(--text-2)">${d.owner||'—'} · Closed: ${fmtDate(d.closeDate)||'—'}${dtc!==null?' · '+dtc+'d to close':''}</div>
+            </div>
+            <div style="text-align:right;white-space:nowrap;flex-shrink:0">
+              <div style="font-size:12px;font-weight:700">${fmt(d.value)}</div>
+              ${comm?`<div style="font-size:10px;color:var(--text-2)">Comm: ${fmt(comm.amount)} · <span style="color:${comm.status==='paid'?'var(--success)':'var(--warning)'}">${comm.status}</span></div>`:''}
+            </div>
+            <button class="btn btn-sm" style="font-size:10px;padding:2px 8px;flex-shrink:0" onclick="editDeal(${d.id})">Edit →</button>
+          </div>`;
+        }).join('')}
+      </div>` : ''}
+    </div>` : ''}
+
+    <!-- Subscription Overview -->
+    ${cSubs.length ? `<div class="card">
+      <div class="card-header" style="margin-bottom:10px">
+        <div><div class="card-title">Subscriptions</div><div class="card-desc">${activeSubs.length} active · ${fmt(totalSubMrr)}/mo MRR</div></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        ${cSubs.map(s => {
+          const monthsSubscribed = s.startDate ? Math.max(0, Math.floor((new Date() - new Date(s.startDate+'T00:00:00')) / (30.44 * 864e5))) : 0;
+          const statCol = {active:'var(--success)',trial:'var(--warning)',paused:'var(--text-2)',churned:'var(--danger)',cancelled:'var(--danger)'};
+          const planCol = {Enterprise:'#FF6600',Premium:'#7C3AED',Pro:'#2563EB',Free:'#94A3B8',Custom:'#0F766E'};
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface-2);border-radius:9px">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
+                <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px;background:${planCol[s.plan]||'#94A3B8'}22;color:${planCol[s.plan]||'#94A3B8'}">${s.plan||'—'}</span>
+                <span style="font-size:10px;color:${statCol[s.status]||'var(--text-2)'}">● ${s.status||'—'}</span>
+              </div>
+              <div style="font-size:11px;color:var(--text-2)">${s.seats ? s.seats+' seats · ' : ''}${s.billing||'monthly'} · ${monthsSubscribed} month${monthsSubscribed!==1?'s':''} subscribed</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:13px;font-weight:700">${fmt(s.amount)}</div>
+              ${s.renewalDate?`<div style="font-size:10px;color:var(--text-2)">Renews ${fmtDate(s.renewalDate)}</div>`:''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
+
+    <!-- Commission Summary -->
+    <div class="card">
+      <div class="card-header" style="margin-bottom:10px">
+        <div><div class="card-title">Commission Summary</div><div class="card-desc">${cCommsActive.length} approved · ${fmt(paidComm)} paid of ${fmt(totalComm)}${avgDaysToClose!==null?' · avg close '+avgDaysToClose+'d':''}</div></div>
+        <button class="btn btn-primary btn-sm" onclick="openAddCommissionForClient(${c.id})">+ Add</button>
+      </div>
+      ${cCommsPending.length ? `<div style="background:var(--warning-bg);border:1px solid rgba(217,119,6,.2);border-radius:8px;padding:10px 14px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:700;color:var(--warning-text);margin-bottom:8px">⏳ Pending Approval (${cCommsPending.length}) — not included in totals</div>
+        ${cCommsPending.map(x=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid rgba(217,119,6,.15)">
+          <div style="flex:1;min-width:0"><div style="font-size:11px;font-weight:600">${escHtml(x.dealName||'—')}</div><div style="font-size:10px;color:var(--text-2)">${escHtml(x.repName||'—')} · ${x.rate||0}%</div></div>
+          <div style="font-size:12px;font-weight:700">${fmt(x.amount)}</div>
+          <button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--success-bg);color:var(--success);border:1px solid rgba(22,163,74,.2)" onclick="commissionAction(${x.id},'approve')">✓ Approve</button>
+          <button class="btn btn-sm" style="font-size:10px;padding:2px 7px" onclick="openEditCommission(${x.id})">Edit</button>
+        </div>`).join('')}
+      </div>` : ''}
+      ${cCommsActive.length ? `<table class="table" style="font-size:11px">
+        <thead><tr><th>Deal</th><th>Rep</th><th style="text-align:right">Value</th><th style="text-align:right">Rate</th><th style="text-align:right">Commission</th><th>Status</th><th></th></tr></thead>
+        <tbody>${cCommsActive.map(x => {
+          const statColor = {paid:'var(--success)',approved:'var(--primary)',partial:'var(--warning)'};
+          return `<tr>
+            <td style="font-weight:600">${escHtml(x.dealName||'—')}</td>
+            <td style="color:var(--text-2)">${escHtml(x.repName||'—')}</td>
+            <td style="text-align:right">${fmt(x.dealValue)}</td>
+            <td style="text-align:right">${x.rate||0}%</td>
+            <td style="text-align:right;font-weight:600">${fmt(x.amount)}</td>
+            <td><span style="font-size:10px;color:${statColor[x.status]||'var(--text-2)'}">● ${x.status||'—'}</span></td>
+            <td style="white-space:nowrap"><button class="btn btn-sm" style="font-size:10px;padding:2px 7px" onclick="openEditCommission(${x.id})">Edit</button></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>` : `<div style="font-size:12px;color:var(--text-3);text-align:center;padding:14px 0">No approved commissions yet.</div>`}
+    </div>
+
+    <!-- CFO Notes -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:7px">CFO Notes</div>
+      <div style="font-size:12px;color:var(--text-2);line-height:1.6">${c.notes||'No notes added.'}</div>
+    </div>
+
+    <!-- Future Notes -->
+    <div class="card" id="client-fnotes-card">
+      <div class="card-header" style="margin-bottom:12px">
+        <div class="card-title">Future Notes &amp; Reminders</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddClientNote(${c.id})">+ Add Note</button>
+      </div>
+      <div id="client-fnotes-list">
+        ${notes.length === 0
+          ? `<div style="font-size:12px;color:var(--text-3);text-align:center;padding:20px 0">No future notes yet. Add a note to set reminders and track follow-ups.</div>`
+          : notes.map(n => _clientNoteCard(c.id, n)).join('')
+        }
+      </div>
+      <div id="client-fnotes-form" style="display:none"></div>
+    </div>
+
   </div>`;
-  setTimeout(()=>{
-    mkChart('chart-client-trend','line',{
-      labels:trendMonths.map(m=>m.label),
-      datasets:[{data:trendData,borderColor:'#FF6600',backgroundColor:'rgba(255,102,0,0.07)',fill:true,borderWidth:2,pointRadius:3,pointBackgroundColor:'#FF6600',tension:.3}]
+
+  setTimeout(() => {
+    mkChart('chart-client-trend', 'line', {
+      labels: trendMonths.map(m => m.label),
+      datasets: [{ data: trendData, borderColor:'#FF6600', backgroundColor:'rgba(255,102,0,0.07)', fill:true, borderWidth:2, pointRadius:3, pointBackgroundColor:'#FF6600', tension:.3 }]
     });
-    mkDoughnut('chart-client-split',['Enterprise/SaaS','Services'],[dispSaas,dispServ],['#FF6600','#2563EB']);
-  },50);
+    mkDoughnut('chart-client-split', ['Enterprise/SaaS','Services'], [dispSaas, dispServ], ['#FF6600','#2563EB']);
+  }, 50);
+}
+
+function _clientNoteCard(clientId, n) {
+  const dateStr  = n.reminderDate ? fmtDate(n.reminderDate) : '';
+  const overdue  = n.reminderDate && new Date(n.reminderDate+'T00:00:00') < new Date() && !n.sentAt;
+  const calBadge = n.calEventId ? `<span style="font-size:9px;padding:2px 7px;border-radius:5px;background:var(--success-bg);color:var(--success);margin-left:6px">📅 In Calendar</span>` : '';
+  return `<div id="fnote-${n.id}" style="border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px">
+    <div style="display:flex;align-items:flex-start;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;margin-bottom:3px">${escHtml(n.title)}${calBadge}</div>
+        ${n.reminderDate?`<div style="font-size:11px;color:${overdue?'var(--danger-text)':'var(--text-2)'};margin-bottom:4px">📅 ${dateStr}${overdue?' · Overdue':''}</div>`:''}
+        ${n.content?`<div style="font-size:12px;color:var(--text-2);line-height:1.5;white-space:pre-wrap">${escHtml(n.content)}</div>`:''}
+        ${n.reminderEmail?`<div style="font-size:10px;color:var(--text-3);margin-top:4px">📧 ${escHtml(n.reminderEmail)}</div>`:''}
+      </div>
+      <div style="display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
+        <button class="btn btn-sm" style="font-size:10px;padding:2px 7px" onclick="openEditClientNote(${clientId},${n.id})">Edit</button>
+        ${n.reminderEmail?`<button class="btn btn-sm" style="font-size:10px;padding:2px 7px;background:var(--primary-bg);color:var(--primary);border-color:var(--primary)" onclick="sendClientNoteReminder(${clientId},${n.id})">📧 Send</button>`:''}
+        <button class="btn btn-sm" style="font-size:10px;padding:2px 7px" onclick="previewClientNote(${clientId},${n.id})">👁 Preview</button>
+        <button class="del-btn" style="font-size:10px;padding:2px 7px" onclick="deleteClientNote(${clientId},${n.id})">×</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function _clientNoteFormHtml(clientId, note) {
+  const n = note || {};
+  return `<div style="border:1px solid var(--primary);border-radius:10px;padding:14px;background:var(--primary-bg)">
+    <div style="font-size:12px;font-weight:700;color:var(--primary);margin-bottom:12px">${note ? 'Edit Note' : 'Add Future Note'}</div>
+    <div style="display:grid;gap:10px">
+      <div class="form-row" style="margin:0"><label>Title *</label><input class="input" id="fnote-title" value="${escHtml(n.title||'')}" placeholder="e.g. Renewal follow-up call" style="font-size:13px"></div>
+      <div class="form-row" style="margin:0"><label>Note / Detail</label><textarea class="input" id="fnote-content" rows="3" placeholder="Context, action items, key points…" style="font-size:12px;resize:vertical">${escHtml(n.content||'')}</textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-row" style="margin:0"><label>Reminder Date</label><input type="date" class="input" id="fnote-date" value="${n.reminderDate||''}" style="font-size:13px"></div>
+        <div class="form-row" style="margin:0"><label>Reminder Email</label><input type="email" class="input" id="fnote-email" value="${escHtml(n.reminderEmail||'')}" placeholder="who@example.com" style="font-size:13px"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-primary btn-sm" onclick="saveClientNote(${clientId},${note?note.id:'null'})">💾 Save${note?'':' & Add to Calendar'}</button>
+      <button class="btn btn-sm" onclick="_closeClientNoteForm(${clientId})">Cancel</button>
+      ${note?`<button class="btn btn-sm" style="margin-left:auto" onclick="previewClientNote(${clientId},${note.id})">👁 Preview Email</button>`:''}
+    </div>
+  </div>`;
+}
+
+function openAddClientNote(clientId) {
+  const formEl = document.getElementById('client-fnotes-form');
+  if (!formEl) return;
+  formEl.innerHTML = _clientNoteFormHtml(clientId, null);
+  formEl.style.display = 'block';
+  formEl.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function openEditClientNote(clientId, noteId) {
+  const c = state.clients.find(x => x.id === clientId); if (!c) return;
+  const n = (c.futureNotes||[]).find(x => x.id === noteId); if (!n) return;
+  const noteEl = document.getElementById(`fnote-${noteId}`);
+  if (noteEl) {
+    noteEl.innerHTML = _clientNoteFormHtml(clientId, n);
+  }
+}
+
+function _closeClientNoteForm(clientId) {
+  const formEl = document.getElementById('client-fnotes-form');
+  if (formEl) { formEl.innerHTML = ''; formEl.style.display = 'none'; }
+  // Refresh the client view if needed (will just re-render the notes list from state)
+  const c = state.clients.find(x => x.id === clientId); if (!c) return;
+  const listEl = document.getElementById('client-fnotes-list');
+  if (listEl) listEl.innerHTML = (c.futureNotes||[]).length
+    ? (c.futureNotes||[]).map(n => _clientNoteCard(clientId, n)).join('')
+    : `<div style="font-size:12px;color:var(--text-3);text-align:center;padding:20px 0">No future notes yet.</div>`;
+}
+
+async function saveClientNote(clientId, noteId) {
+  const title = document.getElementById('fnote-title')?.value.trim();
+  if (!title) { toast('Title is required'); return; }
+  const payload = {
+    title,
+    content:       document.getElementById('fnote-content')?.value || '',
+    reminderDate:  document.getElementById('fnote-date')?.value    || '',
+    reminderEmail: document.getElementById('fnote-email')?.value   || ''
+  };
+  try {
+    let r;
+    if (noteId && noteId !== 'null') {
+      r = await apiCall(`/clients/${clientId}/notes/${noteId}`, { method:'PUT', body:JSON.stringify(payload) });
+    } else {
+      r = await apiCall(`/clients/${clientId}/notes`, { method:'POST', body:JSON.stringify(payload) });
+    }
+    // Update state
+    const ci = state.clients.findIndex(x => x.id === clientId);
+    if (ci > -1) {
+      if (!state.clients[ci].futureNotes) state.clients[ci].futureNotes = [];
+      if (noteId && noteId !== 'null') {
+        const ni = state.clients[ci].futureNotes.findIndex(n => n.id === noteId);
+        if (ni > -1) state.clients[ci].futureNotes[ni] = r.note;
+        else state.clients[ci].futureNotes.push(r.note);
+      } else {
+        state.clients[ci].futureNotes.push(r.note);
+      }
+    }
+    // Refresh events in state if a calendar event was created/updated
+    if (r.note?.calEventId) {
+      apiCall('/events').then(evts => { state.events = evts; }).catch(()=>{});
+    }
+    toast(noteId && noteId !== 'null' ? 'Note updated' : `Note added${payload.reminderDate?' · Added to calendar':''}`);
+    showClient(clientId);
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
+async function deleteClientNote(clientId, noteId) {
+  if (!confirm('Delete this note?')) return;
+  try {
+    await apiCall(`/clients/${clientId}/notes/${noteId}`, { method:'DELETE' });
+    const ci = state.clients.findIndex(x => x.id === clientId);
+    if (ci > -1) state.clients[ci].futureNotes = (state.clients[ci].futureNotes||[]).filter(n => n.id !== noteId);
+    toast('Note deleted');
+    showClient(clientId);
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
+function sendClientNoteReminder(clientId, noteId) {
+  const c = state.clients.find(x => x.id === clientId);
+  const note = (c?.futureNotes || []).find(n => n.id === noteId);
+  const to = note?.reminderEmail || '';
+  if (!to) { toast('No recipient email set — edit the note to add one'); return; }
+  showConfirm(`Send reminder email to ${to}?`, async () => {
+    try {
+      const r = await apiCall(`/clients/${clientId}/notes/${noteId}/remind`, { method: 'POST' });
+      toast(`Reminder sent to ${r.sentTo || to}`);
+      if (note) note.sentAt = new Date().toISOString();
+      _closeClientNoteForm(clientId);
+    } catch(e) { toast('Error: ' + e.message); }
+  }, { okLabel: 'Send', okClass: 'btn-primary' });
+}
+
+function previewClientNote(clientId, noteId) {
+  previewEmail(`/clients/${clientId}/notes/${noteId}/remind`);
 }
 
 function openAddClient() {
   document.getElementById('client-modal-title').textContent='Add Client';
   ['cl-name','cl-revenue','cl-saas','cl-notes','cl-contact','cl-email','cl-phone','cl-address','cl-charge-amount'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  document.getElementById('cl-type').value='Enterprise'; document.getElementById('cl-renewal').value='2027-01-01';
+  setSelectValue(document.getElementById('cl-type'), '');
+  document.getElementById('cl-renewal').value='2027-01-01';
   setSelectValue(document.getElementById('cl-billing-cycle'), '');
   setSelectValue(document.getElementById('cl-payment-terms'), '');
+  const etEl = document.getElementById('cl-entry-type'); if (etEl) etEl.value='';
   delete document.getElementById('modal-client').dataset.editId; openModal('modal-client');
 }
 function editClient(id) {
@@ -3560,11 +4036,12 @@ function editClient(id) {
   document.getElementById('cl-charge-amount').value=c.chargeAmount||'';
   setSelectValue(document.getElementById('cl-billing-cycle'), c.billingCycle||'');
   setSelectValue(document.getElementById('cl-payment-terms'), c.paymentTerms||'');
+  setSelectValue(document.getElementById('cl-entry-type'), c.entryType||'');
   document.getElementById('modal-client').dataset.editId=id; openModal('modal-client');
 }
 async function saveClient() {
   const name=document.getElementById('cl-name').value.trim(); if(!name){toast('Name required');return;}
-  const data={name,type:document.getElementById('cl-type').value,country:document.getElementById('cl-country').value||'—',revenue:parseInt(document.getElementById('cl-revenue').value)||0,saas:parseInt(document.getElementById('cl-saas').value)||0,renewal:document.getElementById('cl-renewal').value||'2027-01-01',notes:document.getElementById('cl-notes').value,contact:document.getElementById('cl-contact').value.trim(),email:document.getElementById('cl-email').value.trim(),phone:document.getElementById('cl-phone').value.trim(),address:document.getElementById('cl-address').value.trim(),chargeAmount:parseFloat(document.getElementById('cl-charge-amount').value)||0,billingCycle:document.getElementById('cl-billing-cycle').value||'',paymentTerms:document.getElementById('cl-payment-terms').value||''};
+  const data={name,type:document.getElementById('cl-type').value,entryType:document.getElementById('cl-entry-type')?.value||'',country:document.getElementById('cl-country').value||'—',revenue:parseInt(document.getElementById('cl-revenue').value)||0,saas:parseInt(document.getElementById('cl-saas').value)||0,renewal:document.getElementById('cl-renewal').value||'2027-01-01',notes:document.getElementById('cl-notes').value,contact:document.getElementById('cl-contact').value.trim(),email:document.getElementById('cl-email').value.trim(),phone:document.getElementById('cl-phone').value.trim(),address:document.getElementById('cl-address').value.trim(),chargeAmount:parseFloat(document.getElementById('cl-charge-amount').value)||0,billingCycle:document.getElementById('cl-billing-cycle').value||'',paymentTerms:document.getElementById('cl-payment-terms').value||''};
   const eid=document.getElementById('modal-client').dataset.editId;
   try {
     if (eid) { const r=await apiCall(`/clients/${eid}`,{method:'PUT',body:JSON.stringify(data)}); const i=state.clients.findIndex(c=>c.id===Number(eid)); if(i>-1) state.clients[i]=r.client; state.selectedClientId=Number(eid); }
@@ -3986,17 +4463,50 @@ function _populateDealDL() {
 function _populateOwnerDL(currentVal) {
   const sel = document.getElementById('deal-owner'); if (!sel) return;
   const archivedReps = state.commSettings?.archivedReps || [];
-  const customReps   = state.commSettings?.customReps   || [];
-  const fromComms    = (state.commissions || []).map(c => c.repName).filter(Boolean);
-  const fromPipeline = (state.pipeline    || []).map(d => d.owner).filter(Boolean);
-  const all = [...new Set([...fromComms, ...fromPipeline, ...customReps])];
-  const active = all.filter(r => !archivedReps.includes(r)).sort();
-  const opts = ['<option value="">— select rep —</option>',
-    ...active.map(r => `<option value="${r.replace(/"/g,'&quot;')}"${r===currentVal?' selected':''}>` + r.replace(/</g,'&lt;') + '</option>'),
-    // keep current value selectable even if archived/not in list
-    ...(currentVal && !active.includes(currentVal) ? [`<option value="${currentVal.replace(/"/g,'&quot;')}" selected>${currentVal.replace(/</g,'&lt;')} (archived)</option>`] : [])
-  ];
+
+  // Primary: HR Sales employees
+  const hrReps = (state.hrEmployees || [])
+    .filter(e => e.department === 'Sales' && e.status !== 'terminated')
+    .map(e => ({ name: `${e.firstName} ${e.lastName}`.trim(), email: e.email || '' }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Store email map for auto-fill on change
+  window._ownerEmailMap = {};
+  hrReps.forEach(r => { if (r.email) window._ownerEmailMap[r.name] = r.email; });
+
+  // Fallback reps not in HR
+  const hrRepNames   = new Set(hrReps.map(r => r.name));
+  const customReps   = (state.commSettings?.customReps || []).filter(r => !archivedReps.includes(r) && !hrRepNames.has(r));
+  const fromComms    = (state.commissions || []).map(c => c.repName).filter(r => r && !archivedReps.includes(r) && !hrRepNames.has(r));
+  const fromPipeline = (state.pipeline    || []).map(d => d.owner).filter(r => r && !archivedReps.includes(r) && !hrRepNames.has(r));
+  const extras       = [...new Set([...customReps, ...fromComms, ...fromPipeline])].sort();
+
+  const opts = ['<option value="">— select rep —</option>'];
+  hrReps.forEach(r => opts.push(`<option value="${r.name.replace(/"/g,'&quot;')}"${r.name===currentVal?' selected':''}>${r.name.replace(/</g,'&lt;')}</option>`));
+  if (extras.length) {
+    opts.push('<optgroup label="Other">');
+    extras.forEach(r => opts.push(`<option value="${r.replace(/"/g,'&quot;')}"${r===currentVal?' selected':''}>${r.replace(/</g,'&lt;')}</option>`));
+    opts.push('</optgroup>');
+  }
   sel.innerHTML = opts.join('');
+  sel._customSelect?.refresh();
+}
+
+function _populateCommRepSel(currentVal) {
+  const sel = document.getElementById('comm-rep'); if (!sel) return;
+  const hrReps = (state.hrEmployees || [])
+    .filter(e => e.department === 'Sales' && e.status !== 'terminated')
+    .map(e => `${e.firstName} ${e.lastName}`.trim())
+    .sort();
+  const customReps = (state.commSettings?.customReps || []).filter(r => !hrReps.includes(r));
+  const opts = ['<option value="">— select rep —</option>',
+    ...hrReps.map(r => `<option value="${r.replace(/"/g,'&quot;')}"${r===currentVal?' selected':''}>${r.replace(/</g,'&lt;')}</option>`)];
+  if (customReps.length) {
+    opts.push('<optgroup label="Other">');
+    customReps.forEach(r => opts.push(`<option value="${r.replace(/"/g,'&quot;')}"${r===currentVal?' selected':''}>${r.replace(/</g,'&lt;')}</option>`));
+    opts.push('</optgroup>');
+  }
+  if (sel.tagName === 'SELECT') { sel.innerHTML = opts.join(''); sel._customSelect?.refresh(); }
 }
 function autoFillCommFromDeal(dealName) {
   const deal = (state.pipeline || []).find(d => d.name?.toLowerCase() === dealName.toLowerCase());
@@ -4831,14 +5341,17 @@ async function saveEvent() {
     if(editId){
       const r=await apiCall(`/events/${editId}`,{method:'PUT',body:JSON.stringify(payload)});
       const i=state.events.findIndex(x=>x.id===Number(editId));
-      if(i>-1) state.events[i]={...state.events[i],...payload};
+      if(i>-1) state.events[i]={...state.events[i],...payload,id:Number(editId)};
       closeModal('modal-event'); renderCalDays(); renderEventsList();
-      toast('Event updated' + (r.invitesSent ? ` · ${r.invitesSent} invitation${r.invitesSent>1?'s':''} sent` : ''));
+      const invMsg = r.invitesSent ? ` · ${r.invitesSent} invite${r.invitesSent>1?'s':''} sent` : '';
+      toast('Event updated' + invMsg);
+      if(r.gcalWarning) toast('⚠ ' + r.gcalWarning, 'warning');
     } else {
       const r=await apiCall('/events',{method:'POST',body:JSON.stringify(payload)});
       state.events.push(r.event); closeModal('modal-event'); renderCalDays(); renderEventsList();
-      const invMsg = r.invitesSent ? ` · ${r.invitesSent} invitation${r.invitesSent>1?'s':''} sent` : (payload.invitees?.length ? ' · Invites sent via Google Calendar' : '');
+      const invMsg = r.invitesSent ? ` · ${r.invitesSent} calendar invite${r.invitesSent>1?'s':''} sent` : '';
       toast('Event saved' + invMsg);
+      if(r.gcalWarning) toast('⚠ ' + r.gcalWarning, 'warning');
     }
   } catch(e){toast(e.message);}
 }
@@ -4894,12 +5407,35 @@ async function syncGcal() {
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 function renderTasks(c) {
   const open=state.tasks.filter(t=>!t.done), done=state.tasks.filter(t=>t.done);
+  const taskTypeFilter = state._taskTypeFilter || 'all';
+  const activeTasksTab = state._tasksMainTab || 'list';
   c.innerHTML=`
   <div style="display:flex;flex-direction:column;gap:14px">
+    <div class="view-tabs" style="width:fit-content">
+      <button class="view-tab${activeTasksTab==='list'?' active':''}" onclick="state._tasksMainTab='list';renderTasks(document.getElementById('main-content'))">Tasks</button>
+      <button class="view-tab${activeTasksTab==='notes'?' active':''}" onclick="state._tasksMainTab='notes';renderTasks(document.getElementById('main-content'))">📝 Future Notes</button>
+    </div>
+    <div id="tasks-main-panel"></div>
+  </div>`;
+  if (activeTasksTab === 'notes') {
+    _renderTaskNotes(document.getElementById('tasks-main-panel'));
+    // Lazy-load notes content if not yet fetched
+    if (!state._taskNotesFetched) {
+      state._taskNotesFetched = true;
+      apiCall('/tasks/notes').then(r => { state._taskNotes = r; _renderTaskNotes(document.getElementById('tasks-main-panel')); }).catch(()=>{});
+    }
+  } else {
+    document.getElementById('tasks-main-panel').innerHTML=`
     <div class="card">
       <div class="card-header"><div class="card-title">Tasks</div><div style="display:flex;gap:6px"><button class="btn btn-sm" onclick="toggleDone()">${state.showDone?'Hide done':'Show done'}</button><button class="btn btn-sm" onclick="previewEmail('/reports/task-reminder-preview')">Preview Reminder Email</button><button class="btn btn-sm" style="color:var(--primary);border-color:var(--primary-bg)" onclick="openAI('tasks')">✦ Ask Ayla</button><button class="btn btn-primary btn-sm" onclick="openAddTask()">+ Task</button></div></div>
       <div class="filter-bar">
         <span class="filter-count">${open.length} open · ${done.length} done</span>
+        <div class="filter-sep"></div>
+        <div class="view-tabs" style="width:fit-content">
+          <button class="view-tab ${taskTypeFilter==='all'?'active':''}" data-type-tab="all" onclick="state._taskTypeFilter='all';renderTasksList()">All</button>
+          <button class="view-tab ${taskTypeFilter==='onetime'?'active':''}" data-type-tab="onetime" onclick="state._taskTypeFilter='onetime';renderTasksList()">One-Time</button>
+          <button class="view-tab ${taskTypeFilter==='recurring'?'active':''}" data-type-tab="recurring" onclick="state._taskTypeFilter='recurring';renderTasksList()">Recurring</button>
+        </div>
         <div class="filter-sep"></div>
         <select class="filter-select" onchange="state._taskFilter.priority=this.value;renderTasksList()">
           <option value=""${!state._taskFilter?.priority?' selected':''}>All Priorities</option>
@@ -4912,17 +5448,56 @@ function renderTasks(c) {
           <option value="deadline"${state._taskFilter?.sort==='deadline'?' selected':''}>By deadline</option>
           <option value="priority"${state._taskFilter?.sort==='priority'?' selected':''}>By priority</option>
         </select>
-        ${state._taskFilter?.priority||state._taskFilter?.sort!=='default'?`<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;margin-left:auto" onclick="state._taskFilter={priority:'',sort:'default'};renderTasksList()">✕ Clear</button>`:''}
+        ${state._taskFilter?.priority||(state._taskFilter?.sort||'default')!=='default'||(state._taskTypeFilter||'all')!=='all'?`<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;margin-left:auto" onclick="state._taskFilter={priority:'',sort:'default'};state._taskTypeFilter='all';renderTasksList()">✕ Clear</button>`:''}
       </div>
       <div id="tasks-list"></div>
+    </div>`;
+    renderTasksList();
+  }
+}
+
+function _renderTaskNotes(el) {
+  const notes = state._taskNotes || { content: '', updatedAt: null };
+  const lastSaved = notes.updatedAt ? new Date(notes.updatedAt).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : null;
+  el.innerHTML = `
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Future Notes</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:2px">A shared notepad for ideas, plans, and future tasks — auto-saved on demand${lastSaved?` · Last saved ${lastSaved}`:''}</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span id="task-notes-status" style="font-size:11px;color:var(--text-3)"></span>
+        <button class="btn btn-primary btn-sm" onclick="saveTaskNotes()">Save Notes</button>
+      </div>
     </div>
+    <textarea id="task-notes-area"
+      style="width:100%;min-height:420px;border:1px solid var(--border);border-radius:8px;padding:14px;font-size:13px;color:var(--text);background:var(--surface-2);resize:vertical;line-height:1.65;font-family:inherit;box-sizing:border-box;outline:none"
+      placeholder="Use this space to jot down future task ideas, plans, priorities, reminders, or anything you don't want to forget..."
+      oninput="document.getElementById('task-notes-status').textContent='Unsaved changes'"
+    >${escHtml(notes.content||'')}</textarea>
   </div>`;
-  renderTasksList();
+}
+
+async function saveTaskNotes() {
+  const area = document.getElementById('task-notes-area'); if (!area) return;
+  const statusEl = document.getElementById('task-notes-status');
+  try {
+    if (statusEl) statusEl.textContent = 'Saving…';
+    const r = await apiCall('/tasks/notes', { method:'POST', body:JSON.stringify({ content: area.value }) });
+    state._taskNotes = r;
+    if (statusEl) statusEl.innerHTML = '<span style="color:var(--success)">✓ Saved</span>';
+    setTimeout(()=>{ if(statusEl) statusEl.textContent=''; }, 2500);
+  } catch(e) { if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger)">✗ ${e.message}</span>`; }
 }
 
 function renderTasksList() {
   const el=document.getElementById('tasks-list'); if(!el) return;
   let vis=state.tasks.filter(t=>state.showDone||!t.done);
+  const taskTypeFilter = state._taskTypeFilter || 'all';
+  document.querySelectorAll('[data-type-tab]').forEach(b => b.classList.toggle('active', b.dataset.typeTab === taskTypeFilter));
+  if (taskTypeFilter === 'onetime') vis = vis.filter(t => !t.recurring);
+  else if (taskTypeFilter === 'recurring') vis = vis.filter(t => !!t.recurring);
   const tf=state._taskFilter||{};
   if (tf.priority) vis=vis.filter(t=>(t.priority||'medium')===tf.priority);
   if (tf.sort==='deadline') vis=[...vis].sort((a,b)=>(a.deadline||'9999')>(b.deadline||'9999')?1:-1);
@@ -5257,6 +5832,15 @@ function renderFiles(c) {
           <input type="file" id="file-upload-inp" style="display:none" onchange="uploadFile(this)">
         </div>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border)">
+        <span style="font-size:13px">📁</span>
+        <span style="font-size:11px;font-weight:600;color:var(--text-2)">Google Drive Folder:</span>
+        <input id="drive-folder-url" type="url" placeholder="Paste Google Drive folder URL here…"
+          style="flex:1;font-size:11px;padding:5px 9px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);outline:none"
+          value="">
+        <button class="btn btn-sm" onclick="saveDriveFolderUrl()">Save</button>
+        <button class="btn btn-sm btn-primary" onclick="openDriveFolder()" id="open-drive-btn" style="display:none">Open Drive →</button>
+      </div>
       <div class="filter-bar">
         <input class="filter-search" id="file-search" placeholder="Search files…" oninput="_db('file-s',renderFilesList,280)">
         <div class="filter-sep"></div>
@@ -5266,6 +5850,21 @@ function renderFiles(c) {
     </div>
   </div>`;
   renderFilesList();
+  // Load drive folder URL from server (fallback to localStorage)
+  apiCall('/files/drive-folder').then(r => {
+    const url = r.url || localStorage.getItem('drive_folder_url') || '';
+    const inp = document.getElementById('drive-folder-url');
+    const btn = document.getElementById('open-drive-btn');
+    if (inp && url) inp.value = url;
+    if (btn && url) btn.style.display = '';
+    if (url) localStorage.setItem('drive_folder_url', url);
+  }).catch(() => {
+    const inp = document.getElementById('drive-folder-url');
+    const btn = document.getElementById('open-drive-btn');
+    const saved = localStorage.getItem('drive_folder_url');
+    if (inp && saved) inp.value = saved;
+    if (btn && saved) btn.style.display = '';
+  });
   // Check Drive status async
   apiCall('/files/drive/status').then(s => {
     const badge = document.getElementById('drive-status-badge');
@@ -5298,6 +5897,20 @@ async function syncFromDrive() {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = '↻ Drive'; }
   }
+}
+
+async function saveDriveFolderUrl() {
+  const url = document.getElementById('drive-folder-url')?.value?.trim();
+  if (!url) return;
+  await apiCall('/api/files/drive-folder', { method: 'POST', body: JSON.stringify({ url }) }).catch(()=>{});
+  localStorage.setItem('drive_folder_url', url);
+  toast('Drive folder saved');
+  const btn = document.getElementById('open-drive-btn');
+  if (btn) btn.style.display = '';
+}
+function openDriveFolder() {
+  const url = localStorage.getItem('drive_folder_url') || document.getElementById('drive-folder-url')?.value;
+  if (url) window.open(url, '_blank');
 }
 
 const FILE_EXPIRY_REQUIRED = ['contract','license','nda','tax','compliance','insurance'];
@@ -5387,9 +6000,34 @@ async function deleteFile(id) {
 }
 
 // ── Gmail Inbox ───────────────────────────────────────────────────────────────
+const GMAIL_FOLDERS = [
+  { id:'INBOX', label:'Inbox',       icon:'📥' },
+  { id:'SENT',  label:'Sent',        icon:'📤' },
+  { id:'SPAM',  label:'Junk / Spam', icon:'🚫' },
+  { id:'ATT',   label:'Attachments', icon:'📎' },
+];
+
 async function renderGmail(c) {
+  if (!state._gmailFolder) state._gmailFolder = 'INBOX';
   c.innerHTML = `<div style="display:flex;flex-direction:column;gap:14px">
-    <div class="card-header"><div class="card-title">Gmail Inbox</div><div style="display:flex;gap:8px;align-items:center" id="gmail-toolbar"></div></div>
+    <div class="card-header">
+      <div class="card-title">Gmail</div>
+      <div style="display:flex;gap:8px;align-items:center" id="gmail-toolbar"></div>
+    </div>
+    <div id="gmail-drive-bar" style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:var(--surface-2);border-radius:10px;border:1px solid var(--border)">
+      <span style="font-size:14px">📁</span>
+      <span style="font-size:11px;font-weight:600;color:var(--text-2);white-space:nowrap">Drive Folder:</span>
+      <input id="gmail-drive-url" type="url" placeholder="Paste Google Drive folder link…"
+        style="flex:1;font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);outline:none;min-width:0"
+        onkeydown="if(event.key==='Enter')gmailSaveDriveUrl()">
+      <button class="btn btn-sm" onclick="gmailSaveDriveUrl()">Save</button>
+      <a id="gmail-drive-open" href="#" target="_blank" class="btn btn-sm btn-primary" style="display:none;text-decoration:none">Open Drive →</a>
+      <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-2);cursor:pointer;white-space:nowrap;margin-left:8px">
+        <input type="checkbox" id="gmail-auto-upload" onchange="gmailToggleAutoUpload(this.checked)"
+          style="cursor:pointer" ${state._gmailAutoUpload?'checked':''}>
+        Auto-save attachments to Drive
+      </label>
+    </div>
     <div id="gmail-body"><div style="text-align:center;padding:40px;color:var(--text-3)">Loading…</div></div>
   </div>`;
 
@@ -5411,38 +6049,156 @@ async function renderGmail(c) {
     return;
   }
 
+  // Load signature once
+  if (state._gmailSignature === undefined) {
+    try { const s = await apiCall('/gmail/signature'); state._gmailSignature = s.signature||''; } catch { state._gmailSignature = ''; }
+  }
+
   toolbar.innerHTML = `
-    <input class="input" id="gmail-search" placeholder="Search emails…" style="width:200px;font-size:11px" oninput="gmailSearch()">
-    <button class="btn btn-sm" onclick="gmailCompose()">✏ Compose</button>
+    <input class="input" id="gmail-search" placeholder="Search…" style="width:170px;font-size:11px" oninput="gmailSearch()">
+    <button class="btn btn-sm btn-primary" onclick="gmailCompose()">✏ Compose</button>
+    <button class="btn btn-sm" onclick="gmailEditSignature()" title="Email Signature">✍ Signature</button>
     <button class="btn btn-sm" onclick="renderGmail(document.getElementById('main-content'))">↻</button>
     ${status.email ? `<span style="font-size:10px;color:var(--text-2)">● ${status.email}</span>` : ''}`;
 
-  await gmailLoadInbox(body, '');
+  _gmailRenderFolderTabs(body);
+
+  // Load drive folder URL
+  apiCall('/files/drive-folder').then(r => {
+    const url = r.url || localStorage.getItem('gmail_drive_folder_url') || '';
+    const inp = document.getElementById('gmail-drive-url');
+    const btn = document.getElementById('gmail-drive-open');
+    if (inp && url) { inp.value = url; }
+    if (btn && url) { btn.href = url; btn.style.display = ''; }
+  }).catch(() => {
+    const saved = localStorage.getItem('gmail_drive_folder_url') || '';
+    const inp = document.getElementById('gmail-drive-url');
+    const btn = document.getElementById('gmail-drive-open');
+    if (inp && saved) inp.value = saved;
+    if (btn && saved) { btn.href = saved; btn.style.display = ''; }
+  });
 }
 
-async function gmailLoadInbox(container, q) {
-  container.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;padding:6px 0">
-    ${Array.from({length:6},()=>`<div style="display:flex;gap:10px;padding:10px 14px;border-radius:8px;background:var(--surface)">
-      <div style="width:8px;height:8px;border-radius:50%;background:var(--surface-2);flex-shrink:0;margin-top:5px"></div>
-      <div style="flex:1"><div class="skeleton-line" style="width:40%;margin-bottom:5px"></div><div class="skeleton-line" style="width:70%"></div><div class="skeleton-line xs" style="width:80%"></div></div>
-      <div class="skeleton-line xs" style="width:40px;flex-shrink:0"></div>
+function gmailSaveDriveUrl() {
+  const url = document.getElementById('gmail-drive-url')?.value?.trim() || '';
+  localStorage.setItem('gmail_drive_folder_url', url);
+  apiCall('/files/drive-folder', { method:'POST', body: JSON.stringify({ url }) }).catch(()=>{});
+  const btn = document.getElementById('gmail-drive-open');
+  if (btn) { btn.href = url; btn.style.display = url ? '' : 'none'; }
+  toast(url ? 'Drive folder link saved' : 'Drive folder link cleared');
+}
+
+function gmailToggleAutoUpload(enabled) {
+  state._gmailAutoUpload = enabled;
+  toast(enabled ? 'Auto-save attachments to Drive enabled' : 'Auto-save disabled');
+}
+
+async function gmailAutoSaveAttachments(msgs) {
+  if (!state._gmailAutoUpload) return;
+  let saved = 0;
+  for (const m of msgs) {
+    try {
+      const full = await apiCall('/gmail/messages/' + m.id);
+      const atts = full.attachments || [];
+      for (const a of atts) {
+        try {
+          await apiCall('/files/save-from-gmail', { method:'POST', body: JSON.stringify({ messageId: m.id, attachmentId: a.attachmentId, filename: a.filename, mimeType: a.mimeType }) });
+          saved++;
+        } catch {}
+      }
+    } catch {}
+  }
+  if (saved > 0) toast(`☁ Auto-saved ${saved} attachment${saved>1?'s':''} to Drive`, 'success');
+}
+
+async function gmailBatchSaveToDrive(btn) {
+  const msgs = document.querySelectorAll('#gmail-list .file-row');
+  if (!msgs.length) return;
+  btn.disabled = true; btn.textContent = '☁ Saving…';
+  let saved = 0, errors = 0;
+  const ids = [...msgs].map(el => el.id?.replace('gm-','')).filter(Boolean);
+  for (const id of ids) {
+    try {
+      const full = await apiCall('/gmail/messages/' + id);
+      for (const a of (full.attachments||[])) {
+        try {
+          await apiCall('/files/save-from-gmail', { method:'POST', body: JSON.stringify({ messageId: id, attachmentId: a.attachmentId, filename: a.filename, mimeType: a.mimeType }) });
+          saved++;
+        } catch { errors++; }
+      }
+    } catch { errors++; }
+  }
+  btn.disabled = false; btn.textContent = '☁ Save All Attachments to Drive';
+  if (saved > 0) toast(`☁ Saved ${saved} attachment${saved>1?'s':''} to Drive${errors?' ('+errors+' failed)':''}`, 'success');
+  else toast('No new attachments to save (already saved or Drive not connected)');
+}
+
+function _gmailRenderFolderTabs(container) {
+  const folder = state._gmailFolder || 'INBOX';
+  container.innerHTML = `
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:12px;overflow-x:auto">
+      ${GMAIL_FOLDERS.map(f=>`
+        <button data-gmail-tab="${f.id}" onclick="state._gmailFolder='${f.id}';_gmailLoadFolder()" style="padding:8px 16px;border:none;background:none;font-size:12px;font-weight:${folder===f.id?'700':'500'};color:${folder===f.id?'var(--primary)':'var(--text-2)'};border-bottom:2px solid ${folder===f.id?'var(--primary)':'transparent'};cursor:pointer;white-space:nowrap;transition:all .15s">
+          ${f.icon} ${f.label}
+        </button>`).join('')}
+    </div>
+    <div id="gmail-folder-content"><div style="text-align:center;padding:40px;color:var(--text-3)">Loading…</div></div>`;
+  _gmailLoadFolder();
+}
+
+async function _gmailLoadFolder(q) {
+  const folder  = state._gmailFolder || 'INBOX';
+  const content = document.getElementById('gmail-folder-content');
+  if (!content) return;
+  document.querySelectorAll('[data-gmail-tab]').forEach(b => {
+    const active = b.dataset.gmailTab === folder;
+    b.style.fontWeight   = active ? '700' : '500';
+    b.style.color        = active ? 'var(--primary)' : 'var(--text-2)';
+    b.style.borderBottom = active ? '2px solid var(--primary)' : '2px solid transparent';
+  });
+  const searchQ = q !== undefined ? q : (document.getElementById('gmail-search')?.value.trim()||'');
+
+  content.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px">
+    ${Array.from({length:5},()=>`<div style="display:flex;gap:10px;padding:10px 14px;border-radius:8px;background:var(--surface-2);animation:pulse 1.5s infinite alternate">
+      <div style="width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0;margin-top:5px"></div>
+      <div style="flex:1"><div class="skeleton-line" style="width:40%;margin-bottom:5px"></div><div class="skeleton-line" style="width:70%"></div></div>
     </div>`).join('')}
   </div>`;
+
   try {
-    const data = await apiCall(`/gmail/messages?max=25${q?'&q='+encodeURIComponent(q):''}`);
-    const msgs = data.messages || [];
+    let url, msgs = [];
+    if (folder === 'ATT') {
+      const data = await apiCall(`/gmail/messages?max=30&label=INBOX&q=${encodeURIComponent((searchQ+' has:attachment').trim())}`);
+      msgs = data.messages || [];
+    } else {
+      const data = await apiCall(`/gmail/messages?max=30&label=${folder}${searchQ?'&q='+encodeURIComponent(searchQ):''}`);
+      msgs = data.messages || [];
+    }
+
     if (!msgs.length) {
-      container.innerHTML = `<div style="padding:10px 0">${emptyState('No emails found', q ? 'Try a different search term' : 'Your inbox is empty')}</div>`;
+      const labels = { INBOX:'inbox', SENT:'sent items', SPAM:'junk folder', ATT:'attachments' };
+      content.innerHTML = `<div style="padding:10px 0">${emptyState('No emails found', searchQ ? 'Try a different search' : 'Your '+labels[folder]+' is empty')}</div>`;
       return;
     }
-    container.innerHTML = `<div style="display:flex;flex-direction:column;gap:4px" id="gmail-list">
+
+    if (folder === 'ATT') gmailAutoSaveAttachments(msgs);
+
+    const attBatchBtn = folder === 'ATT' ? `
+      <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px">
+        <button class="btn btn-sm" style="font-size:11px" onclick="gmailBatchSaveToDrive(this)">☁ Save All Attachments to Drive</button>
+      </div>` : '';
+
+    content.innerHTML = attBatchBtn + `<div style="display:flex;flex-direction:column;gap:4px" id="gmail-list">
       ${msgs.map(m => `
-        <div class="file-row" id="gm-${m.id}" style="cursor:pointer;align-items:flex-start;${m.unread?'border-left:3px solid var(--primary);':''}" onclick="gmailOpenMessage('${m.id}')">
-          <div style="width:8px;height:8px;border-radius:50%;background:${m.unread?'var(--primary)':'transparent'};flex-shrink:0;margin-top:5px"></div>
+        <div class="file-row" id="gm-${m.id}" style="cursor:pointer;align-items:flex-start;${m.unread?'border-left:3px solid var(--primary);':''}" onclick="gmailOpenMessage('${m.id}','${folder}')">
+          <div style="width:8px;height:8px;border-radius:50%;background:${m.unread?'var(--primary)':'transparent'};flex-shrink:0;margin-top:6px"></div>
           <div style="flex:1;min-width:0">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-              <div style="font-size:12px;font-weight:${m.unread?'700':'500'};color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%">${escHtml(m.from.replace(/<.*>/,'').trim()||m.from)}</div>
-              <div style="font-size:10px;color:var(--text-3);flex-shrink:0">${formatGmailDate(m.date)}</div>
+              <div style="font-size:12px;font-weight:${m.unread?'700':'500'};color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%">${escHtml(folder==='SENT'?(m.to||'').replace(/<.*>/,'').trim()||(m.to||''):(m.from||'').replace(/<.*>/,'').trim()||(m.from||''))}</div>
+              <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                ${m.labels&&m.labels.includes('ATTACHMENT') || folder==='ATT' ? '<span style="font-size:10px;color:var(--text-3)">📎</span>' : ''}
+                <div style="font-size:10px;color:var(--text-3)">${formatGmailDate(m.date)}</div>
+              </div>
             </div>
             <div style="font-size:12px;font-weight:${m.unread?'600':'400'};color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px">${escHtml(m.subject)}</div>
             <div style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(decodeHtmlEntities(m.snippet))}</div>
@@ -5450,86 +6206,196 @@ async function gmailLoadInbox(container, q) {
         </div>`).join('')}
     </div>`;
   } catch(e) {
-    container.innerHTML = `<div class="card" style="text-align:center;padding:30px;color:var(--danger)">Error loading emails: ${e.message}</div>`;
+    content.innerHTML = `<div class="card" style="text-align:center;padding:30px;color:var(--danger)">Error loading emails: ${e.message}</div>`;
   }
 }
 
-async function gmailOpenMessage(id) {
+async function gmailOpenMessage(id, folder) {
   const row = document.getElementById('gm-'+id);
-  if (row) { row.style.borderLeft=''; row.querySelector('div')?.style && (row.querySelector('div').style.background='transparent'); }
+  if (row) { row.style.borderLeft='3px solid transparent'; }
   try {
     const msg = await apiCall('/gmail/messages/'+id);
-    apiCall('/gmail/messages/'+id+'/read', {method:'POST'}).catch(()=>{});
+    if (folder !== 'SENT') apiCall('/gmail/messages/'+id+'/read', {method:'POST'}).catch(()=>{});
+    const replyTo = msg.from.replace(/.*<(.+)>.*/, '$1') || msg.from;
+    const replySubj = msg.subject.startsWith('Re:') ? msg.subject : 'Re: '+msg.subject;
+    const attHtml = (msg.attachments||[]).length ? `
+      <div style="border-top:1px solid var(--border);padding:14px 20px;background:var(--surface-2)">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:8px">📎 Attachments (${msg.attachments.length})</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${msg.attachments.map(a=>`
+            <div style="display:flex;align-items:center;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden">
+              <a href="/api/gmail/messages/${id}/attachment/${a.attachmentId}?filename=${encodeURIComponent(a.filename)}&mime=${encodeURIComponent(a.mimeType)}" download="${escHtml(a.filename)}" style="display:flex;align-items:center;gap:6px;padding:6px 12px;font-size:11px;color:var(--text);text-decoration:none">
+                <span>${_gmailFileIcon(a.mimeType)}</span>
+                <span style="max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(a.filename)}</span>
+                <span style="color:var(--text-3);font-size:10px">${_gmailFormatSize(a.size)}</span>
+              </a>
+              <button onclick="gmailSaveToDrive('${id}','${a.attachmentId}','${escHtml(a.filename)}','${escHtml(a.mimeType)}',this)" title="Save to Google Drive" style="border:none;border-left:1px solid var(--border);background:none;cursor:pointer;padding:6px 10px;font-size:12px;color:var(--text-2)" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='none'">☁ Drive</button>
+            </div>`).join('')}
+        </div>
+      </div>` : '';
+
     const modal = document.createElement('div');
     modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';
-    modal.innerHTML=`<div style="background:var(--surface);border-radius:14px;width:100%;max-width:700px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+    modal.innerHTML=`<div style="background:var(--surface);border-radius:14px;width:100%;max-width:720px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)">
       <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px">
         <div style="flex:1;min-width:0">
           <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px">${escHtml(msg.subject)}</div>
-          <div style="font-size:11px;color:var(--text-2)"><strong>From:</strong> ${escHtml(msg.from)}</div>
+          <div style="font-size:11px;color:var(--text-2);margin-bottom:1px"><strong>From:</strong> ${escHtml(msg.from)}</div>
+          <div style="font-size:11px;color:var(--text-2);margin-bottom:1px"><strong>To:</strong> ${escHtml(msg.to)}</div>
           <div style="font-size:11px;color:var(--text-2)"><strong>Date:</strong> ${escHtml(msg.date)}</div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
-          <button class="btn btn-sm" onclick="gmailReply('${escHtml(msg.from.replace(/.*<(.+)>.*/,'$1')||msg.from)}','${escHtml(msg.subject)}')">↩ Reply</button>
+        <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
+          ${folder!=='SENT'?`<button class="btn btn-sm" onclick="gmailReply('${escHtml(replyTo)}','${escHtml(replySubj)}')">↩ Reply</button>`:''}
+          ${folder==='SPAM'?`<button class="btn btn-sm" style="color:var(--danger)" onclick="gmailTrash('${id}',this)">🗑 Delete</button>`:''}
           <button class="btn btn-sm" onclick="this.closest('[style*=fixed]').remove()">✕</button>
         </div>
       </div>
       <div style="padding:20px;overflow-y:auto;flex:1;font-size:13px;color:var(--text);line-height:1.6">
-        <iframe srcdoc="${escHtml(msg.body||'<p style=color:#94a3b8>No content</p>')}" style="width:100%;border:none;min-height:300px;background:white;border-radius:8px" sandbox="allow-same-origin"></iframe>
+        <iframe srcdoc="${escHtml(msg.body||'<p style=color:#94a3b8>No content</p>')}" style="width:100%;border:none;min-height:320px;background:white;border-radius:8px" sandbox="allow-same-origin"></iframe>
       </div>
+      ${attHtml}
     </div>`;
     modal.onclick = e => { if(e.target===modal) modal.remove(); };
     document.body.appendChild(modal);
   } catch(e) { toast('Could not load email: '+e.message,'error'); }
 }
 
-function gmailReply(to, subject) {
-  document.querySelector('[style*=fixed]')?.remove();
-  gmailCompose(to, subject.startsWith('Re:') ? subject : 'Re: '+subject);
+function _gmailFileIcon(mime='') {
+  if (mime.includes('pdf')) return '📄';
+  if (mime.includes('image')) return '🖼';
+  if (mime.includes('spreadsheet')||mime.includes('excel')||mime.includes('csv')) return '📊';
+  if (mime.includes('presentation')||mime.includes('powerpoint')) return '📑';
+  if (mime.includes('word')||mime.includes('document')) return '📝';
+  if (mime.includes('zip')||mime.includes('rar')) return '📦';
+  return '📎';
 }
 
-function gmailCompose(to='', subject='') {
+function _gmailFormatSize(bytes=0) {
+  if (bytes < 1024) return bytes+'B';
+  if (bytes < 1048576) return (bytes/1024).toFixed(0)+'KB';
+  return (bytes/1048576).toFixed(1)+'MB';
+}
+
+async function gmailSaveToDrive(messageId, attachmentId, filename, mimeType, btn) {
+  const orig = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = '…';
+  try {
+    const r = await apiCall('/files/save-from-gmail', {
+      method: 'POST',
+      body: JSON.stringify({ messageId, attachmentId, filename, mimeType })
+    });
+    btn.innerHTML = '✓';
+    btn.style.color = 'var(--success)';
+    if (r.webViewLink) {
+      toast(`Saved to Drive — <a href="${r.webViewLink}" target="_blank" style="color:var(--primary);font-weight:600">Open ${r.name} →</a>`, 'success');
+    } else {
+      toast(`${filename} saved to Google Drive`, 'success');
+    }
+  } catch(e) {
+    btn.disabled = false; btn.innerHTML = orig;
+    toast('Drive save failed: ' + e.message, 'error');
+  }
+}
+
+async function gmailTrash(id, btn) {
+  if (!confirm('Move this email to Trash?')) return;
+  if (btn) { btn.disabled=true; btn.textContent='Deleting…'; }
+  try {
+    await apiCall('/gmail/messages/'+id+'/trash',{method:'POST'});
+    btn?.closest('[style*=fixed]')?.remove();
+    toast('Moved to Trash','success');
+    _gmailLoadFolder();
+  } catch(e) { toast('Failed: '+e.message,'error'); if(btn){btn.disabled=false;btn.textContent='🗑 Delete';} }
+}
+
+function gmailReply(to, subject) {
+  document.querySelector('[style*=fixed]')?.remove();
+  gmailCompose(to, subject);
+}
+
+function gmailCompose(to='', subject='', quotedHtml='') {
+  const sig = state._gmailSignature || '';
+  const sigHtml = sig ? `\n\n-- \n${sig}` : '';
   const modal = document.createElement('div');
   modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;display:flex;align-items:flex-end;justify-content:flex-end;padding:20px';
-  modal.innerHTML=`<div style="background:var(--surface);border-radius:14px;width:500px;max-height:70vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+  modal.innerHTML=`<div style="background:var(--surface);border-radius:14px;width:520px;max-height:75vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)">
     <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <div style="font-size:13px;font-weight:700;color:var(--text)">New Message</div>
-      <button class="btn btn-sm" onclick="this.closest('[style*=fixed]').remove()">✕</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" onclick="this.closest('[style*=fixed]').remove()">✕</button>
+      </div>
     </div>
     <div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px;flex:1;overflow:auto">
-      <input class="input" id="gm-to" placeholder="To" value="${escHtml(to)}" style="font-size:12px">
-      <input class="input" id="gm-subj" placeholder="Subject" value="${escHtml(subject)}" style="font-size:12px">
-      <textarea class="input" id="gm-body" placeholder="Write your message…" style="font-size:12px;min-height:160px;resize:vertical;line-height:1.5"></textarea>
+      <input class="input" id="gm-to"   placeholder="To"      value="${escHtml(to)}"      style="font-size:12px">
+      <input class="input" id="gm-cc"   placeholder="CC"                                  style="font-size:12px">
+      <input class="input" id="gm-subj" placeholder="Subject" value="${escHtml(subject)}"  style="font-size:12px">
+      <textarea class="input" id="gm-body" placeholder="Write your message…" style="font-size:12px;min-height:180px;resize:vertical;line-height:1.6">${escHtml(sigHtml + (quotedHtml ? '\n\n'+quotedHtml : ''))}</textarea>
     </div>
-    <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px">
-      <button class="btn btn-primary btn-sm" onclick="gmailSend(this)">Send</button>
-      <button class="btn btn-sm" onclick="this.closest('[style*=fixed]').remove()">Discard</button>
+    <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:space-between;align-items:center">
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-primary btn-sm" onclick="gmailSend(this)">Send</button>
+        <button class="btn btn-sm" onclick="this.closest('[style*=fixed]').remove()">Discard</button>
+      </div>
+      ${sig ? `<span style="font-size:10px;color:var(--text-3)">Signature added</span>` : `<button class="btn btn-sm" onclick="gmailEditSignature()" style="font-size:10px">+ Add Signature</button>`}
     </div>
   </div>`;
   document.body.appendChild(modal);
-  document.getElementById('gm-to')?.focus();
+  setTimeout(()=>document.getElementById('gm-to')?.focus(),50);
+}
+
+function gmailEditSignature() {
+  const sig = state._gmailSignature || '';
+  const modal = document.createElement('div');
+  modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1001;display:flex;align-items:center;justify-content:center;padding:20px';
+  modal.innerHTML=`<div style="background:var(--surface);border-radius:14px;width:500px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+    <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:14px;font-weight:700;color:var(--text)">✍ Email Signature</div>
+      <button class="btn btn-sm" onclick="this.closest('[style*=fixed]').remove()">✕</button>
+    </div>
+    <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:11px;color:var(--text-2)">This signature is automatically appended when composing new emails.</div>
+      <textarea class="input" id="gm-sig-input" rows="6" placeholder="e.g. Best regards,\nJohn Smith\nAladdin Finance | +971 50 123 4567" style="font-size:12px;resize:vertical;line-height:1.7">${escHtml(sig)}</textarea>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-sm" onclick="this.closest('[style*=fixed]').remove()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="gmailSaveSignature(this)">Save Signature</button>
+    </div>
+  </div>`;
+  modal.onclick = e => { if(e.target===modal) modal.remove(); };
+  document.body.appendChild(modal);
+}
+
+async function gmailSaveSignature(btn) {
+  const sig = document.getElementById('gm-sig-input')?.value || '';
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    await apiCall('/gmail/signature',{method:'POST',body:JSON.stringify({signature:sig})});
+    state._gmailSignature = sig;
+    btn.closest('[style*=fixed]')?.remove();
+    toast('Signature saved','success');
+  } catch(e) { btn.disabled=false; btn.textContent='Save Signature'; toast('Failed: '+e.message,'error'); }
 }
 
 async function gmailSend(btn) {
   const to      = document.getElementById('gm-to')?.value.trim();
+  const cc      = document.getElementById('gm-cc')?.value.trim();
   const subject = document.getElementById('gm-subj')?.value.trim();
   const body    = document.getElementById('gm-body')?.value.trim();
   if (!to || !subject) { toast('To and Subject are required','error'); return; }
   btn.disabled=true; btn.textContent='Sending…';
   try {
-    await apiCall('/gmail/send', {method:'POST', body:JSON.stringify({to,subject,body})});
+    await apiCall('/gmail/send', {method:'POST', body:JSON.stringify({to,cc,subject,body})});
     btn.closest('[style*=fixed]')?.remove();
-    toast('Email sent!');
+    toast('Email sent!','success');
+    if (state._gmailFolder === 'SENT') _gmailLoadFolder();
   } catch(e) { btn.disabled=false; btn.textContent='Send'; toast('Failed: '+e.message,'error'); }
 }
 
 function gmailSearch() {
   clearTimeout(gmailSearch._t);
-  gmailSearch._t = setTimeout(async () => {
-    const q = document.getElementById('gmail-search')?.value.trim();
-    const body = document.getElementById('gmail-body');
-    if (body) await gmailLoadInbox(body, q);
-  }, 500);
+  gmailSearch._t = setTimeout(() => {
+    _gmailLoadFolder(document.getElementById('gmail-search')?.value.trim()||'');
+  }, 400);
 }
 
 function formatGmailDate(dateStr) {
@@ -5599,6 +6465,11 @@ function renderCommissionsTable() {
     return `<th style="${align?'text-align:'+align+';':''}" class="sortable-th" onclick="(el=>{el.dataset.sortKey='${key}';el.dataset.sortDir='${nextDir}';renderCommissionsTable();})(document.getElementById('comm-table-wrap'))">${label}${active?(sortDir==='asc'?' ↑':' ↓'):'<span style=\"opacity:.3\"> ⇅</span>'}</th>`;
   };
 
+  const countEl = document.getElementById('comm-filter-count');
+  if (countEl) countEl.textContent = rows.length < state.commissions.length ? `${rows.length} of ${state.commissions.length} commissions` : `${state.commissions.length} commissions`;
+  const clearBtn = document.getElementById('comm-clear-btn');
+  if (clearBtn) clearBtn.style.display = (q || fStat || fRep) ? '' : 'none';
+
   const {slice, ctrl} = _paginate(rows, 'commissions');
   wrap.dataset.sortKey = sortKey;
   wrap.dataset.sortDir = sortDir;
@@ -5637,7 +6508,7 @@ function renderCommissionsTable() {
         <td><div style="display:flex;gap:4px;flex-wrap:wrap">
           ${canApprove?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--success-bg);color:var(--success);border:1px solid rgba(22,163,74,.2)" onclick="commissionAction(${x.id},'approve')" title="Approve for payment">Approve</button>`:''}
           ${canPay?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:var(--info-bg);color:var(--info);border:1px solid rgba(59,130,246,.2)" onclick="commissionAction(${x.id},'pay')" title="Mark as paid">Mark Paid</button>`:''}
-          ${dealLink?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="showSection('pipeline')" title="View deal in pipeline">View Deal</button>`:''}
+          ${dealLink?`<button class="btn btn-sm" style="font-size:10px;padding:2px 8px" onclick="showSection('pipeline');setTimeout(()=>editDeal(${dealLink.id}),400)" title="View deal in pipeline">View Deal</button>`:''}
           <button class="btn btn-sm" style="font-size:10px;padding:2px 7px" onclick="openEditCommission(${x.id})">Edit</button>
           <button class="del-btn" onclick="deleteCommission(${x.id})">×</button>
         </div></td>
@@ -5713,12 +6584,12 @@ function renderCommissions(c) {
   c.innerHTML=`
   <div style="display:flex;flex-direction:column;gap:14px">
     <div class="view-tabs" style="width:fit-content">
-      <button class="view-tab active" onclick="switchView(this,'comm-list')">All Commissions</button>
-      <button class="view-tab" onclick="switchView(this,'comm-reps')">By Rep</button>
-      <button class="view-tab" onclick="switchView(this,'comm-settings')">Settings & Targets</button>
+      <button class="view-tab${state._commView==='comm-list'||!state._commView?' active':''}" onclick="switchView(this,'comm-list')">All Commissions</button>
+      <button class="view-tab${state._commView==='comm-reps'?' active':''}" onclick="switchView(this,'comm-reps')">By Rep</button>
+      <button class="view-tab${state._commView==='comm-settings'?' active':''}" onclick="switchView(this,'comm-settings')">Settings & Targets</button>
     </div>
 
-    <div class="view-panel active" id="comm-list">
+    <div class="view-panel${state._commView==='comm-list'||!state._commView?' active':''}" id="comm-list">
       <div class="grid-4" style="margin-bottom:12px">
         <div class="metric"><div class="metric-label">Total Commissions</div><div class="metric-value">${fmt(total)}</div></div>
         <div class="metric"><div class="metric-label">Paid Out</div><div class="metric-value" style="color:var(--info)">${fmt(paid+partial)}</div><div class="metric-sub">${partial>0?fmt(partial)+' partial':''}</div></div>
@@ -5744,13 +6615,14 @@ function renderCommissions(c) {
             <option value="">All Reps</option>
             ${[...new Set(state.commissions.map(x=>x.repName))].map(r=>`<option value="${escHtml(r)}">${escHtml(r)}</option>`).join('')}
           </select>
-          <div class="filter-count">${state.commissions.length} commissions</div>
+          <button id="comm-clear-btn" class="btn btn-sm" style="font-size:11px;padding:3px 8px;display:none" onclick="document.getElementById('comm-search').value='';document.getElementById('comm-filter-status').value='';document.getElementById('comm-filter-rep').value='';renderCommissionsTable()">✕ Clear</button>
+          <span id="comm-filter-count" class="filter-count">${state.commissions.length} commissions</span>
         </div>
         <div id="comm-table-wrap" style="overflow-x:auto"></div>
       </div>
     </div>
 
-    <div class="view-panel" id="comm-reps">
+    <div class="view-panel${state._commView==='comm-reps'?' active':''}" id="comm-reps">
       ${archivedReps.length?`<div style="font-size:11px;color:var(--text-2);margin-bottom:10px;padding:7px 12px;background:var(--surface-2);border-radius:8px">${archivedReps.length} rep${archivedReps.length>1?'s are':' is'} archived — manage in <a style="color:var(--primary);cursor:pointer;font-weight:600" onclick="switchView(document.querySelector('[onclick*=comm-settings]'),\'comm-settings\')">Settings &amp; Targets</a></div>`:''}
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px;margin-bottom:14px">
         ${activeRepNames.map((rep,i)=>{
@@ -5802,7 +6674,7 @@ function renderCommissions(c) {
       </div>
     </div>
 
-    <div class="view-panel" id="comm-settings">
+    <div class="view-panel${state._commView==='comm-settings'?' active':''}" id="comm-settings">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
         <div class="card">
           <div class="card-header"><div class="card-title">Rate by Channel</div></div>
@@ -5858,10 +6730,14 @@ function renderCommissions(c) {
             </div>
             ${tgt.monthly?`<div style="margin-bottom:5px"><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-2);margin-bottom:2px"><span>This month</span><span style="color:${moPct>=100?'var(--success)':'var(--primary)'};font-weight:600">${moPct}%</span></div><div style="height:4px;background:var(--surface-2);border-radius:2px;overflow:hidden"><div style="height:100%;background:${moPct>=100?'var(--success)':'var(--primary)'};width:${moPct}%;border-radius:2px"></div></div></div>`:''}
             ${tgt.yearly?`<div><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-2);margin-bottom:2px"><span>Yearly sales</span><span style="color:${yrPct>=100?'var(--success)':'var(--primary)'};font-weight:600">${yrPct}% of ${fmt(tgt.yearly)}</span></div><div style="height:4px;background:var(--surface-2);border-radius:2px;overflow:hidden"><div style="height:100%;background:${yrPct>=100?'var(--success)':'var(--primary)'};width:${yrPct}%;border-radius:2px"></div></div></div>`:''}
+            ${tgt.hrSynced ? `<div style="font-size:10px;color:var(--text-2);margin-top:8px">⚡ Auto-set from HR · Full year: ${fmt(tgt.fullYearTarget||0)} · ${tgt.remainingMonths||12} months</div>` : ''}
           </div>`;}).join('') : '<div style="font-size:12px;color:var(--text-3)">Add commission entries first to set rep targets.</div>'}
           ${activeRepNames.length?`<button class="btn btn-primary btn-sm" onclick="saveCommTargets([${activeRepNames.map(r=>`'${r.replace(/'/g,"\\'")}'`).join(',')}])">Save Targets</button>`:''}
           <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
             <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">Add Rep Manually</div>
+            <div style="background:var(--surface-2);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--text-2)">
+              💡 Sales employees added in <strong style="color:var(--text)">HR → Sales department</strong> are auto-synced here with email and prorated targets. Use the form below to add non-HR reps only.
+            </div>
             <div style="display:flex;flex-direction:column;gap:6px">
               <input class="input" id="new-rep-name" placeholder="Full name" style="font-size:12px">
               <input class="input" type="email" id="new-rep-email" placeholder="Email address (for digest)" style="font-size:12px">
@@ -5896,7 +6772,8 @@ function renderCommissions(c) {
 
 function openAddCommission() {
   document.getElementById('comm-modal-title').textContent='Add Commission';
-  ['comm-deal','comm-rep','comm-client','comm-notes'].forEach(id=>document.getElementById(id).value='');
+  ['comm-deal','comm-client','comm-notes'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  _populateCommRepSel('');
   document.getElementById('comm-value').value=''; document.getElementById('comm-rate').value='5';
   document.getElementById('comm-amount').value=''; document.getElementById('comm-status').value='pending';
   document.getElementById('comm-partial-paid').value='';
@@ -5905,6 +6782,14 @@ function openAddCommission() {
   delete document.getElementById('modal-commission').dataset.editId;
   _populateClientDL(); _populateDealDL();
   openModal('modal-commission');
+}
+
+function openAddCommissionForClient(clientId) {
+  openAddCommission();
+  const c = state.clients.find(x => x.id === clientId);
+  if (!c) return;
+  const clientEl = document.getElementById('comm-client');
+  if (clientEl) clientEl.value = c.name;
 }
 
 function togglePartialPaid() {
@@ -5955,7 +6840,7 @@ async function deleteCommission(id) {
 function openEditCommission(id) {
   const x = state.commissions.find(c=>c.id===id); if(!x) return;
   document.getElementById('comm-modal-title').textContent='Edit Commission';
-  document.getElementById('comm-deal').value=x.dealName; document.getElementById('comm-rep').value=x.repName;
+  document.getElementById('comm-deal').value=x.dealName; _populateCommRepSel(x.repName||'');
   document.getElementById('comm-client').value=x.client; document.getElementById('comm-value').value=x.dealValue;
   document.getElementById('comm-rate').value=x.rate; document.getElementById('comm-amount').value=x.amount;
   setSelectValue(document.getElementById('comm-status'), x.status); document.getElementById('comm-date').value=x.date||'';
@@ -7631,10 +8516,17 @@ async function sendCeoRemindersNow(role='ceo') {
 
 // ── Settings & Users ──────────────────────────────────────────────────────────
 async function renderSettings(c) {
-  let integrations=[], gcalStatus={};
+  let integrations=[], gcalStatus={}, stripeSettings={}, stripeStatus={};
   try {
-    const [ud, intd, gs] = await Promise.all([apiCall('/users'), apiCall('/sync/integration-config'), apiCall('/events/gcal/status').catch(()=>({}))]);
+    const [ud, intd, gs, ss, sst] = await Promise.all([
+      apiCall('/users'),
+      apiCall('/sync/integration-config'),
+      apiCall('/events/gcal/status').catch(()=>({})),
+      apiCall('/stripe/settings').catch(()=>({})),
+      apiCall('/stripe/status').catch(()=>({})),
+    ]);
     state.users=ud.users; state.invitations=ud.invitations; integrations=intd; gcalStatus=gs;
+    stripeSettings=ss||{}; stripeStatus=sst||{};
   } catch {}
   // Attach live gcal connection state onto integration cards
   integrations = integrations.map(intg => {
@@ -7691,19 +8583,49 @@ async function renderSettings(c) {
         </div>
         <div id="pipeline-cfg-status" style="font-size:11px;color:var(--text-2);margin-top:6px"></div>
       </div>
+
       <div class="card">
-        <div class="card-title" style="margin-bottom:10px">Stale Deals (${(() => { const d=new Date(Date.now()-(state.appSettings?.pipelineStaleAfterDays||14)*24*60*60*1000); return state.pipeline.filter(p=>p.stage!=='Closed Won'&&p.stage!=='Closed Lost'&&(!p.lastUpdated||new Date(p.lastUpdated)<d)).length; })()} deals)</div>
-        ${(() => {
+        <div class="card-header">
+          <div>
+            <div class="card-title">New Lead Notifications</div>
+            <div style="font-size:11px;color:var(--text-2);margin-top:2px">Get notified whenever a new deal is added to the pipeline. The deal owner is always notified automatically.</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="saveLeadNotifyEmails()">Save</button>
+        </div>
+        <div style="margin-top:10px">
+          <label style="font-size:11px;color:var(--text-2);margin-bottom:6px;display:block">Additional recipients <span style="color:var(--text-3)">(comma-separated emails)</span></label>
+          <textarea id="cfg-lead-notify-emails" class="input" rows="3" style="font-size:12px;resize:vertical;width:100%;box-sizing:border-box" placeholder="manager@company.com, ceo@company.com">${(state.appSettings?.leadNotifyEmails||[]).join(', ')}</textarea>
+          <div style="font-size:11px;color:var(--text-3);margin-top:5px">Deal owner email is added automatically from the HR employee record</div>
+        </div>
+        <div id="lead-notify-status" style="font-size:11px;color:var(--text-2);margin-top:6px"></div>
+      </div>
+
+      ${(() => {
           const staleAfter = state.appSettings?.pipelineStaleAfterDays || 14;
           const cutoff = new Date(Date.now()-staleAfter*24*60*60*1000);
           const stale = state.pipeline.filter(p=>p.stage!=='Closed Won'&&p.stage!=='Closed Lost'&&(!p.lastUpdated||new Date(p.lastUpdated)<cutoff));
-          if (!stale.length) return '<div style="font-size:11px;color:var(--success);padding:8px 0">✓ No stale deals</div>';
-          return stale.map(d=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--border)">
-            <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600">${d.name}</div><div style="font-size:11px;color:var(--text-2)">${d.stage} · ${d.owner||'unassigned'}</div></div>
-            <div style="font-size:11px;color:var(--danger)">Last: ${d.lastUpdated||'never'}</div>
-          </div>`).join('');
+          const daysSince = d => d.lastUpdated ? Math.floor((Date.now()-new Date(d.lastUpdated))/86400000) : 999;
+          const _dismissed = JSON.parse(localStorage.getItem('_stale_dismissed')||'{}');
+          const now = Date.now();
+          const visible = stale.filter(d => !_dismissed[d.id] || _dismissed[d.id] < now);
+          return `<div class="card">
+            <div class="card-header">
+              <div><div class="card-title">Stale Deals (${visible.length})</div><div class="card-desc">Deals not updated in ${staleAfter}+ days</div></div>
+              <button class="btn btn-sm btn-primary" onclick="sendStaleAlerts()">📧 Send Alert Email</button>
+            </div>
+            ${visible.length ? visible.map(d=>{
+              const ds=daysSince(d);
+              return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--border)">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:12px;font-weight:600">${d.name}</div>
+                  <div style="font-size:11px;color:var(--text-2)">${d.stage} · ${d.owner||'unassigned'} · Last: ${d.lastUpdated||'never'}</div>
+                </div>
+                <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;background:var(--danger-bg);color:var(--danger);white-space:nowrap">${ds===999?'Never updated':ds+'d stale'}</span>
+                <button class="btn btn-sm" style="font-size:10px;padding:2px 7px;color:var(--text-2)" onclick="(function(){const dd=JSON.parse(localStorage.getItem('_stale_dismissed')||'{}');dd[${d.id}]=Date.now()+86400000;localStorage.setItem('_stale_dismissed',JSON.stringify(dd));renderSettings(document.getElementById('main-content'));})()">Dismiss</button>
+              </div>`;
+            }).join('') : '<div style="font-size:11px;color:var(--success);padding:8px 0">✓ No stale deals</div>'}
+          </div>`;
         })()}
-      </div>
     </div>
 
     <!-- Integrations -->
@@ -7712,7 +8634,7 @@ async function renderSettings(c) {
         <div style="font-size:12px;color:var(--text-2)">Connect your financial and productivity tools. Status shows whether each integration is live. Contact your administrator to configure new connections.</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
-        ${integrations.map(intg=>{
+        ${integrations.filter(intg => intg.id !== 'smtp').map(intg=>{
           const allSet=intg.envVars.filter(v=>!v.set).length===0;
           const pctSet=Math.round((intg.envVars.filter(v=>v.set).length/intg.envVars.length)*100);
           return `<div class="card" style="padding:0;overflow:hidden">
@@ -7787,6 +8709,101 @@ async function renderSettings(c) {
             </div>
           </div>`;
         }).join('')}
+
+        <!-- Stripe -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="display:flex;align-items:center;gap:14px;padding:16px 18px;cursor:pointer" onclick="toggleIntgDetail('stripe')">
+            <div style="width:42px;height:42px;border-radius:10px;background:#6772E5;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#fff;flex-shrink:0">ST</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:700;color:var(--text)">Stripe</div>
+              <div style="font-size:11px;color:var(--text-2);margin-top:2px">Process subscriptions and payments via Stripe webhooks</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              ${stripeStatus.connected
+                ? '<span style="background:#F0FDF4;color:#16A34A;font-size:10px;font-weight:700;padding:3px 10px;border-radius:5px">● CONNECTED</span>'
+                : '<span style="background:#F4F6FA;color:#97A0AF;font-size:10px;font-weight:700;padding:3px 10px;border-radius:5px">○ NOT SET UP</span>'}
+              <div style="font-size:9px;color:var(--text-3);margin-top:4px;text-align:right">${stripeSettings.testKeySet || stripeSettings.liveKeySet ? 'Partially configured' : '0% configured'} ▾</div>
+            </div>
+          </div>
+          <div id="intg-detail-stripe" style="display:none;border-top:1px solid var(--border);padding:16px 18px;background:var(--bg)">
+
+            <!-- Status strip -->
+            <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+              <div style="flex:1;min-width:110px;padding:10px 14px;border-radius:8px;background:${stripeStatus.connected?'rgba(34,197,94,.06)':'var(--surface)'};border:1px solid ${stripeStatus.connected?'rgba(34,197,94,.2)':'var(--border)'}">
+                <div style="font-size:10px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Status</div>
+                <div style="font-size:13px;font-weight:700;color:${stripeStatus.connected?'#16A34A':'var(--text-3)'}">${stripeStatus.connected?'Connected':'Not connected'}</div>
+              </div>
+              <div style="flex:1;min-width:80px;padding:10px 14px;border-radius:8px;background:var(--surface);border:1px solid var(--border)">
+                <div style="font-size:10px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Mode</div>
+                <div style="font-size:13px;font-weight:700;color:${(stripeStatus.mode||'test')==='live'?'#16A34A':'#D97706'}">${(stripeStatus.mode||'test')==='live'?'● Live':'○ Test'}</div>
+              </div>
+              <div style="flex:2;min-width:160px;padding:10px 14px;border-radius:8px;background:var(--surface);border:1px solid var(--border)">
+                <div style="font-size:10px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Last Webhook</div>
+                <div style="font-size:11px;font-weight:600;color:var(--text)">${stripeStatus.lastWebhook ? new Date(stripeStatus.lastWebhook).toLocaleString() : '—'}</div>
+              </div>
+              <div style="flex:1;min-width:70px;padding:10px 14px;border-radius:8px;background:var(--surface);border:1px solid var(--border)">
+                <div style="font-size:10px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Events</div>
+                <div style="font-size:13px;font-weight:700;color:var(--text)">${stripeStatus.eventCount||0}</div>
+              </div>
+            </div>
+
+            <!-- Config form -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+              <div class="form-row" style="grid-column:1/-1">
+                <label style="font-size:11px">Mode</label>
+                <select id="stripe-mode" class="input" style="font-size:12px" data-no-custom>
+                  <option value="test" ${(stripeSettings.mode||'test')!=='live'?'selected':''}>Test</option>
+                  <option value="live" ${stripeSettings.mode==='live'?'selected':''}>Live</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label style="font-size:11px">Test Secret Key</label>
+                <input type="password" id="stripe-test-key" class="input" style="font-size:12px" placeholder="sk_test_..." value="${stripeSettings.testKeySet?'***':''}">
+              </div>
+              <div class="form-row">
+                <label style="font-size:11px">Live Secret Key</label>
+                <input type="password" id="stripe-live-key" class="input" style="font-size:12px" placeholder="sk_live_..." value="${stripeSettings.liveKeySet?'***':''}">
+              </div>
+              <div class="form-row">
+                <label style="font-size:11px">Webhook Signing Secret</label>
+                <input type="password" id="stripe-webhook-secret" class="input" style="font-size:12px" placeholder="whsec_..." value="${stripeSettings.webhookSecretSet?'***':''}">
+              </div>
+              <div class="form-row">
+                <label style="font-size:11px">Webhook Endpoint <span style="font-weight:400;color:var(--text-3)">(read-only, add in Stripe Dashboard)</span></label>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <input type="text" id="stripe-webhook-url" class="input" style="font-size:11px;flex:1;background:var(--surface-2);color:var(--text-2)" readonly value="${(stripeSettings.webhookUrl||stripeStatus.webhookUrl||'').replace(/"/g,'&quot;')}">
+                  <button class="btn btn-sm" style="flex-shrink:0;font-size:11px;padding:4px 10px" onclick="copyStripeWebhookUrl()">Copy</button>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <button class="btn btn-sm" onclick="testStripeConnection()">🔌 Test Connection</button>
+              <button class="btn btn-sm btn-primary" onclick="saveStripeSettings()">Save Settings</button>
+              <button class="btn btn-sm" style="margin-left:auto" onclick="loadStripeEventLog()">📋 View Event Log</button>
+            </div>
+            <div id="stripe-test-result" style="margin-top:8px;font-size:11px"></div>
+
+            <!-- Setup guide -->
+            <div style="margin-top:14px;background:var(--surface);border-radius:8px;padding:12px 14px">
+              <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:6px">Setup Guide</div>
+              <div style="font-size:11px;color:var(--text-2);padding:2px 0">1. Get your Secret Keys from <strong>Stripe Dashboard → Developers → API Keys</strong></div>
+              <div style="font-size:11px;color:var(--text-2);padding:2px 0">2. In Stripe Dashboard → <strong>Developers → Webhooks → Add Endpoint</strong>, paste the Webhook URL above</div>
+              <div style="font-size:11px;color:var(--text-2);padding:2px 0">3. Subscribe to: <code style="font-size:10px">customer.subscription.*</code>, <code style="font-size:10px">invoice.paid</code>, <code style="font-size:10px">invoice.payment_failed</code>, <code style="font-size:10px">checkout.session.completed</code></div>
+              <div style="font-size:11px;color:var(--text-2);padding:2px 0">4. Copy the <strong>Webhook Signing Secret</strong> (whsec_...) from Stripe and paste it above</div>
+              <div style="font-size:11px;color:var(--text-2);padding:2px 0">5. Enter your Secret Key, choose mode (Test/Live), Save, then click <strong>Test Connection</strong></div>
+              <div style="font-size:11px;color:var(--text-2);padding:2px 0;margin-top:4px;color:var(--text-3)">Subscriptions received via webhook are matched by metadata (<code style="font-size:10px">clientId</code>, <code style="font-size:10px">dealId</code>). Unmatched ones go to the unlinked queue.</div>
+            </div>
+
+            <!-- Webhook event log (lazy-loaded) -->
+            <div id="stripe-event-log" style="margin-top:14px;display:none">
+              <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-bottom:8px">Recent Webhook Events</div>
+              <div id="stripe-event-log-content"></div>
+            </div>
+
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -7842,6 +8859,80 @@ async function renderSettings(c) {
   </div>`;
 }
 
+// ── Stripe settings functions ─────────────────────────────────────────────────
+async function saveStripeSettings() {
+  const mode          = document.getElementById('stripe-mode')?.value;
+  const testKey       = document.getElementById('stripe-test-key')?.value;
+  const liveKey       = document.getElementById('stripe-live-key')?.value;
+  const webhookSecret = document.getElementById('stripe-webhook-secret')?.value;
+  const el = document.getElementById('stripe-test-result');
+  try {
+    await apiCall('/stripe/settings', { method: 'PUT', body: JSON.stringify({ mode, testKey, liveKey, webhookSecret }) });
+    if (el) el.innerHTML = '<span style="color:var(--success)">✓ Settings saved</span>';
+    toast('Stripe settings saved');
+    // Reset fields that were actual values back to masked placeholder
+    const reset = (id, val) => { if (val && val !== '***' && !val.startsWith('•')) { const i = document.getElementById(id); if (i) i.value = '***'; } };
+    reset('stripe-test-key', testKey);
+    reset('stripe-live-key', liveKey);
+    reset('stripe-webhook-secret', webhookSecret);
+  } catch(e) {
+    if (el) el.innerHTML = `<span style="color:var(--danger)">✗ ${e.message}</span>`;
+    toast('Error: ' + e.message);
+  }
+}
+
+async function testStripeConnection() {
+  const el = document.getElementById('stripe-test-result');
+  if (el) el.textContent = 'Testing…';
+  try {
+    const r = await apiCall('/stripe/test', { method: 'POST' });
+    if (el) el.innerHTML = r.ok
+      ? `<span style="color:var(--success)">✓ ${r.message}</span>`
+      : `<span style="color:var(--danger)">✗ ${r.error}</span>`;
+    toast(r.ok ? 'Connection OK' : ('Test failed: ' + r.error));
+  } catch(e) {
+    if (el) el.innerHTML = `<span style="color:var(--danger)">✗ ${e.message}</span>`;
+    toast('Error: ' + e.message);
+  }
+}
+
+async function loadStripeEventLog() {
+  const container = document.getElementById('stripe-event-log');
+  const content   = document.getElementById('stripe-event-log-content');
+  if (!container || !content) return;
+  container.style.display = 'block';
+  content.innerHTML = '<div style="font-size:11px;color:var(--text-3)">Loading…</div>';
+  try {
+    const events = await apiCall('/stripe/event-log');
+    if (!events.length) {
+      content.innerHTML = '<div style="font-size:11px;color:var(--text-3);padding:8px 0">No webhook events received yet</div>';
+      return;
+    }
+    const typeColor = t => (t.includes('failed') || t.includes('deleted')) ? 'var(--danger)' : (t.includes('paid') || t.includes('completed') || t.includes('created')) ? 'var(--success)' : 'var(--text-2)';
+    content.innerHTML = `<div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+      ${events.slice(0, 20).map(e => `
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;border-bottom:0.5px solid var(--border)">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:11px;font-weight:700;color:${typeColor(e.type)}">${e.type}</div>
+            <div style="font-size:10px;color:var(--text-3);margin-top:2px">${e.summary||''}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <span style="font-size:9px;padding:2px 7px;border-radius:4px;background:${e.livemode?'rgba(239,68,68,.1)':'rgba(217,119,6,.1)'};color:${e.livemode?'#ef4444':'#d97706'};font-weight:700">${e.livemode?'LIVE':'TEST'}</span>
+            <div style="font-size:9px;color:var(--text-3);margin-top:3px">${new Date(e.receivedAt).toLocaleString()}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+  } catch(e) {
+    content.innerHTML = `<div style="font-size:11px;color:var(--danger)">Error: ${e.message}</div>`;
+  }
+}
+
+function copyStripeWebhookUrl() {
+  const val = document.getElementById('stripe-webhook-url')?.value;
+  if (!val) return;
+  navigator.clipboard.writeText(val).then(() => toast('Webhook URL copied to clipboard'));
+}
+
 async function saveCashThreshold() {
   const val = Number(document.getElementById('cash-threshold')?.value)||0;
   try {
@@ -7882,6 +8973,20 @@ async function savePipelineSettings() {
     if (statusEl) statusEl.innerHTML = '<span style="color:var(--success)">✓ Saved</span>';
     toast('Pipeline settings saved');
   } catch(e) { if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger)">✗ ${e.message}</span>`; }
+}
+
+async function saveLeadNotifyEmails() {
+  const raw = document.getElementById('cfg-lead-notify-emails')?.value || '';
+  const leadNotifyEmails = raw.split(',').map(e => e.trim()).filter(Boolean);
+  const statusEl = document.getElementById('lead-notify-status');
+  try {
+    await apiCall('/app-settings', { method: 'PUT', body: JSON.stringify({ leadNotifyEmails }) });
+    state.appSettings = { ...state.appSettings, leadNotifyEmails };
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--success)">✓ Saved${leadNotifyEmails.length ? ` (${leadNotifyEmails.length} recipient${leadNotifyEmails.length > 1 ? 's' : ''})` : ''}</span>`;
+    setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500);
+  } catch (e) {
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger)">✗ ${e.message}</span>`;
+  }
 }
 
 async function sendPipelineDigest() {
@@ -9268,10 +10373,84 @@ function renderRequests(c) {
   const items = state.requests || [];
   const cfg   = state.requestCfg || {};
   const token = cfg.token || '';
-  const origin = location.origin;
-  const publicUrl = `${origin}/request/${token}`;
+  const publicUrl = `${location.origin}/request/${token}`;
+
+  c.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title">Requests</div>
+        <div class="page-sub">Manage incoming requests from clients & team members</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-sm" style="color:var(--primary);border-color:var(--primary-bg)" onclick="openAI('requests')">✦ Ask Ayla</button>
+        <button class="btn btn-primary" onclick="openReqSettings()">⚙ Form Settings</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px;border:1.5px solid rgba(255,102,0,.25);background:linear-gradient(135deg,rgba(255,102,0,.04) 0%,var(--surface) 100%)">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div style="width:42px;height:42px;border-radius:12px;background:var(--primary-bg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🔗</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:3px">Public Request Link</div>
+          <div style="font-size:11px;color:var(--text-2);margin-bottom:8px">Share this link with anyone — they can submit requests without needing an account.</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <code style="font-size:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;padding:6px 12px;color:var(--primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${publicUrl}</code>
+            <button class="btn btn-sm btn-primary" onclick="copyReqLink('${publicUrl}')">📋 Copy</button>
+            <button class="btn btn-sm" onclick="window.open('${publicUrl}','_blank')">↗ Open</button>
+            <button class="btn btn-sm" style="color:var(--danger-text)" onclick="regenerateReqToken()">🔄 Regenerate</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px">
+      <div class="card" style="text-align:center;padding:18px">
+        <div style="font-size:26px;font-weight:800;color:var(--warning);font-family:'Montserrat',sans-serif">${items.filter(x=>x.status==='pending'||x.status==='adjusted'||x.status==='adjustment_declined').length}</div>
+        <div style="font-size:11px;color:var(--text-2);margin-top:3px">Pending Review</div>
+      </div>
+      <div class="card" style="text-align:center;padding:18px">
+        <div style="font-size:26px;font-weight:800;color:var(--success);font-family:'Montserrat',sans-serif">${items.filter(x=>x.status==='accepted'||x.status==='adjustment_accepted').length}</div>
+        <div style="font-size:11px;color:var(--text-2);margin-top:3px">Accepted</div>
+      </div>
+      <div class="card" style="text-align:center;padding:18px">
+        <div style="font-size:26px;font-weight:800;color:var(--danger);font-family:'Montserrat',sans-serif">${items.filter(x=>x.status==='rejected').length}</div>
+        <div style="font-size:11px;color:var(--text-2);margin-top:3px">Rejected</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <input class="filter-search" id="req-search" placeholder="Search subject, details, email…" oninput="state._reqFilter.q=this.value;_db('req-q',_reqRenderList,320)">
+      <div class="filter-sep"></div>
+      <select class="filter-select" id="req-filter-status" onchange="state._reqFilter.status=this.value;_reqRenderList()">
+        <option value="">All Statuses</option>
+        <option value="pending">Pending</option>
+        <option value="accepted">Accepted</option>
+        <option value="rejected">Rejected</option>
+      </select>
+      <select class="filter-select" id="req-filter-priority" onchange="state._reqFilter.priority=this.value;_reqRenderList()">
+        <option value="">All Priorities</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+        <option value="low">Low</option>
+      </select>
+      <button id="req-clear-btn" class="btn btn-sm" style="font-size:11px;padding:3px 8px;display:none" onclick="state._reqFilter={q:'',status:'',priority:''};document.getElementById('req-search').value='';document.getElementById('req-filter-status').value='';document.getElementById('req-filter-priority').value='';_reqRenderList()">✕ Clear</button>
+      <span id="req-filter-count" class="filter-count"></span>
+    </div>
+    <div id="req-tables"></div>
+  `;
 
   const rf = state._reqFilter || {};
+  const s = document.getElementById('req-search'); if (s) s.value = rf.q || '';
+  const ss = document.getElementById('req-filter-status'); if (ss) ss.value = rf.status || '';
+  const sp = document.getElementById('req-filter-priority'); if (sp) sp.value = rf.priority || '';
+  _reqRenderList();
+}
+
+function _reqRenderList() {
+  const tablesEl = document.getElementById('req-tables'); if (!tablesEl) return;
+  const items = state.requests || [];
+  const rf = state._reqFilter || {};
+
   let filtered = items;
   if (rf.q) { const q=rf.q.toLowerCase(); filtered=filtered.filter(x=>(x.subject||'').toLowerCase().includes(q)||(x.details||'').toLowerCase().includes(q)||(x.email||'').toLowerCase().includes(q)); }
   if (rf.priority) filtered=filtered.filter(x=>x.priority===rf.priority);
@@ -9279,21 +10458,26 @@ function renderRequests(c) {
   else if (rf.status==='accepted') filtered=filtered.filter(x=>x.status==='accepted'||x.status==='adjustment_accepted');
   else if (rf.status==='rejected') filtered=filtered.filter(x=>x.status==='rejected');
 
+  const countEl = document.getElementById('req-filter-count');
+  if (countEl) countEl.textContent = `${filtered.length} of ${items.length}`;
+  const clearBtn = document.getElementById('req-clear-btn');
+  if (clearBtn) clearBtn.style.display = rf.q||rf.status||rf.priority ? '' : 'none';
+
   const pending  = filtered.filter(x => x.status === 'pending' || x.status === 'adjusted' || x.status === 'adjustment_declined');
   const accepted = filtered.filter(x => x.status === 'accepted' || x.status === 'adjustment_accepted');
   const rejected = filtered.filter(x => x.status === 'rejected');
 
   const prioBadge = p => {
-    if (p === 'high')   return `<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:var(--danger-bg);color:var(--danger);font-weight:700">High</span>`;
-    if (p === 'low')    return `<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:var(--success-bg);color:var(--success);font-weight:700">Low</span>`;
+    if (p === 'high') return `<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:var(--danger-bg);color:var(--danger);font-weight:700">High</span>`;
+    if (p === 'low')  return `<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:var(--success-bg);color:var(--success);font-weight:700">Low</span>`;
     return `<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:var(--warning-bg);color:var(--warning);font-weight:700">Medium</span>`;
   };
   const statusBadge = s => {
-    if (s === 'accepted')             return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--success-bg);color:var(--success);font-weight:700">Accepted</span>`;
-    if (s === 'rejected')             return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--danger-bg);color:var(--danger);font-weight:700">Rejected</span>`;
-    if (s === 'adjusted')             return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--info-bg);color:var(--info);font-weight:700">Adjustment Sent</span>`;
-    if (s === 'adjustment_accepted')  return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--success-bg);color:var(--success);font-weight:700">Adj. Accepted</span>`;
-    if (s === 'adjustment_declined')  return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--danger-bg);color:var(--danger);font-weight:700">Adj. Declined</span>`;
+    if (s === 'accepted')            return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--success-bg);color:var(--success);font-weight:700">Accepted</span>`;
+    if (s === 'rejected')            return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--danger-bg);color:var(--danger);font-weight:700">Rejected</span>`;
+    if (s === 'adjusted')            return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--info-bg);color:var(--info);font-weight:700">Adjustment Sent</span>`;
+    if (s === 'adjustment_accepted') return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--success-bg);color:var(--success);font-weight:700">Adj. Accepted</span>`;
+    if (s === 'adjustment_declined') return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--danger-bg);color:var(--danger);font-weight:700">Adj. Declined</span>`;
     return `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--warning-bg);color:var(--warning);font-weight:700">Pending</span>`;
   };
   const fmtDate = iso => iso ? new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
@@ -9311,14 +10495,14 @@ function renderRequests(c) {
       <td style="padding:12px 14px;font-size:11px;color:var(--text-2);white-space:nowrap">${fmtDate(r.submittedAt)}</td>
       <td style="padding:12px 14px">
         <div style="display:flex;gap:5px;justify-content:flex-end">
-          <button class="btn btn-sm" style="font-size:11px" onclick="showReqDetail(${r.id})" title="View request details">View</button>
+          <button class="btn btn-sm" style="font-size:11px" onclick="showReqDetail(${r.id})">View</button>
           ${r.status==='pending'||r.status==='adjustment_declined' ? `
-            <button class="btn btn-sm" style="color:var(--success);border-color:rgba(22,163,74,.3);font-size:11px;font-weight:600" onclick="openReqCompose('accept',${r.id})" title="Approve this request">Approve</button>
-            <button class="btn btn-sm" style="color:var(--danger);border-color:rgba(220,38,38,.3);font-size:11px;font-weight:600" onclick="openReqCompose('reject',${r.id})" title="Reject this request">Reject</button>
+            <button class="btn btn-sm" style="color:var(--success);border-color:rgba(22,163,74,.3);font-size:11px;font-weight:600" onclick="openReqCompose('accept',${r.id})">Approve</button>
+            <button class="btn btn-sm" style="color:var(--danger);border-color:rgba(220,38,38,.3);font-size:11px;font-weight:600" onclick="openReqCompose('reject',${r.id})">Reject</button>
           ` : r.status==='adjusted' ? `
             <button class="btn btn-sm" style="font-size:11px;color:var(--info)" onclick="openAdjustReq(${r.id})">Re-adjust</button>
           ` : ''}
-          <button class="btn btn-sm btn-danger" style="font-size:11px" onclick="deleteReq(${r.id})" title="Permanently delete this request">Delete</button>
+          <button class="btn btn-sm btn-danger" style="font-size:11px" onclick="deleteReq(${r.id})">Delete</button>
         </div>
       </td>
     </tr>`;
@@ -9339,100 +10523,11 @@ function renderRequests(c) {
       </table>
     </div>` : `<div style="text-align:center;padding:32px;color:var(--text-2);font-size:12px">No requests in this category.</div>`;
 
-  c.innerHTML = `
-    <div class="page-header">
-      <div>
-        <div class="page-title">Requests</div>
-        <div class="page-sub">Manage incoming requests from clients & team members</div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-sm" style="color:var(--primary);border-color:var(--primary-bg)" onclick="openAI('requests')">✦ Ask Ayla</button>
-        <button class="btn btn-primary" onclick="openReqSettings()">⚙ Form Settings</button>
-      </div>
-    </div>
-
-    <!-- Share Link Card -->
-    <div class="card" style="margin-bottom:18px;border:1.5px solid rgba(255,102,0,.25);background:linear-gradient(135deg,rgba(255,102,0,.04) 0%,var(--surface) 100%)">
-      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-        <div style="width:42px;height:42px;border-radius:12px;background:var(--primary-bg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🔗</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:3px">Public Request Link</div>
-          <div style="font-size:11px;color:var(--text-2);margin-bottom:8px">Share this link with anyone — they can submit requests without needing an account.</div>
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <code style="font-size:11px;background:var(--surface-2);border:1px solid var(--border);border-radius:7px;padding:6px 12px;color:var(--primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">${publicUrl}</code>
-            <button class="btn btn-sm btn-primary" onclick="copyReqLink('${publicUrl}')">📋 Copy</button>
-            <button class="btn btn-sm" onclick="window.open('${publicUrl}','_blank')">↗ Open</button>
-            <button class="btn btn-sm" style="color:var(--danger-text)" onclick="regenerateReqToken()">🔄 Regenerate</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- KPI row -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:14px">
-      <div class="card" style="text-align:center;padding:18px">
-        <div style="font-size:26px;font-weight:800;color:var(--warning);font-family:'Montserrat',sans-serif">${items.filter(x=>x.status==='pending'||x.status==='adjusted'||x.status==='adjustment_declined').length}</div>
-        <div style="font-size:11px;color:var(--text-2);margin-top:3px">Pending Review</div>
-      </div>
-      <div class="card" style="text-align:center;padding:18px">
-        <div style="font-size:26px;font-weight:800;color:var(--success);font-family:'Montserrat',sans-serif">${items.filter(x=>x.status==='accepted'||x.status==='adjustment_accepted').length}</div>
-        <div style="font-size:11px;color:var(--text-2);margin-top:3px">Accepted</div>
-      </div>
-      <div class="card" style="text-align:center;padding:18px">
-        <div style="font-size:26px;font-weight:800;color:var(--danger);font-family:'Montserrat',sans-serif">${items.filter(x=>x.status==='rejected').length}</div>
-        <div style="font-size:11px;color:var(--text-2);margin-top:3px">Rejected</div>
-      </div>
-    </div>
-
-    <!-- Filter bar -->
-    <div class="filter-bar">
-      <input class="filter-search" placeholder="Search subject, details, email…" value="${(rf.q||'').replace(/"/g,'&quot;')}" oninput="state._reqFilter.q=this.value;_db('req-q',()=>renderRequests(document.getElementById('main-content')),320)">
-      <div class="filter-sep"></div>
-      <select class="filter-select" onchange="state._reqFilter.status=this.value;renderRequests(document.getElementById('main-content'))">
-        <option value=""${!rf.status?' selected':''}>All Statuses</option>
-        <option value="pending"${rf.status==='pending'?' selected':''}>Pending</option>
-        <option value="accepted"${rf.status==='accepted'?' selected':''}>Accepted</option>
-        <option value="rejected"${rf.status==='rejected'?' selected':''}>Rejected</option>
-      </select>
-      <select class="filter-select" onchange="state._reqFilter.priority=this.value;renderRequests(document.getElementById('main-content'))">
-        <option value=""${!rf.priority?' selected':''}>All Priorities</option>
-        <option value="high"${rf.priority==='high'?' selected':''}>High</option>
-        <option value="medium"${rf.priority==='medium'?' selected':''}>Medium</option>
-        <option value="low"${rf.priority==='low'?' selected':''}>Low</option>
-      </select>
-      ${rf.q||rf.status||rf.priority?`<button class="btn btn-sm" style="font-size:11px;padding:3px 8px" onclick="state._reqFilter={q:'',status:'',priority:''};renderRequests(document.getElementById('main-content'))">✕ Clear</button>`:''}
-      <span class="filter-count">${filtered.length} of ${items.length}</span>
-    </div>
-
-    <!-- Pending -->
-    ${pending.length ? `
-    <div class="card" style="margin-bottom:14px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="font-size:13px;font-weight:700;color:var(--text)">Pending Review <span style="font-size:11px;background:var(--warning-bg);color:var(--warning);padding:2px 8px;border-radius:10px;margin-left:6px">${pending.length}</span></div>
-      </div>
-      ${tableWrap(pending)}
-    </div>` : ''}
-
-    <!-- Accepted -->
-    ${accepted.length ? `
-    <div class="card" style="margin-bottom:14px">
-      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px">Accepted <span style="font-size:11px;background:var(--success-bg);color:var(--success);padding:2px 8px;border-radius:10px;margin-left:6px">${accepted.length}</span></div>
-      ${tableWrap(accepted)}
-    </div>` : ''}
-
-    <!-- Rejected -->
-    ${rejected.length ? `
-    <div class="card" style="margin-bottom:14px">
-      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px">Rejected <span style="font-size:11px;background:var(--danger-bg);color:var(--danger);padding:2px 8px;border-radius:10px;margin-left:6px">${rejected.length}</span></div>
-      ${tableWrap(rejected)}
-    </div>` : ''}
-
-    ${items.length === 0 ? `
-    <div class="card" style="text-align:center;padding:48px">
-      <div style="font-size:40px;margin-bottom:12px">📥</div>
-      <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">No requests yet</div>
-      <div style="font-size:12px;color:var(--text-2)">Share the public link above and requests will appear here for your review.</div>
-    </div>` : ''}
+  tablesEl.innerHTML = `
+    ${pending.length ? `<div class="card" style="margin-bottom:14px"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"><div style="font-size:13px;font-weight:700;color:var(--text)">Pending Review <span style="font-size:11px;background:var(--warning-bg);color:var(--warning);padding:2px 8px;border-radius:10px;margin-left:6px">${pending.length}</span></div></div>${tableWrap(pending)}</div>` : ''}
+    ${accepted.length ? `<div class="card" style="margin-bottom:14px"><div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px">Accepted <span style="font-size:11px;background:var(--success-bg);color:var(--success);padding:2px 8px;border-radius:10px;margin-left:6px">${accepted.length}</span></div>${tableWrap(accepted)}</div>` : ''}
+    ${rejected.length ? `<div class="card" style="margin-bottom:14px"><div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px">Rejected <span style="font-size:11px;background:var(--danger-bg);color:var(--danger);padding:2px 8px;border-radius:10px;margin-left:6px">${rejected.length}</span></div>${tableWrap(rejected)}</div>` : ''}
+    ${items.length === 0 ? `<div class="card" style="text-align:center;padding:48px"><div style="font-size:40px;margin-bottom:12px">📥</div><div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">No requests yet</div><div style="font-size:12px;color:var(--text-2)">Share the public link above and requests will appear here for your review.</div></div>` : ''}
   `;
 }
 
@@ -9865,10 +10960,7 @@ function renderHR(c) {
   else if (state.hrTab === 'settings')    _renderHRSettings();
 }
 
-function _renderHRDirectory() {
-  const el = document.getElementById('hr-tab-content'); if (!el) return;
-  const settings = state.hrSettings || {};
-  const depts    = [...new Set((state.hrEmployees||[]).map(e=>e.department).filter(Boolean))];
+function _hrDirTableHTML() {
   const STATUS_COL = { active:'var(--success)', 'on-leave':'var(--warning)', terminated:'var(--danger)' };
   const STATUS_BG  = { active:'var(--success-bg)', 'on-leave':'var(--warning-bg)', terminated:'var(--danger-bg)' };
   const TYPE_BADGE = t => {
@@ -9885,31 +10977,12 @@ function _renderHRDirectory() {
   if (state._hrEmpStatus) filtered = filtered.filter(e => e.status === state._hrEmpStatus);
   if (state._hrEmpType)   filtered = filtered.filter(e => e.type === state._hrEmpType);
 
-  el.innerHTML = `
-  <div class="card">
-    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-      <input class="input" style="max-width:200px;font-size:12px" placeholder="Search name, email, position…" value="${(state._hrEmpSearch||'').replace(/"/g,'&quot;')}" oninput="state._hrEmpSearch=this.value;_db('hr-dir',_renderHRDirectory,280)">
-      <select class="input" style="max-width:160px;font-size:12px" onchange="state._hrEmpDept=this.value;_renderHRDirectory()">
-        <option value="">All Departments</option>
-        ${depts.map(d=>`<option value="${d}"${state._hrEmpDept===d?' selected':''}>${d}</option>`).join('')}
-      </select>
-      <select class="input" style="max-width:130px;font-size:12px" onchange="state._hrEmpStatus=this.value;_renderHRDirectory()">
-        <option value=""${!state._hrEmpStatus?' selected':''}>All Statuses</option>
-        <option value="active"${state._hrEmpStatus==='active'?' selected':''}>Active</option>
-        <option value="on-leave"${state._hrEmpStatus==='on-leave'?' selected':''}>On Leave</option>
-        <option value="terminated"${state._hrEmpStatus==='terminated'?' selected':''}>Terminated</option>
-      </select>
-      <select class="input" style="max-width:130px;font-size:12px" onchange="state._hrEmpType=this.value;_renderHRDirectory()">
-        <option value=""${!state._hrEmpType?' selected':''}>All Types</option>
-        <option value="full-time"${state._hrEmpType==='full-time'?' selected':''}>Full-time</option>
-        <option value="part-time"${state._hrEmpType==='part-time'?' selected':''}>Part-time</option>
-        <option value="contractor"${state._hrEmpType==='contractor'?' selected':''}>Contractor</option>
-        <option value="intern"${state._hrEmpType==='intern'?' selected':''}>Intern</option>
-      </select>
-      ${state._hrEmpSearch||state._hrEmpDept||state._hrEmpStatus||state._hrEmpType?`<button class="btn btn-sm" style="font-size:11px" onclick="state._hrEmpSearch='';state._hrEmpDept='';state._hrEmpStatus='';state._hrEmpType='';_renderHRDirectory()">✕ Clear</button>`:''}
-      <span style="font-size:11px;color:var(--text-3);margin-left:auto">${filtered.length} employees</span>
-    </div>
-    ${filtered.length ? `
+  const countEl = document.getElementById('hr-dir-count');
+  if (countEl) countEl.textContent = `${filtered.length} employees`;
+  const clrBtn = document.getElementById('hr-dir-clear-btn');
+  if (clrBtn) clrBtn.style.display = (state._hrEmpSearch||state._hrEmpDept||state._hrEmpStatus||state._hrEmpType) ? '' : 'none';
+
+  return filtered.length ? `
     <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border)">
       <table style="width:100%;border-collapse:collapse;background:var(--surface)">
         <thead><tr style="background:var(--surface-2)">
@@ -9959,6 +11032,7 @@ function _renderHRDirectory() {
                     ${e.onboarding ? `<button class="hr-drop-item" onclick="openOnboarding(${e.id});closeHRDirDrop()">📋 View Onboarding</button>` : ''}
                     ${e.welcomeEmailSent ? `<button class="hr-drop-item" onclick="sendWelcomeEmail(${e.id});closeHRDirDrop()">✉ Resend Welcome</button>` : ''}
                     ${e.portalToken ? `<button class="hr-drop-item" onclick="copyPortalLink(${e.id});closeHRDirDrop()">🔗 Copy Portal Link</button>` : `<button class="hr-drop-item" onclick="sendEmployeeInvite(${e.id});closeHRDirDrop()">✉ Send Portal Invite</button>`}
+                    ${e.portalToken ? `<button class="hr-drop-item" onclick="resetPortalPassword(${e.id});closeHRDirDrop()">🔑 Reset Portal Password</button>` : ''}
                     ${e.status!=='terminated' ? `<div style="border-top:1px solid var(--border);margin:4px 0"></div><button class="hr-drop-item" style="color:var(--danger)" onclick="openTerminateEmployee(${e.id});closeHRDirDrop()">⛔ Terminate</button>` : ''}
                     <div style="border-top:1px solid var(--border);margin:4px 0"></div>
                     <button class="hr-drop-item" style="color:var(--danger)" onclick="deleteEmployee(${e.id});closeHRDirDrop()">🗑 Delete Employee</button>
@@ -9970,12 +11044,84 @@ function _renderHRDirectory() {
         }).join('')}
         </tbody>
       </table>
-    </div>` : `<div style="text-align:center;padding:40px;color:var(--text-2);font-size:13px">No employees found.</div>`}
+    </div>` : `<div style="text-align:center;padding:40px;color:var(--text-2);font-size:13px">No employees found.</div>`;
+}
+
+function _hrDirRenderTable() {
+  const wrap = document.getElementById('hr-dir-table-wrap');
+  if (wrap) wrap.innerHTML = _hrDirTableHTML();
+}
+
+function _renderHRDirectory() {
+  const el = document.getElementById('hr-tab-content'); if (!el) return;
+  const depts = [...new Set((state.hrEmployees||[]).map(e=>e.department).filter(Boolean))];
+
+  if (!document.getElementById('hr-dir-table-wrap')) {
+    el.innerHTML = `
+  <div class="card">
+    <div class="filter-bar" style="margin-bottom:16px">
+      <input id="hr-dir-search" class="filter-search" style="max-width:200px" placeholder="Search name, email, position…"
+        oninput="state._hrEmpSearch=this.value;_db('hr-dir',_hrDirRenderTable,280)">
+      <div class="filter-sep"></div>
+      <select id="hr-dir-dept" class="filter-select" onchange="state._hrEmpDept=this.value;_hrDirRenderTable()">
+        <option value="">All Departments</option>
+        ${depts.map(d=>`<option value="${d}"${state._hrEmpDept===d?' selected':''}>${d}</option>`).join('')}
+      </select>
+      <select id="hr-dir-status" class="filter-select" onchange="state._hrEmpStatus=this.value;_hrDirRenderTable()">
+        <option value="">All Statuses</option>
+        <option value="active">Active</option>
+        <option value="on-leave">On Leave</option>
+        <option value="terminated">Terminated</option>
+      </select>
+      <select id="hr-dir-type" class="filter-select" onchange="state._hrEmpType=this.value;_hrDirRenderTable()">
+        <option value="">All Types</option>
+        <option value="full-time">Full-time</option>
+        <option value="part-time">Part-time</option>
+        <option value="contractor">Contractor</option>
+        <option value="intern">Intern</option>
+      </select>
+      <button id="hr-dir-clear-btn" class="btn btn-sm" style="font-size:11px;display:none"
+        onclick="state._hrEmpSearch='';state._hrEmpDept='';state._hrEmpStatus='';state._hrEmpType='';document.getElementById('hr-dir-search').value='';document.getElementById('hr-dir-dept').value='';document.getElementById('hr-dir-status').value='';document.getElementById('hr-dir-type').value='';_hrDirRenderTable()">✕ Clear</button>
+      <span id="hr-dir-count" style="font-size:11px;color:var(--text-3);margin-left:auto"></span>
+    </div>
+    <div id="hr-dir-table-wrap"></div>
   </div>`;
+  }
+
+  _hrDirRenderTable();
 }
 
 function _renderHRTimeOff() {
   const el = document.getElementById('hr-tab-content'); if (!el) return;
+  if (!document.getElementById('hr-tof-results')) {
+    el.innerHTML = `
+  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
+    <input id="hr-tof-search" class="input" style="font-size:11px;max-width:200px" placeholder="Search employee…"
+      oninput="state._tofFilter.emp=this.value;_db('hr-tof',_hrTofRenderResults,280)">
+    <select id="hr-tof-type" class="input" style="font-size:11px;max-width:130px" onchange="state._tofFilter.type=this.value;_hrTofRenderResults()">
+      <option value="">All Types</option>
+      <option value="annual">Annual</option>
+      <option value="sick">Sick</option>
+      <option value="emergency">Emergency</option>
+      <option value="unpaid">Unpaid</option>
+    </select>
+    <select id="hr-tof-status" class="input" style="font-size:11px;max-width:130px" onchange="state._tofFilter.status=this.value;_hrTofRenderResults()">
+      <option value="">All Statuses</option>
+      <option value="pending">Pending</option>
+      <option value="approved">Approved</option>
+      <option value="rejected">Rejected</option>
+    </select>
+    <button id="hr-tof-clear-btn" class="btn btn-sm" style="font-size:10px;display:none"
+      onclick="state._tofFilter={emp:'',type:'',status:''};document.getElementById('hr-tof-search').value='';document.getElementById('hr-tof-type').value='';document.getElementById('hr-tof-status').value='';_hrTofRenderResults()">✕ Clear</button>
+    <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="openHRTimeOff()">+ New Request</button>
+  </div>
+  <div id="hr-tof-results"></div>`;
+  }
+  _hrTofRenderResults();
+}
+
+function _hrTofRenderResults() {
+  const wrap = document.getElementById('hr-tof-results'); if (!wrap) return;
   const timeOff  = state.hrTimeOff    || [];
   const emps     = state.hrEmployees  || [];
   const getEmp   = id => emps.find(e => e.id === id);
@@ -10028,26 +11174,11 @@ function _renderHRTimeOff() {
       </table>
     </div>` : `<div style="text-align:center;padding:28px;color:var(--text-2);font-size:12px">No requests here.</div>`;
 
-  el.innerHTML = `
-  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-    <input class="input" style="font-size:11px;max-width:200px" placeholder="Search employee…" value="${(tf.emp||'').replace(/"/g,'&quot;')}" oninput="state._tofFilter.emp=this.value;_db('hr-tof',_renderHRTimeOff,280)">
-    <select class="input" style="font-size:11px;max-width:130px" onchange="state._tofFilter.type=this.value;_renderHRTimeOff()">
-      <option value=""${!tf.type?' selected':''}>All Types</option>
-      <option value="annual"${tf.type==='annual'?' selected':''}>Annual</option>
-      <option value="sick"${tf.type==='sick'?' selected':''}>Sick</option>
-      <option value="emergency"${tf.type==='emergency'?' selected':''}>Emergency</option>
-      <option value="unpaid"${tf.type==='unpaid'?' selected':''}>Unpaid</option>
-    </select>
-    <select class="input" style="font-size:11px;max-width:130px" onchange="state._tofFilter.status=this.value;_renderHRTimeOff()">
-      <option value=""${!tf.status?' selected':''}>All Statuses</option>
-      <option value="pending"${tf.status==='pending'?' selected':''}>Pending</option>
-      <option value="approved"${tf.status==='approved'?' selected':''}>Approved</option>
-      <option value="rejected"${tf.status==='rejected'?' selected':''}>Rejected</option>
-    </select>
-    ${tf.emp||tf.type||tf.status?`<button class="btn btn-sm" style="font-size:10px" onclick="state._tofFilter={emp:'',type:'',status:''};_renderHRTimeOff()">✕ Clear</button>`:''}
-    <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="openHRTimeOff()">+ New Request</button>
-  </div>
-  ${pending.length ? `
+
+  const clrBtn = document.getElementById('hr-tof-clear-btn');
+  if (clrBtn) clrBtn.style.display = (tf.emp||tf.type||tf.status) ? '' : 'none';
+
+  wrap.innerHTML = `${pending.length ? `
   <div class="card" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div style="font-size:13px;font-weight:700;color:var(--text)">Pending Approval <span style="background:var(--warning-bg);color:var(--warning);font-size:11px;padding:2px 8px;border-radius:8px;margin-left:6px">${pending.length}</span></div>
@@ -10261,7 +11392,127 @@ function _renderHRReports() {
       </div>
     </div>
 
+    <!-- Policy compliance -->
+    ${(()=>{
+      const withPortal  = emps.filter(e => e.portalToken || e.portalEmail);
+      const signed      = withPortal.filter(e => e.policySigned);
+      const unsigned    = withPortal.filter(e => !e.policySigned);
+      const pct         = withPortal.length ? Math.round((signed.length / withPortal.length) * 100) : 0;
+      const policyTitle = (cfg.policyTitle) || 'Company Policy';
+      const filter      = state._policyReportFilter || 'unsigned';
+
+      const listEmps = filter === 'signed' ? signed : unsigned;
+      const fmt = dt => { try { return new Date(dt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch(e){return dt;} };
+
+      return `
+    <div class="card" style="grid-column:1/-1">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">${policyTitle} — Compliance</div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button onclick="state._policyReportFilter='unsigned';_renderHRReports()" style="padding:5px 12px;border-radius:6px;border:1px solid ${filter==='unsigned'?'var(--primary)':'var(--border)'};background:${filter==='unsigned'?'var(--primary)':'transparent'};color:${filter==='unsigned'?'#fff':'var(--text)'};font-size:11px;cursor:pointer;font-weight:600">Not Signed (${unsigned.length})</button>
+          <button onclick="state._policyReportFilter='signed';_renderHRReports()" style="padding:5px 12px;border-radius:6px;border:1px solid ${filter==='signed'?'var(--primary)':'var(--border)'};background:${filter==='signed'?'var(--primary)':'transparent'};color:${filter==='signed'?'#fff':'var(--text)'};font-size:11px;cursor:pointer;font-weight:600">Signed (${signed.length})</button>
+          ${unsigned.length ? `<button onclick="_sendPolicyReminders()" style="padding:5px 14px;border-radius:6px;border:none;background:var(--warning);color:#fff;font-size:11px;cursor:pointer;font-weight:600">📧 Send Reminders</button>` : ''}
+        </div>
+      </div>
+      <!-- progress bar -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+        <div style="flex:1;background:var(--surface-2);border-radius:6px;height:10px;overflow:hidden">
+          <div style="height:100%;background:var(--success);width:${pct}%;border-radius:6px;transition:width .4s"></div>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:var(--success);min-width:36px;text-align:right">${pct}%</div>
+        <div style="font-size:11px;color:var(--text-3)">${signed.length} / ${withPortal.length} employees</div>
+      </div>
+      ${!withPortal.length ? '<div style="font-size:12px;color:var(--text-2)">No employees have portal access yet.</div>' :
+        !listEmps.length ? `<div style="font-size:12px;color:var(--success)">✓ All portal employees have ${filter==='signed'?'signed the policy':'already signed the policy'}.</div>` :
+        `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">
+          ${listEmps.map(e=>`
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface-2);border-radius:10px">
+              <div style="width:32px;height:32px;border-radius:50%;background:${filter==='signed'?'var(--success-bg)':'var(--warning-bg)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${filter==='signed'?'var(--success)':'var(--warning)'};flex-shrink:0">${(e.firstName||'?')[0]}${(e.lastName||'?')[0]}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.firstName} ${e.lastName}</div>
+                <div style="font-size:10px;color:var(--text-3)">${e.department||e.position||''}</div>
+              </div>
+              ${filter==='signed' && e.policySigned?.signedAt ? `<div style="font-size:10px;color:var(--success);white-space:nowrap">${fmt(e.policySigned.signedAt)}</div>` : `<div style="font-size:10px;color:var(--warning);white-space:nowrap">Pending</div>`}
+            </div>`).join('')}
+        </div>`
+      }
+    </div>`;
+    })()}
+
+    <!-- Announcements compliance -->
+    ${(()=>{
+      const anns = state.hrAnnouncements || [];
+      if (!anns.length) return '';
+      const portalEmps = emps.filter(e => e.portalToken);
+      const total = portalEmps.length;
+      const fmtDt = dt => { try { return new Date(dt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch(e2){return dt;} };
+      const annFilter = state._annReportFilter || 'all';
+      const displayAnns = annFilter === 'all' ? anns : anns.filter(a => {
+        const acks = (a.acknowledgements||[]).length;
+        return annFilter === 'incomplete' ? acks < total : acks >= total;
+      });
+      return `
+    <div class="card" style="grid-column:1/-1">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--text)">&#x1F4E2; Announcements — Compliance</div>
+        <div style="display:flex;gap:6px">
+          ${['all','incomplete','complete'].map(f=>`<button onclick="state._annReportFilter='${f}';_renderHRReports()" style="padding:5px 12px;border-radius:6px;border:1px solid ${annFilter===f?'var(--primary)':'var(--border)'};background:${annFilter===f?'var(--primary)':'transparent'};color:${annFilter===f?'#fff':'var(--text)'};font-size:11px;cursor:pointer;font-weight:600;text-transform:capitalize">${f}</button>`).join('')}
+        </div>
+      </div>
+      ${displayAnns.length === 0 ? `<div style="font-size:12px;color:var(--text-2)">No announcements to show.</div>` :
+        displayAnns.slice().reverse().map(ann => {
+          const acks = (ann.acknowledgements||[]).length;
+          const pct  = total ? Math.round((acks/total)*100) : 0;
+          const expKey = `_annRptExp_${ann.id}`;
+          const isExp  = state[expKey];
+          const ackEmps   = isExp ? portalEmps.filter(e => (ann.acknowledgements||[]).find(a => a.empId === e.id)) : [];
+          const unackEmps = isExp ? portalEmps.filter(e => !(ann.acknowledgements||[]).find(a => a.empId === e.id)) : [];
+          return `
+          <div style="padding:12px 14px;background:var(--surface-2);border-radius:10px;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;font-weight:700;color:var(--text)">${escHtml(ann.title)}</div>
+                <div style="font-size:10px;color:var(--text-3);margin-top:1px">${fmtDt(ann.publishedAt)}</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                <div style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${acks===total&&total>0?'var(--success-bg)':'var(--info-bg)'};color:${acks===total&&total>0?'var(--success)':'var(--info)'};border:1px solid ${acks===total&&total>0?'var(--success-border)':'var(--info-border)'}">${acks}/${total}</div>
+                <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:6px;height:6px;width:80px;overflow:hidden"><div style="height:100%;background:var(--success);width:${pct}%;border-radius:4px"></div></div>
+                <button onclick="state['${expKey}']=!state['${expKey}'];_renderHRReports()" style="background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer">${isExp?'&#9650;':'&#9660;'}</button>
+              </div>
+            </div>
+            ${isExp ? `
+            <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--success);margin-bottom:6px">&#x2713; Acknowledged (${ackEmps.length})</div>
+                ${ackEmps.length ? ackEmps.map(e=>`<div style="font-size:11px;color:var(--text);padding:3px 0">${escHtml(e.firstName)} ${escHtml(e.lastName)}</div>`).join('') : '<div style="font-size:11px;color:var(--text-2)">None yet</div>'}
+              </div>
+              <div>
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warning);margin-bottom:6px">&#x23F3; Pending (${unackEmps.length})</div>
+                ${unackEmps.length ? unackEmps.map(e=>`<div style="font-size:11px;color:var(--text);padding:3px 0">${escHtml(e.firstName)} ${escHtml(e.lastName)}</div>`).join('') : '<div style="font-size:11px;color:var(--success)">All acknowledged!</div>'}
+              </div>
+            </div>` : ''}
+          </div>`;
+        }).join('')}
+    </div>`;
+    })()}
+
   </div>`;
+}
+
+async function _sendPolicyReminders() {
+  const emps = (state.hrEmployees||[]).filter(e=>(e.portalToken||e.portalEmail)&&!e.policySigned);
+  if (!emps.length) { toast('All portal employees have already signed the policy.','info'); return; }
+  const btn = document.querySelector('button[onclick="_sendPolicyReminders()"]');
+  if (btn) { btn.disabled=true; btn.textContent='Sending…'; }
+  let sent=0, failed=0;
+  for (const e of emps) {
+    try {
+      const r = await fetch(`/api/hr/${e.id}/send-policy-reminder`,{method:'POST',headers:{'Content-Type':'application/json'}});
+      if (r.ok) sent++; else failed++;
+    } catch(_) { failed++; }
+  }
+  toast(`Policy reminders sent: ${sent} delivered${failed?`, ${failed} failed`:'.'}`,'success');
+  if (btn) { btn.disabled=false; btn.textContent=`📧 Send Reminders`; }
 }
 
 // ── HR Calendar ───────────────────────────────────────────────────────────────
@@ -10632,10 +11883,23 @@ function showHRCalPopup(reqId, empId, event) {
 // ── HR Policy Editor ──────────────────────────────────────────────────────────
 function _renderHRPolicy() {
   const el  = document.getElementById('hr-tab-content'); if (!el) return;
-  const cfg = state.hrSettings || {};
-  const raw = (cfg.companyPolicy || '').replace(/</g,'&lt;');
+  if (!state._hrPolicySubTab) state._hrPolicySubTab = 'policy';
+  const sub = state._hrPolicySubTab;
 
-  el.innerHTML = `
+  // Sub-tab switcher
+  const subTabHtml = `
+  <div style="display:flex;gap:6px;margin-bottom:18px">
+    <button onclick="state._hrPolicySubTab='policy';_renderHRPolicy()" style="padding:7px 18px;border-radius:8px;border:1.5px solid ${sub==='policy'?'var(--primary)':'var(--border)'};background:${sub==='policy'?'var(--primary)':'transparent'};color:${sub==='policy'?'#fff':'var(--text)'};font-size:12px;font-weight:700;cursor:pointer;transition:all .15s">&#x1F4C4; Policy</button>
+    <button onclick="state._hrPolicySubTab='announcements';_renderHRPolicy()" style="padding:7px 18px;border-radius:8px;border:1.5px solid ${sub==='announcements'?'var(--primary)':'var(--border)'};background:${sub==='announcements'?'var(--primary)':'transparent'};color:${sub==='announcements'?'#fff':'var(--text)'};font-size:12px;font-weight:700;cursor:pointer;transition:all .15s">&#x1F4E2; Announcements</button>
+  </div>`;
+
+  if (sub === 'announcements') {
+    _renderHRPolicyAnnouncements(el, subTabHtml);
+    return;
+  }
+
+  const cfg = state.hrSettings || {};
+  el.innerHTML = subTabHtml + `
   <div class="card" style="padding:0;overflow:hidden">
     <!-- Toolbar -->
     <div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface-2)">
@@ -10645,21 +11909,21 @@ function _renderHRPolicy() {
       <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
       <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Heading 1" onclick="policyFmt('formatBlock','h2')">H1</button>
       <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Heading 2" onclick="policyFmt('formatBlock','h3')">H2</button>
-      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Paragraph" onclick="policyFmt('formatBlock','p')">¶</button>
+      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Paragraph" onclick="policyFmt('formatBlock','p')">&#182;</button>
       <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
-      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Bullet list" onclick="policyFmt('insertUnorderedList')">• List</button>
+      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Bullet list" onclick="policyFmt('insertUnorderedList')">&#8226; List</button>
       <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Numbered list" onclick="policyFmt('insertOrderedList')">1. List</button>
-      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Horizontal rule" onclick="policyFmt('insertHorizontalRule')">─ Rule</button>
+      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Horizontal rule" onclick="policyFmt('insertHorizontalRule')">&#8212; Rule</button>
       <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
-      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Align left" onclick="policyFmt('justifyLeft')">⬅</button>
-      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Align center" onclick="policyFmt('justifyCenter')">☰</button>
-      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Align right" onclick="policyFmt('justifyRight')">➡</button>
+      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Align left" onclick="policyFmt('justifyLeft')">&#11013;</button>
+      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Align center" onclick="policyFmt('justifyCenter')">&#9776;</button>
+      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Align right" onclick="policyFmt('justifyRight')">&#10145;</button>
       <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
-      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Undo" onclick="policyFmt('undo')">↩ Undo</button>
-      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Redo" onclick="policyFmt('redo')">↪ Redo</button>
-      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Clear formatting" onclick="policyFmt('removeFormat')">✕ Clear</button>
+      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Undo" onclick="policyFmt('undo')">&#8617; Undo</button>
+      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Redo" onclick="policyFmt('redo')">&#8618; Redo</button>
+      <button class="btn btn-sm" style="font-size:12px;padding:4px 9px" title="Clear formatting" onclick="policyFmt('removeFormat')">&#10005; Clear</button>
       <div style="flex:1"></div>
-      <button class="btn btn-primary" style="font-size:12px;padding:5px 16px;font-weight:600" onclick="savePolicyEditor()">💾 Save Policy</button>
+      <button class="btn btn-primary" style="font-size:12px;padding:5px 16px;font-weight:600" onclick="savePolicyEditor()">&#128190; Save Policy</button>
     </div>
     <!-- Style overrides for rich editor -->
     <style>
@@ -10682,9 +11946,178 @@ function _renderHRPolicy() {
     }</div>
     <div style="padding:10px 36px;border-top:1px solid var(--border);background:var(--surface-2);display:flex;justify-content:space-between;align-items:center">
       <span style="font-size:11px;color:var(--text-3)" id="hr-policy-status">Unsaved changes will be lost if you navigate away.</span>
-      <button class="btn btn-primary" style="font-size:12px;padding:5px 16px;font-weight:600" onclick="savePolicyEditor()">💾 Save Policy</button>
+      <button class="btn btn-primary" style="font-size:12px;padding:5px 16px;font-weight:600" onclick="savePolicyEditor()">&#128190; Save Policy</button>
     </div>
   </div>`;
+}
+
+function _renderHRPolicyAnnouncements(el, subTabHtml) {
+  const anns  = state.hrAnnouncements || [];
+  const emps  = (state.hrEmployees || []).filter(e => e.portalToken);
+  const total = emps.length;
+  const fmtDt = dt => { try { return new Date(dt).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); } catch(e2) { return dt; } };
+  const expanded = state._hrAnnExpandedId;
+  const showForm = state._hrAnnShowForm;
+
+  const annRequiresAck   = state._hrAnnRequiresAck   ?? false;
+  const annFirstH        = state._hrAnnFirstH        ?? 24;
+  const annSecondH       = state._hrAnnSecondH       ?? 48;
+  const annRepeatDays    = state._hrAnnRepeatDays    ?? 3;
+  const annMaxReminders  = state._hrAnnMaxReminders  ?? 5;
+
+  const formHtml = showForm ? `
+    <div class="card" style="border:1.5px solid var(--primary);margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px">&#x1F4E2; New Announcement</div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2);display:block;margin-bottom:4px">Title *</label>
+        <input id="ann-title-input" class="input" style="width:100%" placeholder="Announcement title..." value="${escHtml(state._hrAnnDraftTitle||'')}">
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-2);display:block;margin-bottom:4px">Body</label>
+        <textarea id="ann-body-input" class="input" rows="5" style="width:100%;resize:vertical" placeholder="Announcement body (plain text or HTML)...">${escHtml(state._hrAnnDraftBody||'')}</textarea>
+      </div>
+      <!-- Acknowledgement settings -->
+      <div style="background:var(--surface);border-radius:8px;padding:12px 14px;margin-bottom:14px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:${annRequiresAck?'12px':'0'}">
+          <input type="checkbox" id="ann-requires-ack" ${annRequiresAck?'checked':''} onchange="state._hrAnnRequiresAck=this.checked;_renderHRPolicy()" style="width:14px;height:14px;accent-color:var(--primary)">
+          <span style="font-size:12px;font-weight:600;color:var(--text)">Require Acknowledgement</span>
+          <span style="font-size:11px;color:var(--text-3)">— send automatic reminders to employees who haven't acknowledged</span>
+        </label>
+        ${annRequiresAck ? `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:4px">
+          <div class="form-row" style="margin:0">
+            <label style="font-size:10px">1st reminder after (hours)</label>
+            <input type="number" id="ann-first-h" class="input" style="font-size:12px" value="${annFirstH}" min="1" oninput="state._hrAnnFirstH=Number(this.value)">
+          </div>
+          <div class="form-row" style="margin:0">
+            <label style="font-size:10px">2nd reminder after (hours)</label>
+            <input type="number" id="ann-second-h" class="input" style="font-size:12px" value="${annSecondH}" min="1" oninput="state._hrAnnSecondH=Number(this.value)">
+          </div>
+          <div class="form-row" style="margin:0">
+            <label style="font-size:10px">Then repeat every (days)</label>
+            <input type="number" id="ann-repeat-days" class="input" style="font-size:12px" value="${annRepeatDays}" min="1" oninput="state._hrAnnRepeatDays=Number(this.value)">
+          </div>
+          <div class="form-row" style="margin:0">
+            <label style="font-size:10px">Max reminders per person</label>
+            <input type="number" id="ann-max-rem" class="input" style="font-size:12px" value="${annMaxReminders}" min="1" max="20" oninput="state._hrAnnMaxReminders=Number(this.value)">
+          </div>
+        </div>` : ''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-primary" style="font-size:12px;padding:6px 18px;font-weight:700" onclick="publishAnnouncement()">&#128228; Publish &amp; Notify (${total} employee${total!==1?'s':''})</button>
+        <button class="btn" style="font-size:12px;padding:6px 14px" onclick="state._hrAnnShowForm=false;state._hrAnnDraftTitle='';state._hrAnnDraftBody='';state._hrAnnRequiresAck=false;_renderHRPolicy()">Cancel</button>
+      </div>
+    </div>` : '';
+
+  const listHtml = anns.length === 0 ? `
+    <div class="card" style="text-align:center;padding:40px 24px">
+      <div style="font-size:36px;margin-bottom:10px">&#x1F4E2;</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text)">No announcements yet</div>
+      <div style="font-size:12px;color:var(--text-2);margin-top:6px">Publish an announcement to notify all portal employees.</div>
+    </div>` :
+    anns.slice().reverse().map(ann => {
+      const acks = (ann.acknowledgements || []).length;
+      const pct  = total ? Math.round((acks/total)*100) : 0;
+      const isExp = expanded === ann.id;
+      const ackEmps   = isExp ? emps.filter(e => (ann.acknowledgements||[]).find(a => a.empId === e.id)) : [];
+      const unackEmps = isExp ? emps.filter(e => !(ann.acknowledgements||[]).find(a => a.empId === e.id)) : [];
+      return `
+      <div class="card" style="margin-bottom:12px;padding:16px 18px">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:var(--text);cursor:pointer" onclick="state._hrAnnExpandedId=${isExp?'null':ann.id};_renderHRPolicy()">${escHtml(ann.title)}</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:2px">${fmtDt(ann.publishedAt)} &middot; Published by ${escHtml(ann.publishedBy||'HR')}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">
+            <span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:${acks===total&&total>0?'var(--success-bg)':'var(--info-bg)'};color:${acks===total&&total>0?'var(--success)':'var(--info)'};border:1px solid ${acks===total&&total>0?'var(--success-border)':'var(--info-border)'}">${acks}/${total} ack'd</span>
+            ${ann.requiresAck ? `<span style="font-size:10px;padding:2px 7px;border-radius:12px;background:var(--warning-bg);color:var(--warning);border:1px solid var(--warning-border);font-weight:600">&#x23F3; Reminders on</span>` : ''}
+            ${ann.requiresAck && acks < total ? `<button onclick="sendAnnouncementReminders(${ann.id})" style="background:var(--primary-bg);border:1px solid var(--primary-border,var(--primary));color:var(--primary);border-radius:6px;padding:3px 10px;font-size:11px;font-weight:700;cursor:pointer">&#128229; Send Reminders</button>` : ''}
+            <button onclick="deleteAnnouncement(${ann.id})" style="background:var(--danger-bg);border:1px solid var(--danger-border);color:var(--danger);border-radius:6px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer">&#x2715;</button>
+            <button onclick="state._hrAnnExpandedId=${isExp?'null':ann.id};_renderHRPolicy()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer">${isExp?'&#9650; Hide':'&#9660; Details'}</button>
+          </div>
+        </div>
+        ${ann.body ? `<div style="font-size:12px;color:var(--text-2);margin-top:8px;line-height:1.6;white-space:pre-wrap">${escHtml(ann.body)}</div>` : ''}
+        ${isExp ? `
+        <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <div style="flex:1;background:var(--surface-2);border-radius:4px;height:6px;overflow:hidden"><div style="height:100%;background:var(--success);width:${pct}%;border-radius:4px"></div></div>
+            <div style="font-size:11px;font-weight:700;color:var(--success)">${pct}%</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--success);margin-bottom:6px">&#x2713; Acknowledged (${ackEmps.length})</div>
+              ${ackEmps.length ? ackEmps.map(e=>`<div style="font-size:11px;color:var(--text);padding:3px 0">${escHtml(e.firstName)} ${escHtml(e.lastName)}</div>`).join('') : '<div style="font-size:11px;color:var(--text-2)">None yet</div>'}
+            </div>
+            <div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warning);margin-bottom:6px">&#x23F3; Pending (${unackEmps.length})</div>
+              ${unackEmps.length ? unackEmps.map(e=>`<div style="font-size:11px;color:var(--text);padding:3px 0">${escHtml(e.firstName)} ${escHtml(e.lastName)}</div>`).join('') : '<div style="font-size:11px;color:var(--success)">All acknowledged!</div>'}
+            </div>
+          </div>
+        </div>` : ''}
+      </div>`;
+    }).join('');
+
+  el.innerHTML = subTabHtml + `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div style="font-size:13px;font-weight:700;color:var(--text)">Announcements (${anns.length})</div>
+    <button class="btn btn-primary" style="font-size:12px;padding:6px 16px;font-weight:700" onclick="state._hrAnnShowForm=true;state._hrPolicySubTab='announcements';_renderHRPolicy()">+ Publish Announcement</button>
+  </div>
+  ${formHtml}
+  ${listHtml}`;
+}
+
+async function publishAnnouncement() {
+  const title      = document.getElementById('ann-title-input')?.value.trim();
+  const body       = document.getElementById('ann-body-input')?.value.trim();
+  const requiresAck = state._hrAnnRequiresAck || false;
+  if (!title) { toast('Title is required'); return; }
+  state._hrAnnDraftTitle = title;
+  state._hrAnnDraftBody  = body;
+  const reminderSettings = requiresAck ? {
+    firstReminderHours:  state._hrAnnFirstH       ?? 24,
+    secondReminderHours: state._hrAnnSecondH       ?? 48,
+    repeatEveryDays:     state._hrAnnRepeatDays    ?? 3,
+    maxReminders:        state._hrAnnMaxReminders  ?? 5,
+  } : null;
+  try {
+    const r = await apiCall('/hr/announcements', { method:'POST', body: JSON.stringify({ title, body, requiresAck, reminderSettings }) });
+    state.hrAnnouncements = [...(state.hrAnnouncements||[]), r.announcement];
+    state._hrAnnShowForm    = false;
+    state._hrAnnDraftTitle  = '';
+    state._hrAnnDraftBody   = '';
+    state._hrAnnRequiresAck = false;
+    toast(`Announcement published · ${r.emailed} employee${r.emailed!==1?'s':''} notified${requiresAck?' · auto-reminders enabled':''}`, 'success');
+    _renderHRPolicy();
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
+async function sendAnnouncementReminders(annId) {
+  try {
+    const r = await apiCall(`/hr/announcements/${annId}/send-reminders`, { method:'POST' });
+    toast(`Reminders sent to ${r.sent} employee${r.sent!==1?'s':''}`);
+    const idx = (state.hrAnnouncements||[]).findIndex(a => a.id === annId);
+    if (idx > -1) {
+      if (!state.hrAnnouncements[idx].remindersSent) state.hrAnnouncements[idx].remindersSent = {};
+      r.recipients.forEach(email => {
+        const emp = (state.hrEmployees||[]).find(e => e.email === email);
+        if (emp) {
+          if (!state.hrAnnouncements[idx].remindersSent[emp.id]) state.hrAnnouncements[idx].remindersSent[emp.id] = [];
+          state.hrAnnouncements[idx].remindersSent[emp.id].push(new Date().toISOString());
+        }
+      });
+    }
+    _renderHRPolicy();
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
+async function deleteAnnouncement(id) {
+  if (!confirm('Delete this announcement?')) return;
+  try {
+    await apiCall(`/hr/announcements/${id}`, { method:'DELETE' });
+    state.hrAnnouncements = (state.hrAnnouncements||[]).filter(a => a.id !== id);
+    if (state._hrAnnExpandedId === id) state._hrAnnExpandedId = null;
+    _renderHRPolicy();
+  } catch(e) { toast('Error: ' + e.message); }
 }
 
 function policyFmt(cmd, val) {
@@ -10695,15 +12128,34 @@ function policyFmt(cmd, val) {
 async function savePolicyEditor() {
   const editor = document.getElementById('hr-policy-editor');
   if (!editor) return;
-  const html = editor.innerHTML;
-  const cfg  = state.hrSettings || {};
+  const html    = editor.innerHTML;
+  const cfg     = state.hrSettings || {};
+  const changed = cfg.companyPolicy !== html;
   cfg.companyPolicy = html;
   try {
     await apiCall('/hr/settings', { method:'PUT', body:JSON.stringify(cfg) });
     state.hrSettings = cfg;
     const st = document.getElementById('hr-policy-status');
     if (st) { st.textContent = '✓ Saved'; st.style.color = 'var(--success)'; setTimeout(()=>{ st.textContent='Unsaved changes will be lost if you navigate away.'; st.style.color=''; },2500); }
-    toast('Policy saved');
+
+    if (changed) {
+      const empCount = (state.hrEmployees||[]).filter(e=>(e.portalToken||e.portalEmail)&&e.policySigned).length;
+      if (empCount > 0) {
+        const ok = confirm(`Policy updated. Send re-sign notification to ${empCount} employee${empCount!==1?'s':''} who previously signed?`);
+        if (ok) {
+          try {
+            const r = await apiCall('/hr/notify-policy-update',{method:'POST'});
+            toast(`Policy update emails sent to ${r.sent||0} employee${(r.sent||0)!==1?'s':''}`, 'success');
+          } catch(e2) { toast('Policy saved but notifications failed: '+e2.message); }
+        } else {
+          toast('Policy saved');
+        }
+      } else {
+        toast('Policy saved');
+      }
+    } else {
+      toast('Policy saved');
+    }
   } catch(e) { toast('Error: '+e.message); }
 }
 
@@ -10774,15 +12226,21 @@ async function removeEmpOnboardTask(empId, taskId) {
 }
 
 // ── HR Settings ───────────────────────────────────────────────────────────────
-function _renderHRSettings() {
+async function _renderHRSettings() {
   const el  = document.getElementById('hr-tab-content'); if (!el) return;
   const cfg = state.hrSettings || {};
+  if (!state._celebrationSettings) {
+    try { state._celebrationSettings = await apiCall('/hr/celebration-settings'); } catch(e) { state._celebrationSettings = {}; }
+  }
+  const cel = state._celebrationSettings || {};
   const depts   = cfg.departments    || [];
   const pos     = cfg.positions      || [];
   const tasks   = cfg.defaultOnboardingTasks || [];
   const ltypes  = cfg.leaveTypes     || [];
   const empTypes= cfg.employmentTypes|| ['Full-time','Part-time','Contractor','Intern'];
 
+  const _bdayMsg  = cfg.birthdayEmailMessage   || '';
+  const _annivMsg = cfg.anniversaryEmailMessage || '';
   el.innerHTML = `
   <!-- Sticky save bar -->
   <div style="position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;
@@ -10871,10 +12329,204 @@ function _renderHRSettings() {
         <div style="font-size:12px;color:var(--text-2);line-height:1.6">Edit and format the company policy document that employees see in the portal. Use the dedicated policy editor for full text tools.</div>
       </div>
 
+      <!-- Celebration Email Templates -->
+      <div class="card">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">🎉 Celebration Email Templates</div>
+        <div style="font-size:11px;color:var(--text-2);margin-bottom:16px;line-height:1.5">Customise the messages sent to HR for employee birthdays and work anniversaries. Auto-send runs daily at 9 AM.</div>
+
+        <!-- Auto-send toggle -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:14px">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text)">Auto-send celebration reminders</div>
+            <div style="font-size:11px;color:var(--text-2)">Sends to HR Email on the day, 1 day before, and 7 days before</div>
+          </div>
+          <label style="display:flex;align-items:center;cursor:pointer;gap:6px">
+            <input type="checkbox" id="hrs-auto-celebrate" ${cfg.celebrationAutoSend!==false?'checked':''} style="width:16px;height:16px;accent-color:var(--primary)">
+            <span style="font-size:11px;color:var(--text-2)">Enabled</span>
+          </label>
+        </div>
+
+        <!-- Birthday template -->
+        <div style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:14px">🎂</span>
+              <label style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em">Birthday Email — Custom Message</label>
+            </div>
+            <button type="button" onclick="previewCelebrationEmail('birthday')" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;border:1px solid var(--primary);background:var(--primary-bg,#fff7f3);color:var(--primary);cursor:pointer;white-space:nowrap">👁 Preview</button>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <div style="display:flex;gap:2px;padding:5px 6px;background:var(--surface-2);border-bottom:1px solid var(--border)">
+              <button type="button" onclick="document.execCommand('bold')" title="Bold" style="font-size:12px;font-weight:700;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer;color:var(--text)">B</button>
+              <button type="button" onclick="document.execCommand('italic')" title="Italic" style="font-size:12px;font-style:italic;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer;color:var(--text)">I</button>
+              <button type="button" onclick="_insertLink('hrs-bday-msg')" title="Link" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer;color:var(--text)">🔗</button>
+            </div>
+            <div id="hrs-bday-msg" contenteditable="true" style="min-height:70px;padding:10px 12px;font-size:12px;line-height:1.6;outline:none;background:var(--surface);color:var(--text)" data-placeholder="Don't forget to wish {{firstName}} a happy birthday today!"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-2);margin-top:4px">Use <code>{{firstName}}</code>, <code>{{fullName}}</code>, <code>{{position}}</code>, <code>{{department}}</code></div>
+        </div>
+
+        <!-- Anniversary template -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:14px">🏆</span>
+              <label style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.05em">Work Anniversary Email — Custom Message</label>
+            </div>
+            <button type="button" onclick="previewCelebrationEmail('anniversary')" style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;border:1px solid var(--primary);background:var(--primary-bg,#fff7f3);color:var(--primary);cursor:pointer;white-space:nowrap">👁 Preview</button>
+          </div>
+          <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <div style="display:flex;gap:2px;padding:5px 6px;background:var(--surface-2);border-bottom:1px solid var(--border)">
+              <button type="button" onclick="document.execCommand('bold')" title="Bold" style="font-size:12px;font-weight:700;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer;color:var(--text)">B</button>
+              <button type="button" onclick="document.execCommand('italic')" title="Italic" style="font-size:12px;font-style:italic;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer;color:var(--text)">I</button>
+              <button type="button" onclick="_insertLink('hrs-anniv-msg')" title="Link" style="font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer;color:var(--text)">🔗</button>
+            </div>
+            <div id="hrs-anniv-msg" contenteditable="true" style="min-height:70px;padding:10px 12px;font-size:12px;line-height:1.6;outline:none;background:var(--surface);color:var(--text)" data-placeholder="{{fullName}} is celebrating {{years}} year(s) with Aladdin Finance today!"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-2);margin-top:4px">Use <code>{{firstName}}</code>, <code>{{fullName}}</code>, <code>{{years}}</code>, <code>{{position}}</code></div>
+        </div>
+      </div>
+
+      <!-- Celebration Emails to Employee -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--text)">🎉 Celebration Emails — Sent to Employee</div>
+            <div style="font-size:11px;color:var(--text-2);margin-top:2px">Auto-sent directly to each employee on their birthday or work anniversary. Covers all employees &amp; contractors — no per-person setup needed.</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="saveCelebrationSettings()" style="flex-shrink:0">Save</button>
+        </div>
+
+        <!-- Global enable / per-event toggles -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+          <label style="display:flex;align-items:center;gap:7px;padding:8px 12px;background:var(--surface);border-radius:8px;cursor:pointer">
+            <input type="checkbox" id="cel-birthday-enabled" ${cel.birthdayEnabled!==false?'checked':''} style="width:14px;height:14px;accent-color:var(--primary)">
+            <span style="font-size:12px;font-weight:600">🎂 Send Birthday Emails</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;padding:8px 12px;background:var(--surface);border-radius:8px;cursor:pointer">
+            <input type="checkbox" id="cel-anniversary-enabled" ${cel.anniversaryEnabled!==false?'checked':''} style="width:14px;height:14px;accent-color:var(--primary)">
+            <span style="font-size:12px;font-weight:600">🏆 Send Anniversary Emails</span>
+          </label>
+        </div>
+
+        <!-- Advance notice settings -->
+        <div style="background:var(--surface);border-radius:8px;padding:12px 14px;margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Advance Notice</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+            <div class="form-row" style="margin:0">
+              <label style="font-size:11px">Notify X days before the event</label>
+              <input type="number" id="cel-advance-days" class="input" style="font-size:12px" value="${cel.advanceNoticeDays??3}" min="0" max="30">
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer">
+              <input type="checkbox" id="cel-hr-advance" ${cel.hrAdvanceNoticeEnabled!==false?'checked':''} style="width:13px;height:13px;accent-color:var(--primary)">
+              <span style="font-size:12px;color:var(--text)">Send advance notice to <strong>HR Admin</strong> (so HR can intervene before auto-send)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer">
+              <input type="checkbox" id="cel-emp-advance" ${cel.employeeAdvanceNoticeEnabled!==false?'checked':''} style="width:13px;height:13px;accent-color:var(--primary)">
+              <span style="font-size:12px;color:var(--text)">Send advance notice to the <strong>employee themselves</strong> (friendly heads-up a few days before)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Birthday template -->
+        <div style="margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🎂 Birthday Email Template</div>
+          <div class="form-row" style="margin-bottom:8px">
+            <label style="font-size:11px">Subject</label>
+            <input type="text" id="cel-bday-subject" class="input" style="font-size:12px" value="${escHtml(cel.birthdaySubject||'Happy Birthday, {{firstName}}! 🎂')}" placeholder="Happy Birthday, {{firstName}}! 🎂">
+          </div>
+          <label style="font-size:11px;font-weight:500;color:var(--text-2);display:block;margin-bottom:4px">Body</label>
+          <textarea id="cel-bday-body" class="input" rows="5" style="font-size:12px;width:100%;resize:vertical;font-family:inherit">${escHtml(cel.birthdayBody||'Dear {{firstName}},\n\nOn behalf of everyone at Aladdin Finance, wishing you a very Happy Birthday! 🎂\n\nYour contributions to our team are truly valued.\n\nWarm regards,\nAladdin Finance HR Team')}</textarea>
+          <div style="font-size:10px;color:var(--text-3);margin-top:4px">Variables: <code>{{firstName}}</code> <code>{{fullName}}</code> <code>{{department}}</code> <code>{{position}}</code> <code>{{hireDate}}</code></div>
+        </div>
+
+        <!-- Anniversary template -->
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🏆 Work Anniversary Email Template</div>
+          <div class="form-row" style="margin-bottom:8px">
+            <label style="font-size:11px">Subject</label>
+            <input type="text" id="cel-anniv-subject" class="input" style="font-size:12px" value="${escHtml(cel.anniversarySubject||'Happy {{years}}-Year Work Anniversary, {{firstName}}! 🏆')}" placeholder="Happy {{years}}-Year Work Anniversary, {{firstName}}! 🏆">
+          </div>
+          <label style="font-size:11px;font-weight:500;color:var(--text-2);display:block;margin-bottom:4px">Body</label>
+          <textarea id="cel-anniv-body" class="input" rows="5" style="font-size:12px;width:100%;resize:vertical;font-family:inherit">${escHtml(cel.anniversaryBody||'Dear {{firstName}},\n\nCongratulations on {{years}} year{{yearsPlural}} with Aladdin Finance! 🏆\n\nYour dedication over these years has made a real difference to our team.\n\nWarm regards,\nAladdin Finance HR Team')}</textarea>
+          <div style="font-size:10px;color:var(--text-3);margin-top:4px">Variables: <code>{{firstName}}</code> <code>{{fullName}}</code> <code>{{years}}</code> <code>{{yearsPlural}}</code> <code>{{department}}</code> <code>{{position}}</code> <code>{{hireDate}}</code></div>
+        </div>
+
+        <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-sm" onclick="testSendCelebrationToday()" title="Manually trigger celebration emails for anyone with a birthday or anniversary today">&#128228; Send Today's Celebrations</button>
+          <span style="font-size:10px;color:var(--text-3)">Emails auto-send daily at 7 AM. "Send Today" is for manual trigger / testing.</span>
+        </div>
+        <div id="cel-save-status" style="font-size:11px;margin-top:8px"></div>
+      </div>
+
+      <!-- Leave Types -->
+      <div class="card">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">🗓 Leave Types</div>
+        ${ltypes.map((lt,i)=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <div style="width:12px;height:12px;border-radius:3px;background:${lt.color||'var(--primary)'};flex-shrink:0"></div>
+            <div style="flex:1;font-size:12px;color:var(--text);font-weight:500">${lt.name}</div>
+            <div style="font-size:11px;color:var(--text-2)">${lt.defaultDays}d default</div>
+            <button onclick="hrRemoveItem('leaveTypes',${i})" style="border:none;background:none;cursor:pointer;color:var(--text-2);font-size:14px;padding:0;line-height:1">×</button>
+          </div>`).join('')}
+        <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+          <input class="input" id="hrs-lt-name" placeholder="Leave name…" style="font-size:12px;flex:1;min-width:100px">
+          <input type="number" class="input" id="hrs-lt-days" placeholder="Days" min="0" style="font-size:12px;width:64px">
+          <input type="color" id="hrs-lt-color" value="#3B82F6" style="width:36px;height:36px;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:2px">
+          <button class="btn btn-sm btn-primary" onclick="hrAddLeaveType()">Add</button>
+        </div>
+      </div>
+
     </div>
   </div>
 
   `;
+  // Set contenteditable content after render (innerHTML can't be in template string safely)
+  setTimeout(() => {
+    const bdayEl  = document.getElementById('hrs-bday-msg');
+    const annivEl = document.getElementById('hrs-anniv-msg');
+    if (bdayEl  && !bdayEl.innerHTML)  bdayEl.innerHTML  = _bdayMsg;
+    if (annivEl && !annivEl.innerHTML) annivEl.innerHTML = _annivMsg;
+  }, 0);
+}
+
+async function saveCelebrationSettings() {
+  const settings = {
+    birthdayEnabled:              document.getElementById('cel-birthday-enabled')?.checked ?? true,
+    anniversaryEnabled:           document.getElementById('cel-anniversary-enabled')?.checked ?? true,
+    advanceNoticeDays:            Number(document.getElementById('cel-advance-days')?.value) || 3,
+    hrAdvanceNoticeEnabled:       document.getElementById('cel-hr-advance')?.checked ?? true,
+    employeeAdvanceNoticeEnabled: document.getElementById('cel-emp-advance')?.checked ?? true,
+    birthdaySubject:              document.getElementById('cel-bday-subject')?.value.trim() || '',
+    birthdayBody:                 document.getElementById('cel-bday-body')?.value.trim() || '',
+    anniversarySubject:           document.getElementById('cel-anniv-subject')?.value.trim() || '',
+    anniversaryBody:              document.getElementById('cel-anniv-body')?.value.trim() || '',
+  };
+  const statusEl = document.getElementById('cel-save-status');
+  try {
+    const r = await apiFetch('/hr/celebration-settings', { method: 'PUT', body: JSON.stringify(settings) });
+    if (!r.ok) throw new Error((await r.json()).error || 'Save failed');
+    state._celebrationSettings = settings;
+    if (statusEl) { statusEl.textContent = 'Saved.'; statusEl.className = 'text-success'; setTimeout(() => { if(statusEl) statusEl.textContent=''; }, 3000); }
+  } catch (e) {
+    if (statusEl) { statusEl.textContent = e.message; statusEl.className = 'text-danger'; }
+  }
+}
+
+async function testSendCelebrationToday() {
+  const statusEl = document.getElementById('cel-save-status');
+  if (statusEl) { statusEl.textContent = 'Sending…'; statusEl.className = ''; }
+  try {
+    const r = await apiFetch('/hr/celebration-settings/send-today', { method: 'POST' });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Failed');
+    const msg = `Sent ${data.sent ?? 0} celebration email(s).`;
+    if (statusEl) { statusEl.textContent = msg; statusEl.className = 'text-success'; setTimeout(() => { if(statusEl) statusEl.textContent=''; }, 5000); }
+  } catch (e) {
+    if (statusEl) { statusEl.textContent = e.message; statusEl.className = 'text-danger'; }
+  }
 }
 
 function hrAddItem(field, inputId) {
@@ -10916,13 +12568,126 @@ function hrRemoveOnboardTask(idx) {
 
 async function saveHRSettings() {
   const cfg = state.hrSettings || {};
-  cfg.hrEmail      = document.getElementById('hrs-hr-email')?.value.trim()  || '';
-  cfg.financeEmail = document.getElementById('hrs-fin-email')?.value.trim() || '';
+  cfg.hrEmail                = document.getElementById('hrs-hr-email')?.value.trim()  || '';
+  cfg.financeEmail           = document.getElementById('hrs-fin-email')?.value.trim() || '';
+  cfg.celebrationAutoSend    = document.getElementById('hrs-auto-celebrate')?.checked !== false;
+  cfg.birthdayEmailMessage   = document.getElementById('hrs-bday-msg')?.innerHTML.trim()  || '';
+  cfg.anniversaryEmailMessage= document.getElementById('hrs-anniv-msg')?.innerHTML.trim() || '';
   try {
     await apiCall('/hr/settings', { method:'PUT', body:JSON.stringify(cfg) });
     state.hrSettings = cfg;
     toast('HR settings saved');
   } catch(e) { toast('Error: ' + e.message); }
+}
+
+function hrAddLeaveType() {
+  const name  = document.getElementById('hrs-lt-name')?.value.trim();
+  const days  = parseInt(document.getElementById('hrs-lt-days')?.value)||0;
+  const color = document.getElementById('hrs-lt-color')?.value||'#3B82F6';
+  if (!name) { toast('Leave type name required'); return; }
+  const cfg = state.hrSettings || {};
+  const id  = name.toLowerCase().replace(/\s+/g,'-');
+  cfg.leaveTypes = [...(cfg.leaveTypes||[]), { id, name, defaultDays:days, color }];
+  state.hrSettings = cfg;
+  _renderHRSettings();
+}
+
+// ── Celebration Email Editor helpers ─────────────────────────────────────────
+function _insertLink(editorId) {
+  const url = prompt('Enter URL:');
+  if (!url) return;
+  const text = window.getSelection()?.toString() || url;
+  document.getElementById(editorId)?.focus();
+  document.execCommand('insertHTML', false, `<a href="${url}" target="_blank">${text}</a>`);
+}
+
+function previewCelebrationEmail(type) {
+  const isBday = type === 'birthday';
+  const emp = { firstName:'Alex', lastName:'Smith', position:'Senior Manager', department:'Finance', dob:'1990-05-21', startDate:'2020-05-21' };
+  const years = new Date().getFullYear() - 2020;
+  const editorId = isBday ? 'hrs-bday-msg' : 'hrs-anniv-msg';
+  let msg = document.getElementById(editorId)?.innerHTML || '';
+  // Replace template variables
+  msg = msg
+    .replace(/\{\{firstName\}\}/g, emp.firstName)
+    .replace(/\{\{fullName\}\}/g, emp.firstName + ' ' + emp.lastName)
+    .replace(/\{\{position\}\}/g, emp.position)
+    .replace(/\{\{department\}\}/g, emp.department)
+    .replace(/\{\{years\}\}/g, years);
+  if (!msg.trim()) {
+    msg = isBday
+      ? `Don't forget to wish ${emp.firstName} a happy birthday today!`
+      : `${emp.firstName} ${emp.lastName} is celebrating ${years} year(s) with Aladdin Finance today!`;
+  }
+  const gradStart = isBday ? '#D946EF' : '#0EA5E9';
+  const gradEnd   = isBday ? '#9333EA' : '#0D9488';
+  const headerIcon = isBday ? '🎂' : '🏆';
+  const headerTitle = isBday ? `Happy Birthday, ${emp.firstName}!` : `Work Anniversary — ${years} Year${years!==1?'s':''}!`;
+  const headerSub = isBday
+    ? `${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}`
+    : `${emp.firstName} joined on ${new Date(emp.startDate).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`;
+
+  const emailHtml = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body{margin:0;padding:0;background:#F4F6FA;font-family:Arial,sans-serif}
+  .wrap{max-width:580px;margin:32px auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.10)}
+  .hdr{background:linear-gradient(135deg,${gradStart},${gradEnd});padding:36px 32px;text-align:center;color:#fff}
+  .hdr-icon{font-size:48px;margin-bottom:12px}
+  .hdr h1{margin:0 0 6px;font-size:24px;font-weight:700}
+  .hdr p{margin:0;font-size:13px;opacity:.85}
+  .body{padding:28px 32px}
+  .emp-card{display:flex;align-items:center;gap:14px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:12px;padding:16px 18px;margin-bottom:20px}
+  .avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,${gradStart},${gradEnd});display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:700;flex-shrink:0}
+  .emp-info .name{font-size:14px;font-weight:700;color:#111;margin-bottom:2px}
+  .emp-info .meta{font-size:12px;color:#6B7280}
+  .msg-box{background:linear-gradient(135deg,${gradStart}11,${gradEnd}11);border:1px solid ${gradStart}33;border-radius:10px;padding:16px 18px;font-size:13px;line-height:1.7;color:#374151;margin-bottom:20px}
+  .footer{text-align:center;padding:18px 32px;border-top:1px solid #E5E7EB;font-size:11px;color:#9CA3AF}
+</style></head><body>
+<div class="wrap">
+  <div class="hdr">
+    <div class="hdr-icon">${headerIcon}</div>
+    <h1>${headerTitle}</h1>
+    <p>${headerSub}</p>
+  </div>
+  <div class="body">
+    <div class="emp-card">
+      <div class="avatar">${emp.firstName[0]}${emp.lastName[0]}</div>
+      <div class="emp-info">
+        <div class="name">${emp.firstName} ${emp.lastName}</div>
+        <div class="meta">${emp.position} · ${emp.department}</div>
+      </div>
+    </div>
+    <div class="msg-box">${msg}</div>
+    <p style="font-size:12px;color:#6B7280;text-align:center">This is an automated reminder from the Aladdin Finance HR system.</p>
+  </div>
+  <div class="footer">Aladdin Finance · HR Notifications · <em>Preview only — not a real email</em></div>
+</div>
+</body></html>`;
+
+  // Build preview modal
+  const existing = document.getElementById('cel-preview-modal');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'cel-preview-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:14px;width:100%;max-width:640px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid #E5E7EB">
+        <div style="font-size:13px;font-weight:700;color:#111">${isBday ? '🎂 Birthday' : '🏆 Anniversary'} Email Preview</div>
+        <button onclick="document.getElementById('cel-preview-modal').remove()" style="border:none;background:none;font-size:20px;cursor:pointer;color:#6B7280;line-height:1">×</button>
+      </div>
+      <div style="flex:1;overflow:auto">
+        <iframe id="cel-preview-iframe" style="width:100%;height:500px;border:none"></iframe>
+      </div>
+      <div style="padding:10px 18px;border-top:1px solid #E5E7EB;font-size:11px;color:#9CA3AF;text-align:center">Preview uses placeholder employee: ${emp.firstName} ${emp.lastName}, ${emp.position}</div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  // Write into iframe
+  const iframe = document.getElementById('cel-preview-iframe');
+  const doc = iframe.contentDocument || iframe.contentWindow.document;
+  doc.open(); doc.write(emailHtml); doc.close();
 }
 
 // ── Employee CRUD ─────────────────────────────────────────────────────────────
@@ -10980,6 +12745,41 @@ function hrCalcSalary() {
   }
 }
 
+function hrToggleSalesFields() {
+  const dept = document.getElementById('hr-emp-dept')?.value;
+  const row  = document.getElementById('hr-emp-sales-row');
+  if (row) row.style.display = dept === 'Sales' ? 'block' : 'none';
+  hrCalcProratedTarget();
+}
+
+function hrCalcProratedTarget() {
+  const target    = parseFloat(document.getElementById('hr-emp-sales-target')?.value) || 0;
+  const startDate = document.getElementById('hr-emp-start')?.value;
+  const el        = document.getElementById('hr-emp-prorated-display');
+  if (!el) return;
+  if (!target || !startDate) {
+    el.innerHTML = '<span style="color:var(--text-2)">— set target &amp; start date</span>';
+    return;
+  }
+  const now       = new Date();
+  const curYear   = now.getFullYear();
+  const start     = new Date(startDate + 'T00:00:00');
+  const startYear = start.getFullYear();
+  let yearly, monthly, note;
+  if (startYear < curYear) {
+    yearly = target; monthly = Math.round(target / 12); note = 'Full year';
+  } else if (startYear === curYear) {
+    const rem = 12 - start.getMonth();
+    yearly    = Math.round(target * rem / 12);
+    monthly   = rem > 0 ? Math.round(yearly / rem) : 0;
+    note      = `${rem} month${rem !== 1 ? 's' : ''} remaining`;
+  } else {
+    el.innerHTML = '<span style="color:var(--warning)">Start date is in a future year</span>';
+    return;
+  }
+  el.innerHTML = `<strong style="color:var(--text)">${fmt(yearly)}</strong>&nbsp;<span style="color:var(--text-2);font-size:10px">(${fmt(monthly)}/mo · ${note})</span>`;
+}
+
 function openAddEmployee() {
   ['hr-emp-first','hr-emp-last','hr-emp-email','hr-emp-phone','hr-emp-nationality',
    'hr-emp-dob','hr-emp-empid','hr-emp-salary','hr-emp-hours','hr-emp-rate','hr-emp-notes'].forEach(id => { const el=document.getElementById(id); if(el) { el.value=''; el.readOnly = id==='hr-emp-rate'; } });
@@ -10990,6 +12790,9 @@ function openAddEmployee() {
   document.getElementById('hr-emp-start').value   = '';
   document.getElementById('hr-emp-modal-title').textContent = 'Add Employee';
   document.getElementById('hr-emp-save-btn').textContent    = 'Add Employee';
+  const _stEl = document.getElementById('hr-emp-sales-target'); if (_stEl) _stEl.value = '';
+  const _srEl = document.getElementById('hr-emp-sales-row');    if (_srEl) _srEl.style.display = 'none';
+  const _pdEl = document.getElementById('hr-emp-prorated-display'); if (_pdEl) _pdEl.innerHTML = '<span style="color:var(--text-2)">— set target &amp; start date</span>';
   delete document.getElementById('modal-hr-emp').dataset.editId;
   _populateHREmpModal();
   switchHrEmpTab('personal');
@@ -11027,6 +12830,9 @@ function openEditEmployee(id) {
     const el = document.getElementById(`hr-emp-bal-${lt.id}`);
     if (el) el.value = e.leaveBalances?.[lt.id] ?? lt.defaultDays;
   });
+  // Sales target
+  const _stEl2 = document.getElementById('hr-emp-sales-target'); if (_stEl2) _stEl2.value = e.salesTarget || '';
+  hrToggleSalesFields();
   switchHrEmpTab('personal');
   openModal('modal-hr-emp');
 }
@@ -11060,6 +12866,7 @@ async function saveEmployee() {
     ratePerHour:     Number(document.getElementById('hr-emp-rate')?.value)      || 0,
     managerId:       document.getElementById('hr-emp-manager')?.value           || null,
     notes:           document.getElementById('hr-emp-notes')?.value             || '',
+    salesTarget:     Number(document.getElementById('hr-emp-sales-target')?.value) || 0,
     leaveBalances
   };
   const editId = document.getElementById('modal-hr-emp').dataset.editId;
@@ -11156,26 +12963,61 @@ function _onHRDirDropOutside(e) {
   }
 }
 
+async function resetPortalPassword(id) {
+  try {
+    await apiCall(`/hr/${id}/reset-portal-password`, { method: 'POST' });
+    toast('Password reset — new invite link sent');
+  } catch(e) { toast('Error: ' + e.message); }
+}
+
 function sendWelcomeEmail(id) {
   const emp = (state.hrEmployees||[]).find(e => e.id === id);
   if (!emp) return;
   if (!emp.email) { toast('Employee has no email address'); return; }
-  document.getElementById('welcome-to').value = `${emp.firstName} ${emp.lastName} <${emp.email}>`;
-  document.getElementById('welcome-subject').value = `Welcome to Aladdin Finance, ${emp.firstName}!`;
-  document.getElementById('welcome-note').value = '';
-  document.getElementById('modal-welcome-email').dataset.empId = id;
+  const modal = document.getElementById('modal-welcome-email');
+  modal.dataset.empId = id;
+  document.getElementById('welcome-to').value      = `${emp.firstName} ${emp.lastName} <${emp.email}>`;
+  document.getElementById('welcome-subject').value  = `Welcome to Aladdin Finance, ${emp.firstName}!`;
+  document.getElementById('welcome-note').value     = '';
+  const typeEl = document.getElementById('welcome-type');
+  if (typeEl) typeEl.value = emp.type || 'full-time';
   openModal('modal-welcome-email');
+  refreshWelcomePreview();
+}
+
+let _welcomePreviewTimer = null;
+function refreshWelcomePreview() {
+  clearTimeout(_welcomePreviewTimer);
+  _welcomePreviewTimer = setTimeout(_loadWelcomePreview, 400);
+}
+
+async function _loadWelcomePreview() {
+  const id   = Number(document.getElementById('modal-welcome-email')?.dataset.empId);
+  if (!id) return;
+  const type = document.getElementById('welcome-type')?.value || 'full-time';
+  const note = encodeURIComponent(document.getElementById('welcome-note')?.value || '');
+  const statusEl  = document.getElementById('welcome-preview-status');
+  const iframeEl  = document.getElementById('welcome-preview-iframe');
+  if (statusEl) statusEl.textContent = 'Loading preview…';
+  try {
+    const r = await apiCall(`/hr/${id}/welcome-email/preview?type=${type}&note=${note}`);
+    if (iframeEl) iframeEl.srcdoc = r.html || '';
+    if (statusEl) statusEl.textContent = '';
+  } catch(e) {
+    if (statusEl) statusEl.textContent = 'Preview unavailable';
+  }
 }
 
 async function doSendWelcomeEmail() {
-  const id = Number(document.getElementById('modal-welcome-email').dataset.empId);
+  const id  = Number(document.getElementById('modal-welcome-email').dataset.empId);
   const emp = (state.hrEmployees||[]).find(e => e.id === id);
   if (!emp) return;
   const subject = document.getElementById('welcome-subject').value.trim() || `Welcome to Aladdin Finance, ${emp.firstName}!`;
   const note    = document.getElementById('welcome-note').value.trim();
+  const type    = document.getElementById('welcome-type')?.value || emp.type || 'full-time';
   closeModal('modal-welcome-email');
   try {
-    await apiCall(`/hr/${id}/welcome-email`, { method:'POST', body: JSON.stringify({ type: emp.type, subject, note }) });
+    await apiCall(`/hr/${id}/welcome-email`, { method:'POST', body: JSON.stringify({ type, subject, note }) });
     await apiCall(`/hr/${id}`, { method:'PUT', body: JSON.stringify({ welcomeEmailSent: true }) });
     const i = state.hrEmployees.findIndex(e => e.id === id);
     if (i > -1) state.hrEmployees[i].welcomeEmailSent = true;
@@ -11499,11 +13341,12 @@ function subToMRR(sub) {
 }
 
 function renderSubscriptions(c) {
+  // Collapse legacy 'reminders' tab selection into settings
+  if (state.subTab === 'reminders') state.subTab = 'sub-settings';
   const tabs = [
     { id:'overview',      label:'📊 Overview'     },
     { id:'list',          label:'📋 Subscriptions' },
     { id:'reports',       label:'📈 Reports & KPIs'},
-    { id:'reminders',     label:'🔔 Reminders'     },
     { id:'sub-settings',  label:'⚙ Settings'       }
   ];
   c.innerHTML = `
@@ -11543,8 +13386,7 @@ function _renderSubTab() {
   if (state.subTab==='overview')     _renderSubOverview(el);
   else if (state.subTab==='list')    _renderSubList(el);
   else if (state.subTab==='reports') _renderSubReports(el);
-  else if (state.subTab==='reminders') _renderSubReminders(el);
-  else if (state.subTab==='sub-settings') _renderSubSettings(el);
+  else _renderSubSettings(el);
 }
 
 // ── Overview ─────────────────────────────────────────────────────────────────
@@ -11664,13 +13506,68 @@ function _subMrrTrend(subs) {
 
 // ── List ─────────────────────────────────────────────────────────────────────
 function _renderSubList(el) {
-  const subs = state.subscriptions||[];
+  if (!state._subListFilter) state._subListFilter = { status:'', plan:'', billing:'', sort:'client', q:'' };
+  const sf = state._subListFilter;
+  const allSubs = state.subscriptions||[];
   const fmtD = iso => iso ? new Date(iso+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
   const now  = new Date();
   const daysUntil = iso => Math.round((new Date(iso+'T00:00:00')-now)/86400000);
 
-  el.innerHTML = subs.length ? `
-  <div class="card" style="padding:0;overflow:hidden">
+  // Unique filter options
+  const allPlans    = [...new Set(allSubs.map(s=>s.plan).filter(Boolean))].sort();
+  const allBillings = [...new Set(allSubs.map(s=>s.billing).filter(Boolean))].sort();
+
+  // Apply filters
+  let subs = allSubs;
+  if (sf.status)  subs = subs.filter(s=>s.status===sf.status);
+  if (sf.plan)    subs = subs.filter(s=>s.plan===sf.plan);
+  if (sf.billing) subs = subs.filter(s=>s.billing===sf.billing);
+  if (sf.q)       subs = subs.filter(s=>(s.clientName||'').toLowerCase().includes(sf.q.toLowerCase()));
+
+  // Apply sort
+  const sortFns = {
+    client:  (a,b)=>(a.clientName||'').localeCompare(b.clientName||''),
+    mrr:     (a,b)=>subToMRR(b)-subToMRR(a),
+    renewal: (a,b)=>(a.renewalDate||'9999').localeCompare(b.renewalDate||'9999'),
+    status:  (a,b)=>(a.status||'').localeCompare(b.status||'')
+  };
+  if (sortFns[sf.sort]) subs = [...subs].sort(sortFns[sf.sort]);
+
+  const hasFilter = sf.status||sf.plan||sf.billing||sf.q;
+
+  el.innerHTML = `
+  <div class="card">
+    <div class="filter-bar">
+      <span class="filter-count">${subs.length} of ${allSubs.length}</span>
+      <div class="filter-sep"></div>
+      <input type="text" class="filter-select" placeholder="Search client…" value="${sf.q||''}" style="min-width:150px"
+        oninput="state._subListFilter.q=this.value;_renderSubList(document.getElementById('sub-tab-content'))">
+      <select class="filter-select" onchange="state._subListFilter.status=this.value;_renderSubList(document.getElementById('sub-tab-content'))">
+        <option value=""${!sf.status?' selected':''}>All Statuses</option>
+        <option value="active"${sf.status==='active'?' selected':''}>Active</option>
+        <option value="trial"${sf.status==='trial'?' selected':''}>Trial</option>
+        <option value="paused"${sf.status==='paused'?' selected':''}>Paused</option>
+        <option value="churned"${sf.status==='churned'?' selected':''}>Churned</option>
+        <option value="cancelled"${sf.status==='cancelled'?' selected':''}>Cancelled</option>
+      </select>
+      ${allPlans.length ? `<select class="filter-select" onchange="state._subListFilter.plan=this.value;_renderSubList(document.getElementById('sub-tab-content'))">
+        <option value=""${!sf.plan?' selected':''}>All Plans</option>
+        ${allPlans.map(p=>`<option value="${p}"${sf.plan===p?' selected':''}>${p}</option>`).join('')}
+      </select>` : ''}
+      ${allBillings.length ? `<select class="filter-select" onchange="state._subListFilter.billing=this.value;_renderSubList(document.getElementById('sub-tab-content'))">
+        <option value=""${!sf.billing?' selected':''}>All Billing</option>
+        ${allBillings.map(b=>`<option value="${b}"${sf.billing===b?' selected':''}>${b.charAt(0).toUpperCase()+b.slice(1)}</option>`).join('')}
+      </select>` : ''}
+      <div class="filter-sep"></div>
+      <select class="filter-select" onchange="state._subListFilter.sort=this.value;_renderSubList(document.getElementById('sub-tab-content'))">
+        <option value="client"${sf.sort==='client'?' selected':''}>Sort: Client A–Z</option>
+        <option value="mrr"${sf.sort==='mrr'?' selected':''}>Sort: MRR ↓</option>
+        <option value="renewal"${sf.sort==='renewal'?' selected':''}>Sort: Renewal ↑</option>
+        <option value="status"${sf.sort==='status'?' selected':''}>Sort: Status</option>
+      </select>
+      ${hasFilter?`<button class="btn btn-sm" style="font-size:11px;padding:3px 8px;margin-left:auto" onclick="state._subListFilter={status:'',plan:'',billing:'',sort:'client',q:''};_renderSubList(document.getElementById('sub-tab-content'))">✕ Clear</button>`:''}
+    </div>
+    ${subs.length ? `
     <div style="overflow-x:auto">
       <table class="table">
         <thead><tr>
@@ -11704,8 +13601,8 @@ function _renderSubList(el) {
           }).join('')}
         </tbody>
       </table>
-    </div>
-  </div>` : `<div class="card" style="text-align:center;padding:40px;color:var(--text-2);font-size:13px">No subscriptions yet. Click <strong>+ New Subscription</strong> to add one.</div>`;
+    </div>` : `<div style="text-align:center;padding:30px;color:var(--text-2);font-size:13px">${allSubs.length?'No subscriptions match the current filters.':'No subscriptions yet. Click <strong>+ New Subscription</strong> to add one.'}</div>`}
+  </div>`;
 }
 
 // ── Reports & KPIs ────────────────────────────────────────────────────────────
@@ -11817,8 +13714,14 @@ function _renderSubReports(el) {
         }).join('')}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-        <div class="chart-wrap" style="height:180px"><canvas id="ch-sub-plan-mrr"></canvas></div>
-        <div class="chart-wrap" style="height:180px"><canvas id="ch-sub-plan-count"></canvas></div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">MRR by Plan <span style="font-weight:400;color:var(--text-3)">(revenue share)</span></div>
+          <div class="chart-wrap" style="height:180px"><canvas id="ch-sub-plan-mrr"></canvas></div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Subscribers by Plan <span style="font-weight:400;color:var(--text-3)">(client count)</span></div>
+          <div class="chart-wrap" style="height:180px"><canvas id="ch-sub-plan-count"></canvas></div>
+        </div>
       </div>
     </div>
 
@@ -11912,7 +13815,8 @@ function _renderSubReports(el) {
       mkDoughnut('ch-sub-plan-count',
         planEntries.map(([p])=>p),
         planEntries.map(([,d])=>d.active),
-        planEntries.map(([p])=>PLAN_COLORS[p]||'#94A3B8')
+        planEntries.map(([p])=>PLAN_COLORS[p]||'#94A3B8'),
+        { countOnly: true }
       );
     }
     if (document.getElementById('ch-sub-billing')) {
@@ -11931,13 +13835,16 @@ function _renderSubReports(el) {
 }
 
 // ── Reminders ────────────────────────────────────────────────────────────────
-function _renderSubReminders(el) {
-  const cfg  = state.subSettings||{};
+// ── Settings (merged with Reminders) ─────────────────────────────────────────
+function _renderSubSettings(el) {
+  const cfg = state.subSettings||{};
+  const saasTgt = state.appSettings?.saasRatioTarget || 0;
   const days = (cfg.reminderDays||[7,30,60]).join(', ');
   const rcpt = (cfg.recipients||[]).join(', ');
-
   el.innerHTML = `
   <div style="display:flex;flex-direction:column;gap:14px">
+
+    <!-- Renewal Reminder Configuration -->
     <div class="card">
       <div class="card-header"><div class="card-title">Renewal Reminder Configuration</div></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
@@ -11950,49 +13857,36 @@ function _renderSubReminders(el) {
           <input type="text" id="sub-rem-rcpt" value="${rcpt}" placeholder="email@company.com, another@company.com">
         </div>
       </div>
-      <div class="save-bar" style="display:flex;justify-content:flex-end;margin-top:10px">
-        <button class="btn btn-primary btn-sm" onclick="saveSubReminderSettings()">Save Settings</button>
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+        <button class="btn btn-primary btn-sm" onclick="saveSubReminderSettings()">Save Reminder Settings</button>
+        <button class="btn btn-sm" onclick="checkSubRenewals()">🔔 Check Renewals Now</button>
+        <span id="sub-renewal-status" style="font-size:11px;color:var(--text-2)"></span>
       </div>
     </div>
 
+    <!-- Email Templates Preview -->
     <div class="card">
       <div class="card-header"><div class="card-title">Email Templates Preview</div></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <div style="flex:1;min-width:200px;background:var(--surface-2);border-radius:10px;padding:16px;border:1px solid var(--border)">
           <div style="font-size:13px;font-weight:700;margin-bottom:4px">⏰ Renewal Reminder</div>
           <div style="font-size:11px;color:var(--text-2);margin-bottom:10px">Sent when renewal is 7, 30, or 60 days away</div>
-          <button class="btn btn-sm" onclick="window.open('/api/subscriptions/preview/reminder','_blank')">👁 Preview</button>
+          <button class="btn btn-sm" onclick="previewEmail('/subscriptions/preview/reminder')">👁 Preview</button>
         </div>
         <div style="flex:1;min-width:200px;background:#F0FDF4;border-radius:10px;padding:16px;border:1px solid #BBF7D0">
           <div style="font-size:13px;font-weight:700;margin-bottom:4px;color:#16A34A">🎉 Subscription Won</div>
           <div style="font-size:11px;color:var(--text-2);margin-bottom:10px">Sent when a subscription is activated or renewed</div>
-          <button class="btn btn-sm" onclick="window.open('/api/subscriptions/preview/won','_blank')">👁 Preview</button>
+          <button class="btn btn-sm" onclick="previewEmail('/subscriptions/preview/won')">👁 Preview</button>
         </div>
         <div style="flex:1;min-width:200px;background:#FEF2F2;border-radius:10px;padding:16px;border:1px solid #FECACA">
           <div style="font-size:13px;font-weight:700;margin-bottom:4px;color:#DC2626">⛔ Subscription Lost</div>
           <div style="font-size:11px;color:var(--text-2);margin-bottom:10px">Sent when a subscription churns or is cancelled</div>
-          <button class="btn btn-sm" onclick="window.open('/api/subscriptions/preview/lost','_blank')">👁 Preview</button>
+          <button class="btn btn-sm" onclick="previewEmail('/subscriptions/preview/lost')">👁 Preview</button>
         </div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header"><div class="card-title">Manual Check</div></div>
-      <div style="font-size:12px;color:var(--text-2);margin-bottom:12px">
-        Manually trigger a renewal check — sends reminder emails for any active subscriptions whose renewal date matches a configured reminder window today.
-      </div>
-      <button class="btn btn-primary btn-sm" onclick="checkSubRenewals()">🔔 Check Renewals Now</button>
-      <div id="sub-renewal-status" style="margin-top:8px;font-size:11px;color:var(--text-2)"></div>
-    </div>
-  </div>`;
-}
-
-// ── Settings ─────────────────────────────────────────────────────────────────
-function _renderSubSettings(el) {
-  const cfg = state.subSettings||{};
-  const saasTgt = state.appSettings?.saasRatioTarget || 0;
-  el.innerHTML = `
-  <div style="display:flex;flex-direction:column;gap:14px">
+    <!-- SaaS Ratio Target -->
     <div class="card">
       <div class="card-header"><div class="card-title">SaaS Ratio Target</div></div>
       <div class="form-row" style="max-width:240px">
@@ -12094,7 +13988,15 @@ async function checkSubRenewals() {
   if (statusEl) statusEl.textContent = 'Checking…';
   try {
     const r = await apiCall('/subscriptions/check-renewals', { method:'POST' });
-    const msg = r.sent?.length ? `${r.sent.length} reminder email${r.sent.length>1?'s':''} sent` : (r.message||'No renewals due today');
+    let msg;
+    if (r.sent?.length) {
+      msg = `${r.sent.length} reminder email${r.sent.length>1?'s':''} sent`;
+    } else if (r.due?.length) {
+      const names = r.due.map(d=>`${d.client} (${d.daysUntil}d)`).join(', ');
+      msg = `${r.due.length} renewal${r.due.length>1?'s':''} upcoming: ${names}`;
+    } else {
+      msg = r.message || 'No renewals due soon';
+    }
     if (statusEl) statusEl.innerHTML = `<span style="color:var(--success)">✓ ${msg}</span>`;
     toast(msg);
   } catch(e) {
