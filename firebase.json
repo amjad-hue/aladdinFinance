@@ -7,14 +7,14 @@
       "**/node_modules/**"
     ],
     "rewrites": [
-      { "source": "/api/**",              "function": "api" },
-      { "source": "/employee-portal/**",  "function": "api" },
-      { "source": "/employee-login",      "function": "api" },
-      { "source": "/request/**",          "function": "api" },
-      { "source": "/request-respond/**",  "function": "api" },
-      { "source": "/petty-cash/**",       "function": "api" },
-      { "source": "/register",            "function": "api" },
-      { "source": "**",                   "destination": "/index.html" }
+      { "source": "/api/**",             "run": { "serviceId": "api", "region": "us-central1" } },
+      { "source": "/employee-portal/**", "run": { "serviceId": "api", "region": "us-central1" } },
+      { "source": "/employee-login",     "run": { "serviceId": "api", "region": "us-central1" } },
+      { "source": "/request/**",         "run": { "serviceId": "api", "region": "us-central1" } },
+      { "source": "/request-respond/**", "run": { "serviceId": "api", "region": "us-central1" } },
+      { "source": "/petty-cash/**",      "run": { "serviceId": "api", "region": "us-central1" } },
+      { "source": "/register",           "run": { "serviceId": "api", "region": "us-central1" } },
+      { "source": "**",                  "destination": "/index.html" }
     ]
   },
   "functions": {
@@ -30,7 +30,8 @@
       ".env",
       ".env.*",
       "railway.json",
-      "REFACTOR_PLAN.md"
+      "REFACTOR_PLAN.md",
+      "serviceAccountKey.json"
     ]
   }
 }
