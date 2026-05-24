@@ -8,10 +8,14 @@ function set(d) { save('events.json', d); }
 // ── OAuth2 client ─────────────────────────────────────────────────────────────
 function getOAuth2Client() {
   const { google } = require('googleapis');
+  const base = process.env.GOOGLE_REDIRECT_URI
+    || (process.env.APP_URL
+        ? `${process.env.APP_URL}/api/events/gcal/callback`
+        : `http://localhost:${process.env.PORT || 3000}/api/events/gcal/callback`);
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/events/gcal/callback'
+    base
   );
 }
 
