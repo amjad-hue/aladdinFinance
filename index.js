@@ -12,13 +12,13 @@ const { init: initStore } = require('./data/store');
 // Express app (no app.listen in production — Firebase handles the port)
 const app = require('./server');
 
+// Only list secrets that have been created in Secret Manager.
+// Add more here after running: firebase functions:secrets:set SECRET_NAME
 const ALL_SECRETS = [
-  'JWT_SECRET', 'APP_URL',
-  'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM',
-  'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI',
-  'GOOGLE_CALENDAR_ID', 'GOOGLE_DRIVE_FOLDER_ID', 'GOOGLE_DRIVE_EXPENSES_FOLDER_ID',
-  'ZOOM_ACCOUNT_ID', 'ZOOM_CLIENT_ID', 'ZOOM_CLIENT_SECRET',
-  'ALLOWED_ORIGINS',
+  'JWT_SECRET',
+  'APP_URL',
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
 ];
 
 // ── HTTP Function — all API routes + SPA ─────────────────────────────────────
